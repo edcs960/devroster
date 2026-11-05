@@ -1,0 +1,124 @@
+{
+  "agents": [
+    {
+      "id": "planner",
+      "display_name": "Planner Agent",
+      "role_file": "agent/planner.md",
+      "code_allowed": false,
+      "summary": "요구사항, 범위, 수용 기준, 제외 범위, 확인 필요 사항을 정리한다.",
+      "required_context": []
+    },
+    {
+      "id": "fmea_expert",
+      "display_name": "FMEA Expert Agent",
+      "role_file": "agent/fmea-expert.md",
+      "code_allowed": false,
+      "summary": "AIAG & VDA 통합판 기준으로 FMEA 방법론 적합성을 검증한다.",
+      "required_context": []
+    },
+    {
+      "id": "architect",
+      "display_name": "Architect Agent",
+      "role_file": "agent/architect.md",
+      "code_allowed": false,
+      "summary": "기술 구조, 영향 범위, API/상태/데이터 흐름, 구현 순서를 설계한다.",
+      "required_context": []
+    },
+    {
+      "id": "dba",
+      "display_name": "DBA Agent",
+      "role_file": "agent/dba.md",
+      "code_allowed": false,
+      "summary": "데이터 모델, 테이블, 인덱스, 제약조건, 마이그레이션 전략을 검토한다.",
+      "required_context": []
+    },
+    {
+      "id": "ux_ui",
+      "display_name": "UX/UI Agent",
+      "role_file": "agent/ux-ui.md",
+      "code_allowed": false,
+      "summary": "사용자 흐름, 정보 구조, 상태별 UX, 접근성을 검토한다.",
+      "required_context": []
+    },
+    {
+      "id": "designer",
+      "display_name": "Designer Agent",
+      "role_file": "agent/designer.md",
+      "code_allowed": false,
+      "summary": "레이아웃, 시각 계층, 컴포넌트 스타일 기준을 정의한다.",
+      "required_context": []
+    },
+    {
+      "id": "developer_common",
+      "display_name": "Developer Common Agent",
+      "role_file": "agent/developer.md",
+      "code_allowed": true,
+      "summary": "공통 구현 원칙과 최소 변경 기준을 적용한다.",
+      "required_context": []
+    },
+    {
+      "id": "developer_frontend",
+      "display_name": "Frontend Developer Agent",
+      "role_file": "agent/developer-frontend.md",
+      "code_allowed": true,
+      "summary": "React, MobX, TanStack Query, GoJS 기반 프론트엔드 구현을 담당한다.",
+      "required_context": []
+    },
+    {
+      "id": "developer_backend",
+      "display_name": "Backend Developer Agent",
+      "role_file": "agent/developer-backend.md",
+      "code_allowed": true,
+      "summary": "Spring Boot API, 도메인 로직, 권한, 감사/이력 처리를 담당한다.",
+      "required_context": []
+    },
+    {
+      "id": "developer_infra",
+      "display_name": "Infra Developer Agent",
+      "role_file": "agent/developer-infra.md",
+      "code_allowed": true,
+      "summary": "로컬 개발환경, Docker, CI/CD, 운영 설정을 담당한다.",
+      "required_context": []
+    },
+    {
+      "id": "qa",
+      "display_name": "QA Agent",
+      "role_file": "agent/qa.md",
+      "code_allowed": false,
+      "summary": "테스트 케이스, 회귀 위험, 경계값, 검증 결과를 정리한다.",
+      "required_context": []
+    },
+    {
+      "id": "reviewer",
+      "display_name": "Reviewer Agent",
+      "role_file": "agent/reviewer.md",
+      "code_allowed": false,
+      "summary": "최종 코드/설계 리뷰, 보안, 성능, 유지보수성 리스크를 검토한다.",
+      "required_context": []
+    },
+    {
+      "id": "developer_test",
+      "display_name": "Test Automation Developer Agent",
+      "role_file": "agent/test-automation.md",
+      "code_allowed": true,
+      "summary": "QA가 식별한 테스트 후보를 자동화 테스트 코드로 구현한다. 테스트 코드만 수정한다.",
+      "required_context": []
+    },
+    {
+      "id": "security",
+      "display_name": "Security Reviewer Agent",
+      "role_file": "agent/security.md",
+      "code_allowed": false,
+      "summary": "인증/인가/입력검증/시크릿/설정 관점의 보안 점검을 수행하고 심각도별 수정 지시를 남긴다.",
+      "required_context": []
+    },
+    {
+      "id": "tech_writer",
+      "display_name": "Tech Writer Agent",
+      "role_file": "agent/tech-writer.md",
+      "code_allowed": true,
+      "summary": "사용자 가이드, 운영 문서, CHANGELOG와 deliverables 하위 기준 문서를 작성·정합화한다. 코드 수정 금지.",
+      "required_context": []
+    }
+  ]
+}

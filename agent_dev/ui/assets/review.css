@@ -1,0 +1,67 @@
+/* Three-pane code review on shared product tokens; stacks on narrow screens. */
+.page-review main{max-width:1400px;margin:auto;padding:var(--ui-space-7);}
+.page-review .review-toolbar{display:flex;flex-wrap:wrap;gap:var(--ui-space-2);align-items:flex-end;margin-bottom:var(--ui-space-5);}
+.page-review .review-toolbar label{display:grid;gap:var(--ui-space-1);flex:1 1 220px;}
+.page-review :is(input:not([type="radio"]),textarea){width:100%;min-width:0;min-height:var(--ui-target);}
+.page-review input[type="radio"]{width:20px;height:20px;flex:none;margin:0;}
+.page-review .review-layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2.4fr) minmax(260px,1.2fr);gap:var(--ui-space-5);align-items:start;}
+.page-review :is(.review-files,.review-diff,.review-side>section){border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface);padding:var(--ui-space-4);min-width:0;overflow-wrap:anywhere;}
+.page-review .review-side{display:grid;gap:var(--ui-space-4);}
+.page-review h2{font-size:1rem;margin:0 0 var(--ui-space-3);}
+.page-review .review-meta{color:var(--ui-muted);font-size:.875rem;margin:var(--ui-space-1) 0;}
+.page-review .review-notice{border-left:4px solid var(--ui-accent);padding:var(--ui-space-3);background:var(--ui-surface);}
+.page-review .file-group h3{font-size:.8125rem;color:var(--ui-muted);margin:var(--ui-space-3) 0 var(--ui-space-1);}
+.page-review .file-button{display:flex;gap:var(--ui-space-2);width:100%;justify-content:flex-start;align-items:center;text-align:left;font-weight:500;min-height:var(--ui-target);padding:var(--ui-space-2);border:1px solid transparent;border-radius:var(--ui-radius);background:none;cursor:pointer;}
+.page-review .file-button[aria-current="true"]{border-color:var(--ui-accent);background:var(--ui-surface-subtle);}
+.page-review .file-status{font-family:var(--ui-font-mono,monospace);font-weight:700;min-width:1.5em;}
+.page-review .diff-body{overflow-x:auto;font-family:var(--ui-font-mono,monospace);font-size:.8125rem;}
+.page-review .diff-hunk{margin:0 0 var(--ui-space-3);}
+.page-review .diff-hunk-header{color:var(--ui-muted);padding:var(--ui-space-1) var(--ui-space-2);background:var(--ui-surface-subtle);}
+.page-review .diff-line{display:grid;grid-template-columns:3.5em 3.5em 1.5em minmax(max-content,1fr);width:100%;text-align:left;border:0;background:none;font:inherit;padding:0 var(--ui-space-2);min-height:24px;cursor:pointer;white-space:pre;}
+.page-review .diff-line:focus-visible{outline:2px solid var(--ui-accent);}
+.page-review .diff-line.add{background:var(--ui-success-bg);}
+.page-review .diff-line.del{background:var(--ui-danger-bg);}
+.page-review .diff-line .num{color:var(--ui-muted);text-align:right;padding-right:var(--ui-space-2);}
+.page-review .diff-line.has-thread{box-shadow:inset 3px 0 0 var(--ui-accent);}
+.page-review .comment-form{display:grid;gap:var(--ui-space-2);margin-top:var(--ui-space-4);}
+.page-review .form-actions{display:flex;flex-wrap:wrap;gap:var(--ui-space-2);}
+.page-review .thread{border-top:1px solid var(--ui-border);padding:var(--ui-space-3) 0;}
+.page-review .thread[data-state="stale"] .thread-body{color:var(--ui-muted);}
+.page-review .proof{border-left:4px solid var(--ui-warning);padding-left:var(--ui-space-3);}
+.page-review .proof.current{border-left-color:var(--ui-success);}
+.page-review fieldset{border:1px solid var(--ui-border);border-radius:var(--ui-radius);padding:var(--ui-space-3);margin:0 0 var(--ui-space-3);}
+.page-review .check-label{display:flex;align-items:center;gap:var(--ui-space-2);min-height:var(--ui-target);}
+.page-review #decision-form{display:grid;gap:var(--ui-space-2);}
+@media(max-width:1000px){.page-review .review-layout{grid-template-columns:minmax(0,1fr);}}
+@media(max-width:700px){.page-review main{padding:var(--ui-space-4);}.page-review .review-toolbar button{flex:1 1 auto;}}
+.page-review .preview-section{margin-top:var(--ui-space-6);border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface);padding:var(--ui-space-5);}
+.page-review .preview-section select{width:100%;min-height:var(--ui-target);}
+.page-review .preview-capture{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:var(--ui-space-5);margin-top:var(--ui-space-4);}
+.page-review .preview-shot{position:relative;align-self:start;border:1px solid var(--ui-border);border-radius:var(--ui-radius);overflow:hidden;}
+.page-review .preview-shot img{display:block;width:100%;height:auto;}
+.page-review #preview-overlay{position:absolute;inset:0;}
+.page-review .preview-hit{position:absolute;border:2px solid transparent;background:transparent;padding:0;cursor:pointer;}
+.page-review .preview-hit:hover,.page-review .preview-hit:focus-visible,.page-review .preview-hit[aria-pressed="true"]{border-color:var(--ui-accent);background:rgba(79,70,229,.08);}
+.page-review .preview-elements{display:grid;gap:var(--ui-space-1);max-height:320px;overflow:auto;}
+.page-review .preview-elements button{text-align:left;justify-content:flex-start;min-height:var(--ui-target);}
+.page-review .preview-elements button[aria-pressed="true"]{border-color:var(--ui-accent);}
+@media(max-width:1000px){.page-review .preview-capture{grid-template-columns:minmax(0,1fr);}}
+
+.page-review .form-error{margin:var(--ui-space-2) 0 0;padding:var(--ui-space-2) var(--ui-space-3);border-left:4px solid var(--ui-danger);background:var(--ui-surface);color:var(--ui-danger);overflow-wrap:anywhere;}
+.page-review .form-error:focus{outline:2px solid var(--ui-danger);outline-offset:2px;}
+
+/* Code and actual-screen review retain separate decisions. */
+body.app-shell.page-review .review-layout{grid-template-columns:180px minmax(0,1fr) 280px;gap:16px;align-items:start}
+body.app-shell.page-review .review-side{display:block;grid-column:auto}.app-shell.page-review .review-side>section{margin-bottom:16px}
+body.app-shell.page-review .diff-body{min-height:480px}.app-shell.page-review .review-files h2,.app-shell.page-review .review-side h2{font-size:14px}
+@media(max-width:1199px){body.app-shell.page-review .review-layout{grid-template-columns:180px minmax(0,1fr)}body.app-shell.page-review .review-side{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
+@media(max-width:767px){body.app-shell.page-review .review-layout{grid-template-columns:minmax(0,1fr)}body.app-shell.page-review .review-side{display:block}.app-shell.page-review .diff-body{min-height:300px}}
+body.app-shell.page-review .review-tabs{display:flex;gap:8px;margin:16px 0}.app-shell.page-review .review-tabs button{min-width:120px;border:1px solid var(--ui-border);background:var(--ui-surface)}.app-shell.page-review .review-tabs button[aria-selected=true]{background:var(--ui-accent-soft);color:var(--ui-accent);border-color:var(--ui-accent)}
+body.app-shell.page-review[data-review-view=code] #preview-section,body.app-shell.page-review[data-review-view=screen] #review-layout{display:none}
+
+/* Decision choices as one compact segmented row (screen-designs pass). */
+.page-review :is(#decision-form,#preview-decision) fieldset{display:flex;gap:8px;border:0;padding:0;margin:0 0 12px;min-width:0}
+.page-review :is(#decision-form,#preview-decision) legend{font-size:13px;font-weight:600;margin-bottom:6px;padding:0}
+.page-review :is(#decision-form,#preview-decision) .check-label{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:8px;min-height:var(--ui-target);margin:0;padding:6px 10px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-surface);cursor:pointer;font-weight:600;font-size:13px}
+.page-review :is(#decision-form,#preview-decision) .check-label:has(input:checked){border-color:var(--ui-accent);background:var(--ui-accent-soft);color:var(--ui-accent)}
+.page-review :is(#decision-form,#preview-decision) .check-label:has(input:focus-visible){outline:2px solid var(--ui-focus);outline-offset:2px}

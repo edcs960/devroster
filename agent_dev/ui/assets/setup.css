@@ -1,0 +1,138 @@
+/* setup layout and specialized views; shared chrome lives in ui-*.css. */
+.page-setup .local{color:var(--ui-muted);font-size:13px}
+.page-setup main{max-width:1060px;margin:auto;padding:40px 24px 80px}
+.page-setup main>nav{display:flex;gap:8px;flex-wrap:wrap;margin:28px 0}
+.page-setup main>nav a{background:white;border:1px solid #dce3ef;padding:8px 16px;border-radius:8px;color:#354b70;text-decoration:none;font-size:13px}
+.page-setup section{margin:16px 0;padding:28px}
+.page-setup .section-title{display:flex;gap:16px;margin-bottom:20px}
+.page-setup .section-title>span{background:var(--ui-accent-soft);color:var(--ui-accent);border-radius:10px;width:42px;height:42px;display:grid;place-items:center;flex-shrink:0;font-weight:750}
+.page-setup .path-row{display:flex;gap:8px;align-items:center}
+.page-setup .path-row input{flex:1}
+.page-setup .path-field{flex:1}
+.page-setup .columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+.page-setup .hint{margin:8px 0 12px}
+.page-setup .card{margin:16px 0}
+.page-setup .card-title,.page-setup .section-actions{display:flex;gap:8px;justify-content:space-between;align-items:center}
+.page-setup .check{display:flex;align-items:center;gap:8px;font-weight:500}
+.page-setup .check input{width:16px;padding:0;flex-shrink:0}
+.page-setup .info{margin:16px 0}
+.page-setup .integration-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+.page-setup .integration-grid article{background:#f4f7fc;border-radius:10px;padding:16px;font-size:13px}
+.page-setup .integration-grid p{font-size:12px}
+.page-setup .save-bar{position:sticky;bottom:12px;background:#fff;border:1px solid #d7dfef;border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 6px 24px #24334b12}
+.page-setup .save-bar>div{display:flex;gap:8px}
+.page-setup #revision{font-size:12px;color:var(--ui-muted)}
+.page-setup #notice{padding:16px 16px;overflow-wrap:anywhere}
+.page-setup .result{padding:16px 0;border-bottom:1px solid #edf0f6;display:flex;gap:16px}
+.page-setup .badge{flex-shrink:0}
+.page-setup .result p{font-size:13px;margin:0px 0}
+.page-setup #folders{max-height:340px;overflow:auto;margin:16px 0}
+.page-setup #folders button{width:100%;text-align:left;display:block;margin:8px 0;white-space:normal;overflow-wrap:anywhere}
+.page-setup .dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+/* Shared settings page (settings.html) reuses the setup layout. */
+.page-settings .table-wrap{overflow-x:auto}
+.page-settings table{width:100%;border-collapse:collapse;font-size:13px}
+.page-settings th,.page-settings td{padding:8px;border-bottom:1px solid #edf0f6;text-align:left;vertical-align:top}
+.page-settings td select,.page-settings td input{margin:0 0 4px;max-width:100%}
+.page-settings .plain-list{list-style:none;padding:0;margin:8px 0}
+.page-settings .plain-list li{padding:8px 0;border-bottom:1px solid #edf0f6;overflow-wrap:anywhere}
+.page-settings .details-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 16px;font-size:13px}
+.page-settings .details-list dd{margin:0;overflow-wrap:anywhere}
+.page-settings .error{color:var(--ui-danger,#b42318)}
+@media(max-width:650px){
+.page-settings .details-list{grid-template-columns:1fr}
+.page-setup main{padding:24px 16px 60px}
+.page-setup section{padding:20px 16px}
+.page-setup .columns,.page-setup .integration-grid{grid-template-columns:1fr;gap:0}
+.page-setup .path-row{flex-wrap:wrap}
+.page-setup .path-row input{flex-basis:100%}
+.page-setup .section-actions{flex-wrap:wrap}
+.page-setup .save-bar{flex-wrap:wrap;padding:12px}
+.page-setup .save-bar>div{width:100%}
+.page-setup .save-bar button{flex:1}
+.page-setup .local{font-size:11px}
+.page-setup .result{gap:8px}
+}
+.page-setup .routing-tier{border-top:1px solid var(--border,#dde4ee);margin-top:16px;padding-top:12px}
+.page-setup .routing-tier h4{margin:0 0 12px}
+.page-setup .routing-profiles{margin-top:12px}
+.page-setup #runners{align-items:start}
+.page-setup textarea{min-height:68px}
+
+.page-setup main>nav a[aria-current=step]{background:var(--ui-accent-soft);border-color:var(--ui-accent);color:var(--ui-accent-hover)}
+.page-setup .section-title{justify-content:flex-start;align-items:flex-start}
+.page-setup #runners>.card{margin:0}.page-setup #runners>.card>summary{font-size:16px}
+.page-setup #runners{gap:var(--ui-space-4)}
+.page-setup #context-options label{display:grid;gap:var(--ui-space-2)}
+
+.page-setup .section-title>div{flex:1;min-width:0}
+.page-setup .role-list{list-style:none;padding:0;margin:8px 0 16px}.page-setup .role-list li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--ui-border);border-radius:8px;margin:6px 0}.page-setup .role-list .role-name{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.page-setup .role-list .role-actions{display:flex;gap:4px;flex-wrap:wrap}.page-setup .role-list details{flex-basis:100%}.page-setup .role-list li{flex-wrap:wrap}.page-setup #custom-role textarea,.page-setup .role-list textarea{width:100%}
+.page-setup .cli-login{margin:8px 0}.page-setup .cli-login pre{white-space:pre-wrap;word-break:break-all;background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:8px;padding:8px;max-height:220px;overflow:auto}
+.page-setup .card+button+.section-actions,.page-setup button+.section-actions{margin-top:var(--ui-space-6)}
+
+/* Document-focus settings: compact context, flat groups, reserved save space. */
+body.app-shell.page-setup main{max-width:1200px;padding:28px 28px 88px}
+body.app-shell.page-setup .intro{margin-bottom:20px}
+body.app-shell.page-setup main>nav{margin:20px 0;gap:6px}
+body.app-shell.page-setup main>nav a{padding:8px 12px}
+body.app-shell.page-setup .section-title>span{width:32px;height:32px;font-size:13px}
+body.app-shell.page-setup section{padding:24px}
+body.app-shell.page-setup .save-bar{bottom:16px;box-shadow:none;border-radius:8px}
+body.app-shell.page-setup .role-list li{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;margin:0}
+body.app-shell.page-setup .integration-grid article{border-radius:8px;background:var(--ui-surface-subtle)}
+@media(max-width:767px){
+ body.app-shell.page-setup main{padding:20px 16px 88px}
+ body.app-shell.page-setup section{padding:16px}
+ body.app-shell.page-setup .save-bar{position:relative;bottom:0;margin-top:16px}
+ body.app-shell.page-setup .path-row{flex-wrap:wrap}
+ body.app-shell.page-setup .path-row input{flex-basis:100%}
+}
+
+/* Form and contextual evidence are separate columns on every setup step. */
+body.app-shell.page-setup #settings-form{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:start;background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:10px;padding:24px}
+body.app-shell.page-setup #settings-form>[data-setup-step]{grid-column:1;grid-row:1;padding:0;margin:0;border:0}
+body.app-shell.page-setup .setup-context{grid-column:2;grid-row:1;border-left:1px solid var(--ui-border);padding:0 0 0 20px;min-width:0}
+body.app-shell.page-setup .setup-context h2{font-size:14px;margin-top:0}.app-shell.page-setup .setup-context h3{font-size:13px}
+body.app-shell.page-setup .setup-context dl{font-size:12px}.app-shell.page-setup .setup-context dt{color:var(--ui-muted);margin-top:12px}.app-shell.page-setup .setup-context dd{margin:4px 0;overflow-wrap:anywhere}
+body.app-shell.page-setup #settings-form>.save-bar{grid-column:1/-1;width:100%;border:0;border-top:1px solid var(--ui-border);border-radius:0;padding:16px 0 0;bottom:0;margin:0}
+body.app-shell.page-setup #runners{grid-template-columns:1fr;gap:8px}.app-shell.page-setup #runners>.card{padding:14px;border-radius:6px}
+body.app-shell.page-setup .role-list li{padding:12px 8px}.app-shell.page-setup #env-rows>.card{padding:16px}
+body.app-shell.page-setup #setup-steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+body.app-shell.page-setup #setup-steps a{text-align:center;padding:8px 4px;font-size:12px}
+@media(max-width:1000px){body.app-shell.page-setup #settings-form{grid-template-columns:minmax(0,1fr)}body.app-shell.page-setup .setup-context{grid-column:1;grid-row:2;border-left:0;border-top:1px solid var(--ui-border);padding:16px 0 0}body.app-shell.page-setup .save-bar{grid-row:3}body.app-shell.page-setup #setup-steps{grid-template-columns:repeat(3,1fr)}}
+body.app-shell.page-setup #modules .module-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto;gap:8px;align-items:end;border:0;border-bottom:1px solid var(--ui-border);border-radius:0;padding:12px 0;margin:0}
+body.app-shell.page-setup .module-row>.card-title{grid-column:3;grid-row:1}.app-shell.page-setup .module-row>.card-title h3{display:none}
+body.app-shell.page-setup .module-row>.columns{grid-column:1;grid-row:1;gap:8px}.app-shell.page-setup .module-row>.path-row{grid-column:2;grid-row:1}.app-shell.page-setup .module-row label{font-size:11px;margin:0 0 4px}.app-shell.page-setup .module-advanced{grid-column:1/-1;font-size:12px}
+@media(max-width:1000px){body.app-shell.page-setup #modules .module-row{grid-template-columns:minmax(0,1fr) auto}.app-shell.page-setup .module-row>.columns{grid-column:1}.app-shell.page-setup .module-row>.path-row{grid-column:1/-1;grid-row:2}.app-shell.page-setup .module-row>.card-title{grid-column:2}}
+body.app-shell.page-setup .role-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.app-shell.page-setup .role-workbench>section{padding:0;margin:0}.app-shell.page-setup #role-detail{background:var(--ui-surface-subtle);border:1px solid var(--ui-border);border-radius:8px;padding:16px;min-width:0}.app-shell.page-setup .role-select{background:transparent;border:0;text-align:left;flex:1;font-size:13px}.app-shell.page-setup .role-select[aria-pressed=true]{color:var(--ui-accent);background:var(--ui-accent-soft)}
+body.app-shell.page-setup .role-list li{gap:4px}.app-shell.page-setup .role-actions{width:100%;justify-content:flex-end}.app-shell.page-setup .role-actions button{font-size:11px;padding:4px 8px}
+@media(max-width:767px){body.app-shell.page-setup .role-workbench{grid-template-columns:1fr}}
+body.app-shell.page-setup .section-title{margin-bottom:16px}.app-shell.page-setup .section-title>span,.app-shell.page-setup .section-title p{display:none}.app-shell.page-setup .section-title h2{font-size:14px;margin:0}
+body.app-shell.page-setup #notice.instruction{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+body.app-shell.page-setup #runners>.card[open]{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+body.app-shell.page-setup #runners>.card>:is(summary,p,label,.cli-login,.routing-profiles){grid-column:1/-1}.app-shell.page-setup #runners>.card>div:not(.routing-profiles){min-width:0}.app-shell.page-setup #runners label{font-size:12px;margin:4px 0}.app-shell.page-setup #runners input,.app-shell.page-setup #runners select{width:100%}
+body.app-shell.page-setup .cli-login{border-top:1px solid var(--ui-border);padding:8px 0;margin:0}.app-shell.page-setup .cli-login>summary{font-size:12px;cursor:pointer}
+body.app-shell.page-setup .role-list{max-height:430px;overflow:auto;margin:0}.app-shell.page-setup .role-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px}.app-shell.page-setup .role-actions{width:auto;flex-wrap:nowrap}.app-shell.page-setup .role-select{min-width:0;justify-content:flex-start;padding:8px 4px}
+body.app-shell.page-setup #gates>.card{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;padding:12px 0;margin:0}.app-shell.page-setup #gates>.card .card-title h3{display:none}.app-shell.page-setup #gates>.card .card-title{justify-content:flex-end}.app-shell.page-setup .gate-advanced{font-size:12px;margin:12px 0}
+body.app-shell.page-setup .env-row>.columns{grid-template-columns:1fr;gap:12px}.app-shell.page-setup .env-row fieldset{display:flex;flex-wrap:wrap;gap:16px;border:0;border-top:1px solid var(--ui-border);padding:12px 0 0;margin-top:16px}.app-shell.page-setup .env-row legend{font-size:12px}.app-shell.page-setup .env-row[data-remove=true]{border-color:var(--ui-danger);background:var(--ui-danger-bg)}
+@media(max-width:767px){body.app-shell.page-setup #runners>.card[open]{grid-template-columns:1fr}}
+/* Native details retains its summary; the content owns the grid. */
+body.app-shell.page-setup #runners>.card[open]{display:block}.app-shell.page-setup .runner-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;min-width:0}
+body.app-shell.page-setup .runner-fields>:is(p,label,.cli-login,.routing-profiles){grid-column:1/-1}.app-shell.page-setup .runner-fields>div{min-width:0}.app-shell.page-setup #runners input[type=checkbox]{width:16px;flex:none}.app-shell.page-setup .runner-fields>.check{justify-content:flex-start}
+body.app-shell.page-setup #checks{max-height:520px;overflow:auto}.app-shell.page-setup #checks .result{display:grid;grid-template-columns:90px minmax(0,1fr);gap:12px;padding:12px 0;align-items:start}.app-shell.page-setup #checks .result>.badge{align-self:start;padding:4px 8px;font-size:11px}.app-shell.page-setup #checks .result>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;min-width:0}.app-shell.page-setup #checks .result strong{grid-column:1;font-size:13px}.app-shell.page-setup #checks .result p{grid-column:1;font-size:12px}.app-shell.page-setup #checks .result details{grid-column:2;grid-row:1/3;font-size:12px}.app-shell.page-setup #checks .result details[open]{grid-column:1/-1;grid-row:auto}
+@media(max-width:767px){body.app-shell.page-setup .runner-fields{grid-template-columns:1fr}.app-shell.page-setup #checks .result{grid-template-columns:75px minmax(0,1fr)}.app-shell.page-setup #checks .result>div{grid-template-columns:1fr}.app-shell.page-setup #checks .result details{grid-column:1;grid-row:auto}}
+/* Step tabs match the Studio stepper: numbered circle + label (screen-designs pass). */
+body.app-shell.page-setup #setup-steps{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:12px;padding:6px;gap:4px}
+body.app-shell.page-setup #setup-steps a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:var(--ui-target);padding:6px 4px;border:1px solid transparent;border-radius:8px;color:var(--ui-text);text-decoration:none;font-size:13px;font-weight:500}
+body.app-shell.page-setup #setup-steps a span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ui-surface-subtle);font-size:12px;font-weight:600;flex:none}
+body.app-shell.page-setup #setup-steps a[aria-current]{border-color:var(--ui-accent);background:var(--ui-accent-soft);color:var(--ui-accent);font-weight:600}
+body.app-shell.page-setup #setup-steps a[aria-current] span{background:var(--ui-accent);color:#fff}
+@media(max-width:700px){body.app-shell.page-setup #setup-steps a{flex-direction:column;gap:2px;font-size:12px}}
+
+/* Folder-based workspace choice is independent of the six setup steps. */
+.page-setup .workspace-picker{padding:20px 0;margin-bottom:24px;border-bottom:1px solid var(--ui-border)}.page-setup .workspace-picker h2{font-size:18px}.page-setup .workspace-picker .path-row select{flex:1;min-width:0;width:100%}.page-setup .workspace-actions{display:flex;gap:8px;flex-wrap:wrap}.page-setup #workspace-active,.page-setup #workspace-status{font-size:13px;overflow-wrap:anywhere}.page-setup #workspace-dialog-error{color:var(--ui-danger)}
+@media(max-width:767px){.page-setup .workspace-picker .section-title{align-items:flex-start}.page-setup .workspace-picker .path-row{flex-direction:column;align-items:stretch}.page-setup .workspace-picker .workspace-actions button{font-size:12px}}
+.page-setup .warning{margin:8px 0 12px;padding:8px 12px;border-radius:8px;background:var(--ui-danger-bg);color:var(--ui-danger)}
+
+/* Skill bundles per repository: a compact matrix that scrolls on narrow screens. */
+.page-setup .skill-table{overflow-x:auto;margin:8px 0 12px}.page-setup .skill-table table{border-collapse:collapse;width:100%;font-size:13px}.page-setup .skill-table th,.page-setup .skill-table td{padding:6px 8px;border-bottom:1px solid var(--ui-border);text-align:center;vertical-align:middle}.page-setup .skill-table th[scope=row]{text-align:left;font-weight:400}.page-setup .skill-table th[scope=row] small{display:block;color:var(--ui-muted)}.page-setup #skill-status p{margin:4px 0;font-size:13px;overflow-wrap:anywhere}

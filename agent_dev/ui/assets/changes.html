@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>요구사항 변경</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/changes.css"><link rel="stylesheet" href="/navigation.css"><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/changes.js" defer></script></head>
+<body class="page-changes">
+<header class="app-header" data-page-title="요구사항 변경"></header>
+<main id="changes-root">
+<div class="page-intro"><p class="breadcrumb">개발·검토</p><h1>요구사항 변경</h1><p>확정 원본 비교 → 영향 검토 → 변경 제안 → 적용·거부 순서로 진행합니다.</p></div>
+<div id="changes-loading" class="loading-state" role="status" aria-live="polite">변경 요청 데이터를 불러오는 중…</div>
+<div id="changes-error" class="error-state" hidden role="alert"></div>
+<button id="changes-retry" class="secondary" hidden>다시 불러오기</button>
+<p id="changes-empty" class="empty-state" hidden>등록된 프로젝트가 없습니다. <a href="/setup#project">프로젝트 등록</a> 후 변경 요청을 준비하세요.</p>
+
+<section id="changes-section" hidden>
+  <div class="changes-toolbar" aria-label="변경 요청 조회">
+    <label for="changes-project-select">프로젝트 선택
+    <select id="changes-project-select" aria-label="프로젝트 선택"><option value="">프로젝트를 선택하세요</option></select>
+    </label><label for="changes-state-filter">상태 필터
+    <select id="changes-state-filter" aria-label="상태 필터">
+      <option value="">전체 상태</option>
+      <option value="proposed">제안됨</option>
+      <option value="applied">적용됨</option>
+      <option value="rejected">거부됨</option>
+    </select>
+    </label><button id="changes-filter-apply" type="button">조회</button>
+  </div>
+
+  <p id="changes-result" role="status" aria-live="polite"></p>
+  <div id="changes-result-links"></div>
+<div class="change-workbench"><section class="change-browser"><h2>변경 요청 목록</h2>  <div id="changes-list" class="changes-list" role="list" aria-label="변경 요청 목록"></div>
+  <p id="changes-list-empty" class="empty-state" hidden>조건에 맞는 변경 요청이 없습니다.</p>
+
+
+
+</section><aside class="change-inspector"><p id="change-detail-placeholder" class="empty-state">변경 요청을 선택하면 원본 비교·영향·결정을 확인할 수 있습니다.</p><section id="changes-detail" hidden tabindex="-1">
+    <h2>변경 상세</h2>
+    <button id="changes-detail-close" type="button" class="secondary">닫기</button>
+    <div id="changes-detail-content"></div><label>거부 이유<input id="reject-reason" maxlength="500"></label><label>거부 작성자<input id="reject-actor" maxlength="100"></label>
+  </section></aside></div>  <details id="changes-preview-form" class="changes-propose-panel">
+    <summary>새 요구사항 변경 요청</summary>
+    <p class="changes-hint">Studio의 새 승인 버전과 기존 인계를 비교해 변경 영향을 미리 확인한 후 제안합니다. 제안은 현재 실행 중인 작업을 바꾸지 않습니다.</p>
+    <form id="changes-form" novalidate>
+      <label>프로젝트
+        <select id="form-project" required aria-required="true"><option value="">선택하세요</option></select>
+      </label>
+      <label>기존 인계
+        <select id="form-import" required aria-required="true"><option value="">선택하세요</option></select>
+      </label>
+      <label>새 Studio 프로젝트·현재 확정 버전
+        <select id="form-source" required><option value="">기존 인계를 먼저 선택하세요</option></select>
+      </label>
+      <p id="form-source-status" role="status"></p>
+      <label>현재 프로젝트 프로파일
+        <select id="form-profile" required><option value="">프로젝트를 선택하세요</option></select>
+      </label>
+      <label>후속 작업 기본 모듈
+        <select id="form-module" required><option value="">모듈을 선택하세요</option></select>
+      </label>
+      <fieldset><legend>후속 작업 · 요구사항 / 수용 기준 / 검증 / 허용 경로</legend>
+        <p>추가·변경 요구사항을 선택하세요. 변경 없는 요구사항을 선택하면 이유가 필요합니다. 검증 연결은 등록된 테스트 selector만 선택할 수 있습니다.</p>
+        <div id="form-task-mapping"></div>
+        <label>변경 없는 요구사항의 후속 작업 이유<input id="form-unchanged-reason" maxlength="500"></label>
+      </fieldset>
+      <label>변경 이유
+        <input id="form-reason" type="text" required aria-required="true" placeholder="요구사항 변경 이유를 입력하세요" maxlength="500">
+      </label>
+      <label>작성자
+        <input id="form-actor" type="text" required aria-required="true" placeholder="이름 또는 ID" maxlength="100">
+      </label>
+      <div id="form-preview-result" hidden>
+        <h3>변경 미리보기</h3>
+        <div id="form-delta-table" class="delta-table" role="table" aria-label="요구사항 변경 현황"></div>
+
+        <p id="form-preview-digest" class="changes-meta"></p>
+      </div>
+      <fieldset><legend>영향 판단과 후속 작업 매핑</legend><div id="form-impact-list" class="impact-list"></div><p>미확정 영향은 실제 연결된 작업으로 매핑하거나 이유를 남겨 제외하세요. 수정 후 미리보기를 다시 실행합니다.</p></fieldset>
+      <div id="form-error" class="error-state" hidden role="alert"></div>
+      <div class="form-actions">
+        <button id="form-preview-btn" type="button">미리보기</button>
+        <button id="form-propose-btn" type="button" disabled>변경 제안</button>
+      </div>
+    </form>
+  </details>
+</section>
+</main>
+<footer>변경 요청·비교·영향·후속 작업을 확인하세요. <a href="/traceability">요구사항 근거</a> · <a href="/home">프로젝트 홈</a></footer>
+</body></html>

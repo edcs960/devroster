@@ -1,0 +1,27 @@
+{
+  "id": "fmea",
+  "display_name": "FMEA (AIAG-VDA)",
+  "detect_keywords": [
+    "fmea",
+    "aiag",
+    "vda",
+    "dfmea",
+    "pfmea",
+    "control plan"
+  ],
+  "document_templates_dir": "config/templates/fmea",
+  "seed_task_documents": false,
+  "task_related_documents": [],
+  "context_files": [],
+  "role_required_context": {},
+  "repository_types": {
+    "frontend": "node",
+    "backend": "gradle"
+  },
+  "default_workstreams": [
+    "frontend",
+    "backend",
+    "infra",
+    "fmea"
+  ]
+}

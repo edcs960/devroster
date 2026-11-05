@@ -1,0 +1,25 @@
+<!-- purpose: FMEA editor, dashboard, master data, review 화면을 정리한다. -->
+# {{title}} {{kind}}
+
+## 문서 목적
+- {{purpose}}
+- 이 문서는 `agent-dev new-task`가 생성한 초안이며, Planner phase에서 구체화한다.
+
+## 작업 정보
+- Task ID: `{{task_id}}`
+- 주제: {{topic}}
+- 사이트/화면 필요 여부: {{needs_site}}
+- 프론트엔드 레포지토리: `{{frontend_repo}}`
+- 백엔드 레포지토리: `{{backend_repo}}`
+- DB: `{{database}}`
+
+## 초안
+- Planner는 이 섹션을 실제 요구사항, 수용 기준, 범위로 확장한다.
+- Architect/DBA/UX/UI/Designer는 이 문서를 기반으로 각자의 산출물을 보완한다.
+- Developer는 확정된 산출물과 공통 개발 표준을 기준으로 구현한다.
+
+## 사용자 확인 필요
+- 사용할 GitHub 레포지토리와 브랜치 전략
+- DB 사용 여부, DB 종류, 로컬 실행 방식
+- 외부 API, 인증, 결제, 파일 저장소 등 민감 설정 필요 여부
+- 화면이 필요한 경우 Stitch 프로젝트 또는 신규 화면 생성 여부

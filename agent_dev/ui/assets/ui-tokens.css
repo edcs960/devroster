@@ -1,0 +1,45 @@
+/* Product chrome tokens. Mock documents own their independent scoped theme. */
+:root {
+  color-scheme: light;
+  --ui-font: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ui-mono: ui-monospace, SFMono-Regular, monospace;
+  --ui-font-size: 14px;
+  --ui-line-height: 1.6;
+  --ui-bg: #f5f7fb;
+  --ui-surface: #fff;
+  --ui-surface-subtle: #f8f9fd;
+  --ui-text: #1c2741;
+  --ui-muted: #64748b;
+  --ui-border: #dce3ee;
+  --ui-accent: #4f46e5;
+  --ui-accent-hover: #4338ca;
+  --ui-accent-soft: #eef2ff;
+  --ui-focus: #6366f1;
+  --ui-success: #17634c;
+  --ui-success-bg: #e7f5ef;
+  --ui-warning: #805a0e;
+  --ui-warning-bg: #fff3d9;
+  --ui-danger: #9f1239;
+  --ui-danger-bg: #fff1f2;
+  --ui-danger-border: #fecdd3;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-7: 28px;
+  --ui-space-8: 32px;
+  --ui-radius: 8px;
+  --ui-card-radius: 16px;
+  --ui-target: 44px;
+  --ui-max-width: 1440px;
+  --ui-shadow: 0 4px 24px #20325008;
+  --accent: var(--ui-accent);
+  --border: var(--ui-border);
+  --line: var(--ui-border);
+  --muted: var(--ui-muted);
+  --text: var(--ui-text);
+  --bg: var(--ui-bg);
+  --card: var(--ui-surface);
+}

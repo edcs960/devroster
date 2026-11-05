@@ -1,0 +1,54 @@
+[project]
+name = "devroster"
+version = "0.3.0"
+description = "Local AI development workbench: plan documents to specs, mockups and approved, verified tasks run by your AI CLIs"
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+dev = [
+  "jsonschema>=4.0.0",
+  "pytest>=8.0.0"
+]
+app = ["pyinstaller>=6.16"]
+
+[project.scripts]
+devroster = "agent_dev.fa:main"
+devroster-app = "agent_dev.app:main"
+fa = "agent_dev.fa:main"
+agent-dev = "agent_dev.entrypoints:main"
+
+[tool.setuptools.packages.find]
+include = ["agent_dev*"]
+
+[tool.setuptools.package-data]
+"agent_dev.ui" = ["assets/*.html", "assets/*.js", "assets/*.css", "assets/*.svg"]
+"agent_dev.adapters.state.sqlite" = ["schema.sql"]
+"agent_dev.templates" = ["*.json", "*.md"]
+"agent_dev.adapters" = ["preview_worker.cjs", "global_schema.sql"]
+"agent_dev.defaults" = [
+    "*.md",
+    "roles/*.md",
+    "phases/*.md",
+    "skills/*/*.md",
+    "skill_catalog/*.json",
+    "skill_catalog/*/*.md",
+    "skill_catalog/*/LICENSE",
+    "domains/*/*.md",
+    "domains/*/roles/*.md",
+    "domains/*/phases/*.md",
+    "domains/*/prompts/*.md",
+    "prompts/*.md",
+    "config/*.json",
+    "config/project-profiles/*.json",
+    "config/templates/*/*.md",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pyright]
+pythonVersion = "3.11"

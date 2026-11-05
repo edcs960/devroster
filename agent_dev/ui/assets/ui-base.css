@@ -1,0 +1,36 @@
+/* Element defaults exclude generated mock content; its contract lives in mock.css. */
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--ui-font-size)/var(--ui-line-height) var(--ui-font); color: var(--ui-text); background: var(--ui-bg); }
+main { width: 100%; max-width: var(--ui-max-width); margin: auto; padding: var(--ui-space-6); min-width: 0; }
+:where(h1,h2,h3,h4,p):not(:where(.mock-canvas *)) { margin: 0 0 var(--ui-space-3); overflow-wrap: anywhere; }
+:where(h1):not(:where(.mock-canvas *)) { font-size: clamp(24px,3vw,32px); line-height: 1.3; letter-spacing: -.8px; }
+:where(h2):not(:where(.mock-canvas *)) { font-size: 22px; line-height: 1.4; letter-spacing: -.4px; }
+:where(h3):not(:where(.mock-canvas *)) { font-size: 16px; }
+:where(h4):not(:where(.mock-canvas *)) { font-size: 14px; }
+:where(p):not(:where(.mock-canvas *)) { color: var(--ui-muted); }
+:where(a):not(:where(.mock-canvas *)) { color: var(--ui-accent); text-decoration: none; overflow-wrap: anywhere; }
+:where(a:hover):not(:where(.mock-canvas *)) { text-decoration: underline; }
+:where(button,input,textarea,select):not(:where(.mock-canvas *)) { font: inherit; color: inherit; max-width: 100%; }
+:where(input,textarea,select):not(:where(.mock-canvas *)) { min-height: var(--ui-target); min-width: 0; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); padding: var(--ui-space-2) var(--ui-space-3); background: var(--ui-surface); }
+:where(input,textarea):not(:where(.mock-canvas *)) { width: 100%; }
+:where(textarea):not(:where(.mock-canvas *)) { resize: vertical; }
+:where(input[type=checkbox],input[type=radio]):not(:where(.mock-canvas *)) { width: 16px; height: 16px; min-height: 0; flex-shrink: 0; accent-color: var(--ui-accent); }
+:where(label):not(:where(.mock-canvas *)) { display: block; font-weight: 600; margin: var(--ui-space-3) 0 var(--ui-space-2); }
+:where(label:has(input[type=checkbox]),label:has(input[type=radio])):not(:where(.mock-canvas *)) { min-height: var(--ui-target); display: flex; align-items: center; gap: var(--ui-space-2); }
+:where(label small):not(:where(.mock-canvas *)) { color: var(--ui-muted); font-weight: 400; }
+:where(table):not(:where(.mock-canvas *)) { width: 100%; border-collapse: collapse; font-size: 13px; }
+:where(th,td):not(:where(.mock-canvas *)) { padding: var(--ui-space-3); text-align: left; border-bottom: 1px solid var(--ui-border); }
+:where(th):not(:where(.mock-canvas *)) { background: var(--ui-surface-subtle); color: var(--ui-muted); }
+:where(details):not(:where(.mock-canvas *)) { margin-top: var(--ui-space-4); }
+:where(summary):not(:where(.mock-canvas *)) { min-height: var(--ui-target); padding: var(--ui-space-2) 0; cursor: pointer; font-weight: 600; }
+:where(pre,code):not(:where(.mock-canvas *)) { font: 12px/1.65 var(--ui-mono); }
+:where(pre):not(:where(.mock-canvas *)) { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; background: var(--ui-surface-subtle); padding: var(--ui-space-4); border-radius: var(--ui-radius); }
+:where(hr):not(:where(.mock-canvas *)) { border: 0; border-top: 1px solid var(--ui-border); margin: var(--ui-space-6) 0; }
+:where(fieldset):not(:where(.mock-canvas *)) { border: 1px solid var(--ui-border); border-radius: var(--ui-radius); min-width: 0; }
+:where(:focus-visible):not(:where(.mock-canvas *)) { outline: 3px solid var(--ui-focus); outline-offset: 3px; }
+:where(:disabled,[aria-disabled=true]):not(:where(.mock-canvas *)) { opacity: .5; cursor: default; }
+:where(input:disabled,textarea:disabled,select:disabled):not(:where(.mock-canvas *)) { background: var(--ui-surface-subtle); }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media(max-width:700px) { main { padding: var(--ui-space-4); } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

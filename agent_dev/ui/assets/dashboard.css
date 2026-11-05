@@ -1,0 +1,113 @@
+/* dashboard layout and specialized views; shared chrome lives in ui-*.css. */
+.page-dashboard main{max-width:1320px;margin:auto;padding:40px 28px}
+.page-dashboard .page-header,.page-dashboard .header-actions,.page-dashboard .connection,.page-dashboard .section-heading,.page-dashboard .pagination,.page-dashboard .search-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.page-dashboard .header-actions{justify-content:flex-end}
+.page-dashboard .connection{justify-content:flex-start;margin:16px 0 20px;font-size:13px}
+.page-dashboard .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.page-dashboard .connection.error{color:#a02e36}
+.page-dashboard .connection.error .connection-dot{background:#a02e36}
+.page-dashboard .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0}
+.page-dashboard .metric strong{display:block;font-size:30px;line-height:1.4;margin:4px 0}
+.page-dashboard .metric p{font-size:12px;color:var(--muted);margin:0}
+.page-dashboard .layout{display:grid;align-items:start;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:24px}
+.page-dashboard .card{min-width:0}
+.page-dashboard .task-browser{padding:20px}
+.page-dashboard .section-heading h2,.page-dashboard .section-heading h3{margin:4px 0}
+.page-dashboard .section-heading{flex-wrap:wrap}
+.page-dashboard .filters{margin:20px 0 16px}
+.page-dashboard .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.page-dashboard .button{padding:8px 12px}
+.page-dashboard .button{display:inline-flex;align-items:center}
+.page-dashboard .search-row input{flex:1}
+.page-dashboard .text-button{padding:8px}
+.page-dashboard .task-list{display:grid;gap:8px;margin:16px 0;max-height:620px;overflow:auto;padding:4px}
+.page-dashboard .task-row{text-align:left;display:block;width:100%;padding:16px;border-color:var(--line);border-radius:11px;overflow-wrap:anywhere}
+.page-dashboard .task-row strong{display:block;font-size:14px;line-height:1.6;margin:4px 0 8px}
+.page-dashboard .task-row[aria-current="true"]{background:var(--ui-accent-soft);border-color:#6aa99f;box-shadow:inset 3px 0 var(--accent)}
+.page-dashboard .task-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted)}
+.page-dashboard .badge{display:inline-block;padding:4px 8px}
+.page-dashboard .pagination{border-top:1px solid var(--line);padding-top:16px;font-size:12px}
+.page-dashboard .task-detail>h2{margin-top:16px;overflow-wrap:anywhere}
+.page-dashboard .next-action{padding:20px;background:#f0f7f5;border:1px solid #d6e8e3;border-radius:12px;margin:24px 0}
+.page-dashboard .next-action h3{margin:0 0 12px}
+.page-dashboard .action+.action{margin-top:16px;padding-top:16px;border-top:1px solid #d6e8e3}
+.page-dashboard .action strong{font-size:14px}
+.page-dashboard .action p{font-size:13px;margin-top:4px}
+.page-dashboard .command-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.page-dashboard .command-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:#fff;border:1px solid #d6e8e3;padding:8px;border-radius:7px;font-size:12px}
+.page-dashboard .phase-list{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.page-dashboard .phase{display:grid;gap:4px;padding:12px 16px;flex:1;min-width:125px;background:#f7f9fb;border:1px solid var(--line);border-radius:9px;font-size:12px}
+.page-dashboard .phase strong{font-size:13px}
+.page-dashboard .phase.passed{border-color:#9fcabc;background:#eff8f3}
+.page-dashboard .phase.running{border-color:#4f9c90;background:#e9f7f3}
+.page-dashboard .phase.failed,.page-dashboard .phase.interrupted{border-color:#d4a3a5;background:#fff0ee}
+.page-dashboard .approval-list{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.page-dashboard .approval{padding:8px 16px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.page-dashboard .item{border-top:1px solid var(--line);padding:16px 0;overflow-wrap:anywhere}
+.page-dashboard .item:first-child{border-top:0}
+.page-dashboard .item strong{font-size:14px}
+.page-dashboard .item p{font-size:13px;margin:4px 0}
+.page-dashboard .empty{padding:20px 12px}
+.page-dashboard .technical{border-top:1px solid var(--line);margin-top:24px;padding-top:16px}
+.page-dashboard .technical>summary{min-height:44px;display:list-item;padding:12px 0}
+.page-dashboard .support-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:24px;margin-top:24px}
+.page-dashboard .guide ol{padding-left:24px}
+.page-dashboard .guide li{font-size:14px;margin-bottom:12px}
+.page-dashboard footer{margin:28px 0 8px;color:var(--muted);font-size:12px;text-align:center}
+.page-dashboard .skip-link{position:fixed;top:-80px;left:15px;padding:12px;background:white;z-index:3}
+.page-dashboard .skip-link:focus{top:10px}
+.page-dashboard #task-detail:focus{outline:none}
+@media(max-width:960px){
+.page-dashboard main{padding:24px 16px}
+.page-dashboard .layout{grid-template-columns:minmax(260px,310px) minmax(0,1fr)}
+.page-dashboard .summary{gap:8px}
+.page-dashboard .metric strong{font-size:26px}
+}
+@media(max-width:720px){
+.page-dashboard main{padding:20px 12px}
+.page-dashboard .page-header{align-items:flex-start;flex-direction:column}
+.page-dashboard .layout,.page-dashboard .support-grid{grid-template-columns:1fr;gap:16px}
+.page-dashboard .summary{grid-template-columns:repeat(2,1fr)}
+.page-dashboard .connection{flex-wrap:wrap;gap:8px}
+.page-dashboard .connection>span.small{width:100%;padding-left:16px}
+.page-dashboard .task-list{max-height:390px;overflow:auto}
+.page-dashboard .command-row{align-items:stretch;flex-direction:column}
+.page-dashboard .next-action{padding:16px}
+.page-dashboard .phase{min-width:110px}
+.page-dashboard .task-browser{padding:16px}
+}
+
+/* Selected screen: row browser left, contextual detail right. */
+body.app-shell.page-dashboard .layout{grid-template-columns:minmax(0,1.3fr) minmax(320px,1fr);gap:20px}
+body.app-shell.page-dashboard .page-header h1{font-size:28px;margin:0 0 8px}
+body.app-shell.page-dashboard .context-label{font-size:12px;color:var(--ui-muted);margin:0 0 8px}
+body.app-shell.page-dashboard .task-browser{padding:20px}
+body.app-shell.page-dashboard .filters{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
+body.app-shell.page-dashboard .filter-row{margin:0}
+body.app-shell.page-dashboard .task-columns{display:grid;grid-template-columns:minmax(0,1fr) 100px 60px;font-size:11px;color:var(--ui-muted);background:var(--ui-surface-subtle);padding:12px}
+body.app-shell.page-dashboard .task-list{max-height:680px;margin:0}
+body.app-shell.page-dashboard .task-row{display:grid;grid-template-columns:minmax(0,1fr) 100px 60px;align-items:center;gap:12px;padding:14px 12px}
+body.app-shell.page-dashboard .task-row .task-meta{display:block;grid-column:1;font-size:11px}
+body.app-shell.page-dashboard .task-row strong{grid-column:1;grid-row:2;margin:0;font-size:13px}
+body.app-shell.page-dashboard .task-row>.badge{grid-column:2;grid-row:1/3;width:fit-content}
+body.app-shell.page-dashboard .task-priority{grid-column:3;grid-row:1/3;font-size:11px;color:var(--ui-muted)}
+body.app-shell.page-dashboard .task-detail{padding:20px}
+body.app-shell.page-dashboard .task-detail>section{border-top:1px solid var(--ui-border);padding-top:16px;margin-top:16px}
+body.app-shell.page-dashboard .next-action{border:0;padding:16px;margin:16px 0}
+body.app-shell.page-dashboard .phase-list{display:block}.app-shell.page-dashboard .phase{display:flex;justify-content:space-between;padding:10px 0;border:0;border-bottom:1px solid var(--ui-border);background:transparent}
+body.app-shell.page-dashboard .support-grid{margin-top:20px}
+@media(max-width:900px){body.app-shell.page-dashboard .layout{grid-template-columns:1fr}}
+@media(max-width:500px){body.app-shell.page-dashboard .task-row,body.app-shell.page-dashboard .task-columns{grid-template-columns:minmax(0,1fr) 85px}.app-shell.page-dashboard .task-priority{display:none}}
+body.app-shell.page-dashboard .task-count-disclosure{position:relative;font-size:12px}.app-shell.page-dashboard .task-count-disclosure>summary{padding:12px;cursor:pointer}.app-shell.page-dashboard .task-count-disclosure .summary{position:absolute;right:0;top:100%;width:480px;z-index:2;border:1px solid var(--ui-border);border-radius:8px;margin:0;padding:16px;box-shadow:var(--ui-shadow)}
+body.app-shell.page-dashboard .filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end}.app-shell.page-dashboard .filters>label{grid-column:1/-1;margin:0}.app-shell.page-dashboard .filters .filter-row{grid-column:2;grid-row:2}.app-shell.page-dashboard .filters .search-row{grid-column:1;grid-row:2}
+@media(max-width:767px){body.app-shell.page-dashboard .filters{grid-template-columns:1fr}.app-shell.page-dashboard .filters .filter-row{grid-column:1;grid-row:3}.app-shell.page-dashboard .task-count-disclosure .summary{width:min(80vw,480px)}}
+
+/* Filters stay inside the card: search | state | project on one row (screen-designs pass). */
+body.app-shell.page-dashboard .filters{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:6px 12px;align-items:end}
+body.app-shell.page-dashboard .filters>label{grid-column:1;grid-row:1;margin:0}
+body.app-shell.page-dashboard .filters .search-row{grid-column:1;grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:0}
+body.app-shell.page-dashboard .filters .filter-row{grid-column:2;grid-row:1/3;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:0;align-items:end}
+body.app-shell.page-dashboard .filters .filter-row>div{display:grid;gap:6px;min-width:0}
+body.app-shell.page-dashboard .filters select,body.app-shell.page-dashboard .filters input{width:100%;min-width:0}
+@media(max-width:767px){body.app-shell.page-dashboard .filters{grid-template-columns:1fr}body.app-shell.page-dashboard .filters .filter-row{grid-column:1;grid-row:3}}
+.page-dashboard #progress-section .ui-progress{margin-top:12px}

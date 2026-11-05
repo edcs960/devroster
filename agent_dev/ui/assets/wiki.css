@@ -1,0 +1,24 @@
+/* Wiki review page uses the shared product tokens. */
+.page-wiki main{max-width:1100px;margin:auto;padding:var(--ui-space-7);}
+.page-wiki .wiki-toolbar{display:flex;flex-wrap:wrap;gap:var(--ui-space-4);align-items:end;margin-bottom:var(--ui-space-5);}
+.page-wiki .wiki-toolbar label{display:grid;gap:var(--ui-space-1);flex:1 1 200px;min-width:0;}
+.page-wiki :is(input,select,textarea){width:100%;min-width:0;min-height:var(--ui-target);}
+.page-wiki .wiki-list{display:grid;gap:var(--ui-space-4);}
+.page-wiki .wiki-card{border:1px solid var(--ui-border);border-left-width:4px;border-radius:var(--ui-radius);padding:var(--ui-space-5);background:var(--ui-surface);min-width:0;overflow-wrap:anywhere;}
+.page-wiki .wiki-card[data-state="candidate"]{border-left-color:var(--ui-accent);}
+.page-wiki .wiki-card[data-state="active"]{border-left-color:var(--ui-success);}
+.page-wiki .wiki-card:is([data-state="rejected"],[data-state="retired"]){border-left-color:var(--ui-muted);}
+.page-wiki .wiki-card h2{font-size:1.05rem;margin:0 0 var(--ui-space-2);}
+.page-wiki .wiki-meta{color:var(--ui-muted);font-size:.9rem;}
+.page-wiki .wiki-badge{display:inline-block;padding:2px 8px;border-radius:var(--ui-radius);background:var(--ui-surface-subtle);margin-right:var(--ui-space-2);}
+.page-wiki .wiki-badge.warn{background:var(--ui-warning-bg);color:var(--ui-warning);}
+.page-wiki dl{display:grid;grid-template-columns:max-content 1fr;gap:var(--ui-space-1) var(--ui-space-4);margin:var(--ui-space-3) 0;}
+.page-wiki dt{font-weight:600;}
+.page-wiki dd{margin:0;min-width:0;}
+.page-wiki .wiki-actions{display:flex;flex-wrap:wrap;gap:var(--ui-space-2);align-items:end;margin-top:var(--ui-space-3);}
+.page-wiki .wiki-actions label{display:grid;gap:var(--ui-space-1);flex:1 1 240px;}
+.page-wiki footer{padding:var(--ui-space-6);text-align:center;color:var(--ui-muted);}
+@media(max-width:700px){
+ .page-wiki main{padding:var(--ui-space-4);}
+ .page-wiki dl{grid-template-columns:1fr;}
+}

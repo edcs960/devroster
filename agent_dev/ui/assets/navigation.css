@@ -1,0 +1,91 @@
+/* Navigation is scoped so it can mount on every product surface. */
+.app-menu-toggle{flex:none;width:var(--ui-target);height:var(--ui-target);padding:0;font-size:22px}
+.app-menu-floating{position:fixed;z-index:1001;top:16px;left:16px;box-shadow:var(--ui-shadow)}
+.app-menu-backdrop{position:fixed;inset:0;background:#1c274166;z-index:1002}
+.app-menu{position:fixed;z-index:1003;inset:0 auto 0 0;width:min(310px,85vw);background:var(--ui-surface);color:var(--ui-text);box-shadow:5px 0 28px #1c274133;padding:var(--ui-space-6) var(--ui-space-5);overflow:auto;font:var(--ui-font-size)/var(--ui-line-height) var(--ui-font)}
+.app-menu-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-space-2)}
+.app-menu-heading strong{font-size:22px}
+.app-menu-close{font-size:28px;padding:0 var(--ui-space-3)}
+.app-menu-subtitle{font-size:13px;color:var(--ui-muted);margin:var(--ui-space-2) 0 var(--ui-space-6)}
+.app-menu nav{display:block!important}
+.app-menu h2{font-size:12px;color:var(--ui-muted);font-weight:650;margin:var(--ui-space-5) var(--ui-space-3) var(--ui-space-2);letter-spacing:.4px}
+.app-menu nav a{display:flex;flex-direction:column;gap:var(--ui-space-1);padding:var(--ui-space-3);border-radius:var(--ui-radius);text-decoration:none;color:var(--ui-text);min-height:56px}
+.app-menu nav a span{font-size:14px;font-weight:650}
+.app-menu nav a small{font-size:12px;color:var(--ui-muted)}
+.app-menu nav a:hover,.app-menu nav a[aria-current=page]{background:var(--ui-accent-soft);color:var(--ui-accent-hover)}
+.app-menu-open{overflow:hidden}
+@media(max-width:600px){.app-menu-floating{top:12px;left:12px}}
+
+/* Selected document-focus workbench; reusable by every existing product route. */
+body.app-shell>.app-header{min-height:76px;padding:14px 24px;gap:16px}
+.app-shell .app-menu{width:224px;padding:24px 12px;background:var(--ui-bg);box-shadow:none;border-right:1px solid var(--ui-border)}
+.app-shell .app-menu-heading{padding:0 12px}
+.app-shell .app-menu-heading strong{font-size:19px}
+.app-shell .app-menu-subtitle{padding:0 12px;font-size:11px;margin:6px 0 24px}
+.app-shell .app-menu h2{margin:22px 12px 8px;font-size:11px;font-weight:500}
+.app-shell .app-menu nav a{min-height:44px;padding:10px 12px;border-radius:8px;justify-content:center}
+.app-shell .app-menu nav a span{font-weight:500}
+.app-shell .app-menu nav a small{display:none}
+.app-shell .app-menu nav a[aria-current=page] span{font-weight:650}
+.app-shell .app-menu-close{min-width:32px;min-height:32px;font-size:22px;padding:0 8px;background:transparent;border-color:transparent}
+body.app-shell>main{padding:28px;max-width:1440px}
+.app-shell .page-intro:not(:where(.mock-canvas *)){margin-bottom:24px}
+.app-shell :is(.page-intro,.studio-intro,.hero,.intro) h1:not(:where(.mock-canvas *)){font-size:28px;line-height:1.35;letter-spacing:-.6px}
+.app-shell :is(.page-intro,.studio-intro,.hero,.intro)>p:not(:where(.mock-canvas *)){max-width:80ch}
+.app-shell :is(.panel,.card,.tree-pane,.code-pane,.detail,.editor):not(:where(.mock-canvas *)){box-shadow:none}
+.app-shell :is(.toolbar,.review-toolbar,.changes-toolbar,.trace-toolbar):not(:where(.mock-canvas *)){gap:12px;padding:16px 0;border-bottom:1px solid var(--ui-border)}
+.app-shell :is(.metric,.phase,.approval):not(:where(.mock-canvas *)){border:0;border-right:1px solid var(--ui-border);border-radius:0;background:transparent}
+.app-shell .summary:not(:where(.mock-canvas *)){gap:0;background:var(--ui-surface);border-bottom:1px solid var(--ui-border)}
+.app-shell .metric:last-child{border-right:0}
+.app-shell .task-row{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;background:transparent;box-shadow:none}
+.app-shell .task-row[aria-current=true]{background:var(--ui-accent-soft);box-shadow:inset 3px 0 var(--ui-accent);border-color:var(--ui-border)}
+.app-shell .task-list{gap:0;padding:0}
+.app-shell .next-action{background:var(--ui-accent-soft);border-color:var(--ui-border)}
+.app-shell .next-action :is(.command-row code,.action+.action){border-color:var(--ui-border)}
+.app-shell .preset{border-radius:8px;padding:18px}
+.app-shell .source-layout{grid-template-columns:240px minmax(0,1fr)}
+.app-shell .code{background:var(--ui-surface-subtle);border-color:var(--ui-border)}
+.app-shell .code .line-number{background:var(--ui-surface-subtle);border-color:var(--ui-border);color:var(--ui-muted)}
+.app-shell .code .line-focus{background:var(--ui-accent-soft)}
+@media(min-width:1200px){
+ body.app-shell.app-nav-visible{padding-left:224px}
+ .app-shell.app-nav-visible>.app-header{margin-left:-224px;width:calc(100% + 224px)}
+ .app-shell .app-menu{inset:76px auto 0 0}
+ .app-shell.app-nav-visible>.studio-intro,.app-shell.app-nav-visible>.steps{width:calc(100% - 56px)}
+ .app-shell.app-nav-visible .page-intro{max-width:100%}
+}
+@media(max-width:1399px){
+ .app-shell .review-layout{grid-template-columns:200px minmax(0,1fr)}
+ .app-shell .review-side{grid-column:1/-1;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+ body.app-shell.page-workflows .layout{grid-template-columns:220px minmax(0,1fr)}
+ body.app-shell.page-workflows .layout>section:last-child{grid-column:1/-1}
+}
+@media(max-width:767px){
+ body.app-shell>main{padding:20px 16px}
+ body.app-shell>.app-header{padding:12px 16px}
+ .app-shell .app-menu{width:min(310px,85vw);inset:0 auto 0 0;box-shadow:5px 0 28px #1c274133}
+ .app-shell .app-menu nav a small{display:block}
+ .app-shell .app-menu nav a{min-height:56px}
+ .app-shell :is(.source-layout,.review-layout,.page-workflows .layout){grid-template-columns:minmax(0,1fr)}
+ .app-shell .review-side{grid-template-columns:minmax(0,1fr)}
+ .app-shell :is(.source-layout,.review-layout) nav{max-height:230px;overflow:auto}
+ .app-shell .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .app-shell .metric:nth-child(2){border-right:0}
+ .app-shell .app-header-actions{gap:8px}
+ .app-shell .app-header-actions a{font-size:12px}
+}
+
+@media(max-width:767px){body.app-shell.page-workflows .layout{grid-template-columns:minmax(0,1fr)}}
+.app-shell .app-menu nav a{flex-direction:row;justify-content:flex-start;gap:12px;flex-wrap:wrap}
+.app-nav-icon{width:20px;height:20px;flex:none;color:inherit}
+.app-shell .app-menu nav a small{flex-basis:100%;padding-left:32px}
+.app-skip-link{position:fixed;top:12px;left:12px;z-index:1004;transform:translateY(-180%);background:var(--ui-surface);border:1px solid var(--ui-accent);border-radius:8px;padding:12px 16px;color:var(--ui-accent)}
+.app-skip-link:focus{transform:translateY(0)}
+
+/* Keep every product header at the top while the page scrolls. */
+body.app-shell>.app-header{position:sticky;top:0;z-index:1001;width:100%;background:var(--ui-surface);border-bottom:1px solid var(--ui-border)}
+.app-shell :is([tabindex],input,select,textarea,button,section){scroll-margin-top:calc(var(--app-header-height,76px) + 20px)}
+
+@media(min-width:1200px){.app-shell .app-menu{top:var(--app-header-height,76px)}}
+
+.app-restart-notice{position:relative;z-index:30;padding:10px 16px;background:var(--ui-warning-bg);color:var(--ui-warning);font-weight:600;text-align:center;border-bottom:1px solid currentColor}

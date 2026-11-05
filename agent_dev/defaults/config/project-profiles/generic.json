@@ -1,0 +1,10 @@
+{
+  "id": "generic",
+  "display_name": "Generic Software Product",
+  "detect_keywords": [],
+  "document_templates_dir": "config/templates/generic",
+  "context_files": [],
+  "role_required_context": {},
+  "repository_types": { "frontend": "node", "backend": "gradle" },
+  "default_workstreams": ["frontend", "backend", "infra"]
+}

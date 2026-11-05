@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1799" height="1090" viewBox="0 0 1798.5 1090"><title>Project database relationships, including schema v4</title><desc>Derived from all 15 relationships of the architecture Markdown ERD. Cardinalities are written on each edge. Purple nodes are the v4 additive tables.</desc><rect width="100%" height="100%" fill="white"/><g font-family="Arial, sans-serif" font-size="15" fill="#252525">
+<path d="M738.5,92.42489270386267 L382.5,165 L284.86842105263156,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="292.5" y="144" width="180" height="42" fill="white"/><text x="382.5" y="162" text-anchor="middle">versions</text><text x="382.5" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M250,285 L250,355 L250,425" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="160" y="334" width="180" height="42" fill="white"/><text x="250" y="352" text-anchor="middle">provenance</text><text x="250" y="370" text-anchor="middle" font-size="13" fill="#555">1 → 0..1</text>
+<path d="M805.3421052631579,95 L684.5,165 L586.8684210526316,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="594.5" y="144" width="180" height="42" fill="white"/><text x="684.5" y="162" text-anchor="middle">binds</text><text x="684.5" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M155,95 L155,165 L447.5263157894737,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="65" y="144" width="180" height="42" fill="white"/><text x="155" y="162" text-anchor="middle">local_connection</text><text x="155" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M881.1315789473684,95 L972.5,165 L972.5,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="882.5" y="144" width="180" height="42" fill="white"/><text x="972.5" y="162" text-anchor="middle">repositories</text><text x="972.5" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M950.8684210526316,95 L1237.5,165 L1237.5,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1147.5" y="144" width="180" height="42" fill="white"/><text x="1237.5" y="162" text-anchor="middle">designs</text><text x="1237.5" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1237.5,285 L1237.5,355 L1237.5,425" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1147.5" y="334" width="180" height="42" fill="white"/><text x="1237.5" y="352" text-anchor="middle">plans</text><text x="1237.5" y="370" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1237.5,475 L1237.5,545 L1237.5,615" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1147.5" y="524" width="180" height="42" fill="white"/><text x="1237.5" y="542" text-anchor="middle">contains</text><text x="1237.5" y="560" text-anchor="middle" font-size="13" fill="#555">0..1 → 0..N</text>
+<path d="M1127.5,655.9785932721712 L583.5,735 L583.5,805" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="493.5" y="714" width="180" height="42" fill="white"/><text x="583.5" y="732" text-anchor="middle">freezes</text><text x="583.5" y="750" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1135.1315789473683,665 L848.5,735 L848.5,805" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="758.5" y="714" width="180" height="42" fill="white"/><text x="848.5" y="732" text-anchor="middle">attempts</text><text x="848.5" y="750" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1204.8684210526317,665 L1113.5,735 L1113.5,805" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1023.5" y="714" width="180" height="42" fill="white"/><text x="1113.5" y="732" text-anchor="middle">nodes</text><text x="1113.5" y="750" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1274.6052631578948,665 L1378.5,735 L1378.5,805" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1288.5" y="714" width="180" height="42" fill="white"/><text x="1378.5" y="732" text-anchor="middle">verifies</text><text x="1378.5" y="750" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1378.5,855 L1378.5,925 L1378.5,995" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1288.5" y="904" width="180" height="42" fill="white"/><text x="1378.5" y="922" text-anchor="middle">results</text><text x="1378.5" y="940" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M1344.342105263158,665 L1643.5,735 L1643.5,805" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1553.5" y="714" width="180" height="42" fill="white"/><text x="1643.5" y="732" text-anchor="middle">publishes</text><text x="1643.5" y="750" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<path d="M958.5,85.97859327217125 L1502.5,165 L1502.5,235" fill="none" stroke="#666" stroke-width="1.5"/>
+<rect x="1412.5" y="144" width="180" height="42" fill="white"/><text x="1502.5" y="162" text-anchor="middle">knowledge</text><text x="1502.5" y="180" text-anchor="middle" font-size="13" fill="#555">1 → 0..N</text>
+<rect x="738.5" y="45" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="848.5" y="75" text-anchor="middle">projects</text>
+<rect x="126" y="235" width="248" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="250" y="265" text-anchor="middle">project_profile_versions</text>
+<rect x="126" y="425" width="248" height="50" rx="4" fill="#eeecff" stroke="#5c50aa" stroke-width="1.5"/><text x="250" y="455" text-anchor="middle">configuration_provenance</text>
+<rect x="419" y="235" width="266" height="50" rx="4" fill="#eeecff" stroke="#5c50aa" stroke-width="1.5"/><text x="552" y="265" text-anchor="middle">shared_connection_bindings</text>
+<rect x="45" y="45" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="155" y="75" text-anchor="middle">tool_connections</text>
+<rect x="862.5" y="235" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="972.5" y="265" text-anchor="middle">repository_bindings</text>
+<rect x="1127.5" y="235" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1237.5" y="265" text-anchor="middle">design_documents</text>
+<rect x="1127.5" y="425" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1237.5" y="455" text-anchor="middle">task_plans</text>
+<rect x="1127.5" y="615" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1237.5" y="645" text-anchor="middle">tasks</text>
+<rect x="473.5" y="805" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="583.5" y="835" text-anchor="middle">input_snapshots</text>
+<rect x="738.5" y="805" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="848.5" y="835" text-anchor="middle">phase_attempts</text>
+<rect x="1003.5" y="805" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1113.5" y="835" text-anchor="middle">workflow_node_runs</text>
+<rect x="1268.5" y="805" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1378.5" y="835" text-anchor="middle">verification_runs</text>
+<rect x="1268.5" y="995" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1378.5" y="1025" text-anchor="middle">verification_results</text>
+<rect x="1533.5" y="805" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1643.5" y="835" text-anchor="middle">publish_records</text>
+<rect x="1392.5" y="235" width="220" height="50" rx="4" fill="#f5f5f5" stroke="#555" stroke-width="1.5"/><text x="1502.5" y="265" text-anchor="middle">knowledge_revisions</text>
+</g></svg>

@@ -1,0 +1,101 @@
+{
+  "steps": [
+    {
+      "id": "01-planner",
+      "agent_id": "planner",
+      "prompt_file": "prompts/01-planner-prompt.md",
+      "output_file": "outputs/01-planner-output.md"
+    },
+    {
+      "id": "02-architect",
+      "agent_id": "architect",
+      "prompt_file": "prompts/02-architect-prompt.md",
+      "output_file": "outputs/02-architect-output.md"
+    },
+    {
+      "id": "03-dba",
+      "agent_id": "dba",
+      "prompt_file": "prompts/03-dba-prompt.md",
+      "output_file": "outputs/03-dba-output.md",
+      "run_condition": "workstream:db"
+    },
+    {
+      "id": "04-ux-ui",
+      "agent_id": "ux_ui",
+      "prompt_file": "prompts/04-ux-ui-prompt.md",
+      "output_file": "outputs/04-ux-ui-output.md",
+      "run_condition": "workstream:frontend"
+    },
+    {
+      "id": "05-designer",
+      "agent_id": "designer",
+      "prompt_file": "prompts/05-designer-prompt.md",
+      "output_file": "outputs/05-designer-output.md",
+      "run_condition": "workstream:frontend"
+    },
+    {
+      "id": "06-fmea-expert",
+      "agent_id": "fmea_expert",
+      "prompt_file": "prompts/06-fmea-expert-prompt.md",
+      "output_file": "outputs/06-fmea-expert-output.md",
+      "run_condition": "workstream:fmea"
+    },
+    {
+      "id": "07-developer-common",
+      "agent_id": "developer_common",
+      "prompt_file": "prompts/07-developer-common-prompt.md",
+      "output_file": "outputs/07-developer-common-output.md"
+    },
+    {
+      "id": "08-frontend-developer",
+      "agent_id": "developer_frontend",
+      "prompt_file": "prompts/08-frontend-developer-prompt.md",
+      "output_file": "outputs/08-frontend-developer-output.md",
+      "run_condition": "workstream:frontend"
+    },
+    {
+      "id": "09-backend-developer",
+      "agent_id": "developer_backend",
+      "prompt_file": "prompts/09-backend-developer-prompt.md",
+      "output_file": "outputs/09-backend-developer-output.md",
+      "run_condition": "workstream:backend"
+    },
+    {
+      "id": "10-infra-developer",
+      "agent_id": "developer_infra",
+      "prompt_file": "prompts/10-infra-developer-prompt.md",
+      "output_file": "outputs/10-infra-developer-output.md",
+      "run_condition": "workstream:infra"
+    },
+    {
+      "id": "11-qa",
+      "agent_id": "qa",
+      "prompt_file": "prompts/11-qa-prompt.md",
+      "output_file": "outputs/11-qa-output.md"
+    },
+    {
+      "id": "12-test-automation",
+      "agent_id": "developer_test",
+      "prompt_file": "prompts/12-test-automation-prompt.md",
+      "output_file": "outputs/12-test-automation-output.md"
+    },
+    {
+      "id": "13-security",
+      "agent_id": "security",
+      "prompt_file": "prompts/13-security-prompt.md",
+      "output_file": "outputs/13-security-output.md"
+    },
+    {
+      "id": "14-reviewer",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/14-reviewer-prompt.md",
+      "output_file": "outputs/14-reviewer-output.md"
+    },
+    {
+      "id": "15-tech-writer",
+      "agent_id": "tech_writer",
+      "prompt_file": "prompts/15-tech-writer-prompt.md",
+      "output_file": "outputs/15-tech-writer-output.md"
+    }
+  ]
+}

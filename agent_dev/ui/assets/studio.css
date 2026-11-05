@@ -1,0 +1,204 @@
+/* studio layout and specialized views; shared chrome lives in ui-*.css. */
+.page-studio .file-button{padding:8px 16px}
+.page-studio .brand{display:flex;gap:12px;align-items:center;color:var(--ui-text);font-size:17px}
+.page-studio .project-controls,.page-studio .actions,.page-studio .editor-label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.page-studio .project-controls select{max-width:280px}
+.page-studio .studio-intro{max-width:var(--ui-max-width);margin:32px auto 20px;padding:0 28px}
+.page-studio .eyebrow{margin-bottom:8px}
+.page-studio .steps{display:flex;max-width:var(--ui-max-width);margin:0 auto 24px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px;gap:4px}
+.page-studio .steps button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
+.page-studio .steps span{border-radius:50%;width:27px;height:27px;background:#edf0f6;display:grid;place-items:center}
+.page-studio .steps [aria-current] span{background:var(--accent);color:white}
+.page-studio #workspace{max-width:var(--ui-max-width);margin:auto;padding:0 28px 32px}
+.page-studio .panel-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:24px}
+.page-studio .panel-heading p:last-child{margin-bottom:0}
+.page-studio .brief-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px}
+.page-studio .brief-editor{min-height:390px;margin-bottom:16px}
+.page-studio .editor-label{justify-content:space-between;margin-top:16px}
+.page-studio .editor-label label{margin:0 0 8px}
+.page-studio .guidance{background:var(--ui-surface-subtle);border:1px solid var(--border);border-radius:12px;padding:24px}
+.page-studio .guidance li{margin-bottom:8px;color:var(--ui-muted)}
+.page-studio .guidance ol{padding-left:20px}
+.page-studio .guidance select{width:100%}
+.page-studio .hint{margin:8px 0}
+.page-studio .notice,.page-studio .job-status{max-width:var(--ui-max-width);margin:0 auto 16px;padding:12px 20px;white-space:pre-line}
+.page-studio .job-status{display:grid;gap:8px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-accent-soft)}
+.page-studio .job-status .job-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.page-studio .job-status p{margin:0}
+.page-studio .job-meta{font-size:13px;color:var(--ui-muted)}
+.page-studio .empty{text-align:center;padding:60px 20px}
+.page-studio .spec-layout{display:grid;grid-template-columns:210px minmax(0,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.page-studio #documents{padding:12px;background:var(--ui-surface-subtle);max-height:700px;overflow:auto}
+.page-studio #documents button,.page-studio .screen-list button{display:block;width:100%;text-align:left;padding:8px 8px;margin-bottom:4px}
+.page-studio .document-editor{padding:20px;min-width:0}
+.page-studio #document-body{min-height:540px;font:13px/1.7 ui-monospace,SFMono-Regular,monospace}
+.page-studio #document-title{margin-bottom:0}
+.page-studio .document-editor .editor-label{margin:0 0 16px}
+.page-studio .markdown{overflow-wrap:anywhere;white-space:pre-wrap;min-height:540px}
+.page-studio .markdown p{color:#334155}
+.page-studio .questions{background:#fffbeb;border-radius:10px;padding:20px;margin-bottom:20px}
+.page-studio .questions:empty{display:none}
+.page-studio .questions textarea{min-height:75px}
+.page-studio .requirements{margin:8px 0 24px}
+.page-studio .requirement{padding:16px;border-bottom:1px solid var(--border)}
+.page-studio .requirement blockquote{border-left:3px solid #c7d2fe;margin:8px 0;padding-left:12px;color:var(--muted);font-size:12px}
+.page-studio .requirement textarea{min-height:65px}
+.page-studio .canvas-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:0 0 16px}
+.page-studio .canvas-toolbar label{display:flex;gap:8px;align-items:center;margin:0}
+.page-studio .segmented{display:flex;border:1px solid var(--border);padding:4px;border-radius:9px}
+.page-studio .segmented button{padding:8px 12px}
+.page-studio .segmented [aria-pressed=true]{background:var(--ui-accent-soft);color:var(--accent)}
+.page-studio .badge{padding:4px 8px}
+.page-studio .review-layout{display:grid;grid-template-columns:160px minmax(0,1fr) 280px;border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:530px}
+.page-studio .screen-list{padding:12px;background:var(--ui-surface-subtle)}
+.page-studio .canvas-area{background:#edf1f7;padding:20px;overflow:auto;min-width:0}
+.page-studio .sample-note{font-size:11px;margin-bottom:16px;color:#69778f}
+.page-studio .inspector{padding:20px;border-left:1px solid var(--border);overflow-wrap:anywhere}
+.page-studio .inspector .element-meta{color:var(--ui-muted);font-size:11px;margin-bottom:16px}
+.page-studio .inspector textarea{min-height:90px}
+.page-studio .comment-card{border:1px solid var(--border);border-radius:9px;padding:12px;margin-top:16px;white-space:pre-wrap}
+.page-studio .comment-card p{color:#334155;font-size:13px;margin-bottom:8px}
+.page-studio .comment-card.resolved{background:#f8fafc}
+.page-studio .comment-card small{color:var(--muted)}
+.page-studio .comment-card input{margin:8px 0}
+.page-studio .screen-decision{display:flex;gap:16px;align-items:center;margin-top:20px;padding:16px;background:var(--ui-surface-subtle);border-radius:10px}
+.page-studio .screen-decision>div{flex:1;min-width:200px}
+.page-studio .screen-decision input{max-width:280px}
+.page-studio .screen-decision p{margin:4px 0}
+.page-studio .handoff-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:24px 0}
+.page-studio .handoff-cards article{padding:24px;border:1px solid var(--border);border-radius:12px;background:#fafbfe}
+.page-studio .check-row{padding:12px;border-bottom:1px solid var(--border);color:#475569}
+.page-studio .check-row.done{color:#047857}
+.page-studio .history-row{border-bottom:1px solid var(--border);padding:8px;font-size:12px;color:var(--ui-muted)}
+.page-studio footer{padding:0 24px 32px;text-align:center;color:#8b95a7;font-size:12px}
+.page-studio .export-preview{max-width:1150px;margin:30px auto;padding:25px}
+.page-studio .export-preview .mock-canvas{margin-top:25px}
+@media(max-width:1150px){
+.page-studio .review-layout{grid-template-columns:130px minmax(0,1fr)}
+.page-studio .inspector{grid-column:1/-1;border-left:0;border-top:1px solid var(--border)}
+.page-studio .brief-layout{grid-template-columns:minmax(0,1fr) 250px}
+.page-studio .screen-decision{flex-wrap:wrap}
+}
+@media(max-width:700px){
+.page-studio .project-controls{width:100%;gap:8px}
+.page-studio .project-controls select{flex:1;min-width:100px}
+.page-studio .studio-intro{margin-top:24px;padding:0 16px}
+.page-studio .steps{margin:0 16px 16px;padding:4px}
+.page-studio .steps button{flex-direction:column;gap:4px;padding:8px 4px}
+.page-studio .steps span{width:22px;height:22px}
+.page-studio #workspace{padding:0 16px 24px}
+.page-studio .panel-heading{gap:16px}
+.page-studio .brief-layout,.page-studio .spec-layout,.page-studio .handoff-cards{grid-template-columns:1fr}
+.page-studio .brief-layout{gap:20px}
+.page-studio .guidance{order:-1}
+.page-studio .guidance ol,.page-studio .guidance hr{display:none}
+.page-studio .brief-editor{min-height:350px}
+.page-studio #documents{display:flex;overflow:auto;max-height:none;gap:4px}
+.page-studio #documents button{width:auto;white-space:nowrap;margin:0}
+.page-studio .document-editor{padding:16px}
+.page-studio .document-editor .editor-label{gap:8px}
+.page-studio .review-layout{display:flex;flex-direction:column}
+.page-studio .screen-list{display:flex;gap:4px;overflow:auto}
+.page-studio .screen-list button{width:auto;white-space:nowrap}
+.page-studio .canvas-area{padding:12px}
+.page-studio .screen-decision{padding:12px}
+.page-studio .screen-decision input{max-width:none}
+.page-studio .screen-decision button{width:100%}
+.page-studio .canvas-toolbar{align-items:flex-start;gap:12px}
+.page-studio .segmented{width:100%;order:-1}
+.page-studio .segmented button{flex:1}
+.page-studio .notice,.page-studio .job-status{margin:0 16px 16px}
+.page-studio .handoff-cards{gap:12px}
+}
+.page-studio .revision-label{display:flex;gap:8px;align-items:center;margin:0}
+.page-studio .markdown{white-space:normal}
+.page-studio .markdown p{white-space:pre-wrap}
+.page-studio .markdown pre{padding:16px;background:#f8fafc;border-radius:8px;overflow:auto;white-space:pre}
+.page-studio .markdown-table{overflow:auto;margin:16px 0}
+.page-studio .markdown table{border-collapse:collapse;width:100%;font-size:13px}
+.page-studio .markdown td,.page-studio .markdown th{padding:8px;text-align:left}
+.page-studio .markdown h2,.page-studio .markdown h3{margin-top:24px}
+.page-studio .guidance .check{display:flex;align-items:center;gap:8px}
+.page-studio .guidance .check input[type=checkbox]{width:16px;flex-shrink:0;margin:0}
+
+/* Selected document-focus layout. Generated project mocks retain their own theme. */
+body.app-shell.page-studio .studio-intro{margin:28px auto 20px;padding:0 28px}
+body.app-shell.page-studio #workspace{padding:0 28px 28px}
+body.app-shell.page-studio .steps{margin-bottom:20px}
+body.app-shell.page-studio .brief-layout{display:flex;flex-direction:column;gap:16px}
+body.app-shell.page-studio #brief-panel>.panel-heading{display:none}
+body.app-shell.page-studio #brief-panel{padding:24px}
+body.app-shell.page-studio .brief-editor{min-height:300px;margin-bottom:0}
+body.app-shell.page-studio .guidance{order:0;display:grid;grid-template-columns:1fr;background:var(--ui-surface-subtle);padding:16px 20px}
+body.app-shell.page-studio .brief-help{order:2;margin-top:8px;border-top:1px solid var(--ui-border)}
+body.app-shell.page-studio .brief-help h3{margin-top:12px}
+body.app-shell.page-studio .brief-help ol{display:block}
+body.app-shell.page-studio .generation-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+body.app-shell.page-studio .generation-summary>label{margin:0}
+body.app-shell.page-studio .generation-summary select{width:240px}
+body.app-shell.page-studio .generation-summary .check{margin:0}
+body.app-shell.page-studio #routing-hint{flex-basis:100%;margin:0}
+body.app-shell.page-studio #last-selection:empty{display:none}
+body.app-shell.page-studio .ai-details{margin-top:8px}
+body.app-shell.page-studio .ai-details>summary{color:var(--ui-accent);font-size:13px}
+body.app-shell.page-studio .ai-details :is(select,input){max-width:440px}
+body.app-shell.page-studio .brief-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid var(--ui-border)}
+body.app-shell.page-studio .brief-actions .hint{margin:0}
+body.app-shell.page-studio .handoff-cards{gap:0;border-block:1px solid var(--ui-border)}
+body.app-shell.page-studio .handoff-cards article{border:0;border-radius:0;background:transparent}
+body.app-shell.page-studio .handoff-cards article+article{border-left:1px solid var(--ui-border)}
+@media(max-width:767px){
+ body.app-shell.page-studio .studio-intro{padding:0 16px}
+ body.app-shell.page-studio #workspace{padding:0 16px 24px}
+ body.app-shell.page-studio .steps{margin:0 16px 16px}
+ body.app-shell.page-studio #brief-panel{padding:16px}
+ body.app-shell.page-studio .guidance{padding:12px}
+ body.app-shell.page-studio .generation-summary{align-items:stretch}
+ body.app-shell.page-studio .generation-summary select{width:100%}
+ body.app-shell.page-studio .brief-actions{align-items:stretch;flex-direction:column}
+ body.app-shell.page-studio .brief-actions .actions{display:grid;grid-template-columns:1fr 1fr}
+ body.app-shell.page-studio .handoff-cards article+article{border-left:0;border-top:1px solid var(--ui-border)}
+}
+body.app-shell.page-studio #brief-panel>.brief-help{margin-top:8px;border-top:0}
+body.app-shell.page-studio .brief-actions{position:sticky;bottom:0;background:var(--ui-surface);padding:12px 0 4px;z-index:1}
+body.app-shell.page-studio .editor-label{justify-content:flex-end}
+body.app-shell.page-studio .editor-label>label:first-child{margin-right:auto}
+@media(max-width:767px){body.app-shell.page-studio .brief-actions{position:static}}
+@media(min-width:1000px){
+ body.app-shell.page-studio .guidance{grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 16px}
+ body.app-shell.page-studio .generation-summary{display:grid;grid-template-columns:auto 240px minmax(0,1fr);align-items:center;gap:0 16px}
+ body.app-shell.page-studio #routing-hint{grid-column:3;margin-top:-4px}
+ body.app-shell.page-studio #last-selection{grid-column:1/-1}
+ body.app-shell.page-studio .ai-details{margin:0}
+ body.app-shell.page-studio .ai-details[open]{grid-column:1/-1}
+}
+
+/* Detailed spec and review: documents / editor / questions and evidence. */
+body.app-shell.page-studio #spec-content>.spec-layout{grid-template-columns:180px minmax(0,1fr) 280px;align-items:start}
+body.app-shell.page-studio .spec-inspector{padding:20px;border-left:1px solid var(--ui-border);min-width:0;background:var(--ui-surface-subtle)}
+body.app-shell.page-studio .spec-inspector h3{font-size:14px;margin:0 0 16px}
+body.app-shell.page-studio .spec-inspector .questions{padding:0;background:transparent;border:0;margin:0 0 20px}
+body.app-shell.page-studio .spec-inspector :is(textarea,input){width:100%}
+body.app-shell.page-studio .spec-inspector .requirement{padding:12px 0;border:0;border-bottom:1px solid var(--ui-border)}
+body.app-shell.page-studio #documents{padding:12px}.app-shell.page-studio #documents button{font-size:12px;padding:12px 8px}
+body.app-shell.page-studio .document-editor{padding:20px;min-width:0}.app-shell.page-studio #document-body{min-height:560px;font-size:13px;line-height:1.8}
+body.app-shell.page-studio .review-layout{grid-template-columns:180px minmax(0,1fr) 280px}
+body.app-shell.page-studio .inspector{background:var(--ui-surface-subtle)}
+body.app-shell.page-studio .panel-heading h2{font-size:20px}.app-shell.page-studio .panel-heading p{font-size:13px}
+body.app-shell.page-studio #handoff-panel{display:block}body.app-shell.page-studio #handoff-panel[hidden]{display:none}
+body.app-shell.page-studio .handoff-cards article{padding:16px}.app-shell.page-studio .handoff-cards h3{font-size:14px}
+body.app-shell.page-studio .handoff-planning{padding:20px;background:var(--ui-surface-subtle);border:1px solid var(--ui-border)}
+@media(max-width:1199px){body.app-shell.page-studio #spec-content>.spec-layout{grid-template-columns:180px minmax(0,1fr)}body.app-shell.page-studio .spec-inspector{grid-column:1/-1;border-left:0;border-top:1px solid var(--ui-border)}body.app-shell.page-studio .review-layout{grid-template-columns:160px minmax(0,1fr)}}
+@media(max-width:767px){body.app-shell.page-studio #spec-content>.spec-layout,body.app-shell.page-studio .review-layout{display:grid;grid-template-columns:minmax(0,1fr)}body.app-shell.page-studio #documents{display:flex;max-height:180px}.app-shell.page-studio #document-body{min-height:400px}.app-shell.page-studio .spec-inspector{padding:16px}}
+body.app-shell.page-studio :is(#spec-panel,#mock-panel,#handoff-panel)>.panel-heading{padding:0 0 12px;margin-bottom:12px;gap:12px;align-items:center}
+body.app-shell.page-studio :is(#spec-panel,#mock-panel,#handoff-panel)>.panel-heading :is(h2,.eyebrow){display:none}
+body.app-shell.page-studio :is(#spec-panel,#mock-panel,#handoff-panel)>.panel-heading p{margin:0;font-size:12px}
+body.app-shell.page-studio #spec-panel .spec-layout{border:0}.app-shell.page-studio .spec-layout #documents{max-height:590px;overflow:auto}
+body.app-shell.page-studio #documents button{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;background:transparent;text-align:left}.app-shell.page-studio #documents button.active{border:0;border-radius:6px;background:var(--ui-accent-soft)}
+body.app-shell.page-studio .handoff-workbench{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:20px;margin-top:20px}
+body.app-shell.page-studio .handoff-overview{min-width:0}.app-shell.page-studio .handoff-overview h3,.app-shell.page-studio .handoff-connection h3{font-size:14px}
+body.app-shell.page-studio #handoff-status{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}.app-shell.page-studio #handoff-status>.check-row{flex:1;min-width:120px;border:1px solid var(--ui-border);border-radius:8px;padding:12px;margin:0;font-size:12px}
+body.app-shell.page-studio .handoff-cards{display:block}.app-shell.page-studio .handoff-cards article+article{border-left:0;border-top:1px solid var(--ui-border)}.app-shell.page-studio .handoff-cards article{padding:12px 0}.app-shell.page-studio .handoff-cards h3{margin:0 0 4px}.app-shell.page-studio .handoff-cards p{font-size:12px;margin:0}
+body.app-shell.page-studio .handoff-connection{background:var(--ui-surface-subtle);border:1px solid var(--ui-border);border-radius:8px;padding:16px;min-width:0}
+@media(max-width:1000px){body.app-shell.page-studio .handoff-workbench{grid-template-columns:1fr}}
+body.app-shell.page-studio .screen-comments{padding:16px 0;border-top:1px solid var(--ui-border);margin-top:16px}.app-shell.page-studio .screen-comments h3{font-size:14px;margin:0 0 12px}.app-shell.page-studio .screen-comments table{width:100%;font-size:12px;border-collapse:collapse}.app-shell.page-studio .screen-comments th,.app-shell.page-studio .screen-comments td{text-align:left;padding:10px;border-bottom:1px solid var(--ui-border);overflow-wrap:anywhere}

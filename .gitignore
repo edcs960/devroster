@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# Build output
+/build/
+/build-app/
+/dist/
+/dist-app/
+
+# DevRoster workspace data when this checkout is also used as a project
+.agent-dev/
+/config/
+/data/
+/runs/
+/output/
+/backups/
+/docs/wiki/
+/docs/developer-handbook.html
+
+# Local tool output
+/opendesign/
+/graphify-out/
+/.claude/
+/.playwright-mcp/
+/design-qa.md
+.DS_Store

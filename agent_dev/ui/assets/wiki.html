@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>위키 승인</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/wiki.css"><link rel="stylesheet" href="/navigation.css"><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/wiki.js" defer></script></head>
+<body class="page-wiki">
+<header class="app-header" data-page-title="위키 승인"><div class="app-header-actions"></div></header>
+<main id="wiki-root">
+<div class="page-intro"><p class="breadcrumb">설정·자료</p><h1>위키 승인</h1><p>작업에서 나온 재발 방지·테스트 실행 지식을 검토합니다. 승인한 항목만 다음 작업의 역할에 전달됩니다.</p></div>
+<div id="wiki-loading" class="loading-state" role="status" aria-live="polite">위키 항목을 불러오는 중…</div>
+<div id="wiki-error" class="error-state" hidden role="alert"></div>
+<button id="wiki-retry" class="secondary" hidden>다시 불러오기</button>
+<p id="wiki-empty" class="empty-state" hidden>등록된 프로젝트가 없습니다. <a href="/setup#project">프로젝트 설정</a>을 먼저 저장하세요.</p>
+<section id="wiki-section" hidden>
+  <div class="wiki-toolbar" aria-label="위키 항목 조회">
+    <label for="wiki-project">프로젝트<select id="wiki-project"></select></label>
+    <label for="wiki-state">상태<select id="wiki-state">
+      <option value="candidate">승인 대기</option>
+      <option value="active">운영 중</option>
+      <option value="rejected">반려</option>
+      <option value="retired">폐기</option>
+      <option value="">전체(이전 버전 제외)</option>
+    </select></label>
+    <label for="wiki-actor">처리자 이름<input id="wiki-actor" maxlength="100" autocomplete="name" placeholder="승인·반려·폐기에 기록"></label>
+  </div>
+  <p id="wiki-result" role="status" aria-live="polite"></p>
+  <div id="wiki-list" class="wiki-list" role="list" aria-label="위키 항목"></div>
+  <p id="wiki-list-empty" class="empty-state" hidden>조건에 맞는 항목이 없습니다.</p>
+</section>
+</main>
+<footer>제안·개정은 Tech Writer 단계나 <code>devroster knowledge propose|revise</code>로 합니다. <a href="/home">프로젝트 홈</a></footer>
+</body></html>

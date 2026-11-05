@@ -1,0 +1,805 @@
+{
+  "version": 1,
+  "reviewed_at": "2026-10-23",
+  "review_note": "Each pinned skill was read before inclusion: no remote instruction fetch, deletions limited to the skill's own temporary folders. web-design-guidelines is a pinned local copy because the upstream skill fetches its rules on every run.",
+  "bundles": {
+    "core": {
+      "description": "모든 프로젝트 공통: 계획, TDD, 디버깅, 완료 검증, 코드 리뷰, 문서, 보안 리뷰"
+    },
+    "security-scan": {
+      "description": "정적 분석(semgrep)과 의존성 공급망 점검"
+    },
+    "web-react": {
+      "description": "React 웹 화면 구현, 디자인, 접근성, Playwright 테스트"
+    },
+    "spring": {
+      "description": "Spring Boot 4.x, JPA, 테스트, 로깅, Gradle"
+    },
+    "postgres": {
+      "description": "PostgreSQL 스키마·쿼리·인덱스"
+    },
+    "container": {
+      "description": "Docker 이미지·Compose, Kubernetes 매니페스트"
+    },
+    "terraform": {
+      "description": "Terraform 스타일·테스트·모듈"
+    },
+    "mobile-expo": {
+      "description": "Expo / React Native 앱"
+    },
+    "mobile-flutter": {
+      "description": "Flutter / Dart 앱"
+    },
+    "mobile-ios": {
+      "description": "iOS SwiftUI·Concurrency·Testing·SwiftData"
+    },
+    "mobile-android": {
+      "description": "Android Kotlin·Jetpack Compose·Gradle"
+    }
+  },
+  "sources": {
+    "devroster": {
+      "local": true,
+      "license": "bundled with DevRoster"
+    },
+    "superpowers": {
+      "repo": "https://github.com/obra/superpowers.git",
+      "commit": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "license": "MIT"
+    },
+    "anthropic": {
+      "repo": "https://github.com/anthropics/skills.git",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "license": "Apache-2.0"
+    },
+    "trailofbits": {
+      "repo": "https://github.com/trailofbits/skills.git",
+      "commit": "f0dd11d2b1da17a1ff8c403741fbe1f6bca0f871",
+      "license": "CC-BY-SA-4.0"
+    },
+    "vercel": {
+      "repo": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "license": "MIT"
+    },
+    "piomin": {
+      "repo": "https://github.com/piomin/claude-ai-spring-boot.git",
+      "commit": "c7df6e28db7b737efa5ca460752bab168ee76cf0",
+      "license": "Apache-2.0"
+    },
+    "chrisbanes": {
+      "repo": "https://github.com/chrisbanes/skills.git",
+      "commit": "e8e32270fcd600f0f9f458233aba4b6f81b43262",
+      "license": "Apache-2.0"
+    },
+    "supabase": {
+      "repo": "https://github.com/supabase/agent-skills.git",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "license": "MIT"
+    },
+    "docker": {
+      "repo": "https://github.com/docker/skills.git",
+      "commit": "38df58b09720d38eb78c2c674675ddf9fa74d441",
+      "license": "Apache-2.0"
+    },
+    "google": {
+      "repo": "https://github.com/google/skills.git",
+      "commit": "90bb0a8853daa6ab597c303a69d80ad8ee3e44d5",
+      "license": "Apache-2.0"
+    },
+    "hashicorp": {
+      "repo": "https://github.com/hashicorp/agent-skills.git",
+      "commit": "f706481af9b8fedb66de909f6243ad29601afa0c",
+      "license": "MPL-2.0"
+    },
+    "expo": {
+      "repo": "https://github.com/expo/skills.git",
+      "commit": "0d035556e37737de83199d8e623641bad7a7cced",
+      "license": "MIT"
+    },
+    "flutter": {
+      "repo": "https://github.com/flutter/agent-plugins.git",
+      "commit": "f813a46b18456a20f37eb5784c091b7d945c3b4b",
+      "license": "BSD-3-Clause"
+    },
+    "swiftui": {
+      "repo": "https://github.com/twostraws/SwiftUI-Agent-Skill.git",
+      "commit": "ce32af1693b9e78a7d22ff48001c97a304d32063",
+      "license": "MIT"
+    },
+    "swift-concurrency": {
+      "repo": "https://github.com/twostraws/Swift-Concurrency-Agent-Skill.git",
+      "commit": "bee3f69ba17142da148d3c5406f148ed62592b69",
+      "license": "MIT"
+    },
+    "swift-testing": {
+      "repo": "https://github.com/twostraws/Swift-Testing-Agent-Skill.git",
+      "commit": "2d6bba14a3c8bf3694f218b92fffe617c41ae43e",
+      "license": "MIT"
+    },
+    "swiftdata": {
+      "repo": "https://github.com/twostraws/SwiftData-Agent-Skill.git",
+      "commit": "8051f177a0076e7fd45bdf4ee687b070ba58fdc6",
+      "license": "MIT"
+    }
+  },
+  "skills": {
+    "dev-pipeline": {
+      "source": "devroster",
+      "bundles": [
+        "core"
+      ],
+      "roles": [],
+      "path": "skills/dev-pipeline"
+    },
+    "writing-plans": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "planner",
+        "architect"
+      ],
+      "path": "skills/writing-plans",
+      "tree_digest": "710874df8470dd2b8c06ec32bcbd6138cb465d096cd548cb125a22c5f58f2212"
+    },
+    "test-driven-development": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "developer",
+        "developer-frontend",
+        "developer-backend",
+        "test-automation"
+      ],
+      "path": "skills/test-driven-development",
+      "tree_digest": "7737cde5b79ff554a83a5b8dd9a87c6250b268219c3aaf8f050669caba68e8a4"
+    },
+    "systematic-debugging": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "developer",
+        "developer-frontend",
+        "developer-backend",
+        "developer-infra"
+      ],
+      "path": "skills/systematic-debugging",
+      "tree_digest": "c74fc23caad8c6d934b26b7104e73fa0843409712731b4635f4f7082e96fb036"
+    },
+    "verification-before-completion": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "developer",
+        "developer-frontend",
+        "developer-backend",
+        "developer-infra",
+        "qa"
+      ],
+      "path": "skills/verification-before-completion",
+      "tree_digest": "d814ecc4d6a11c2f0a28611421ba30f003732973845bb2eeef835f727b372539"
+    },
+    "requesting-code-review": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "reviewer"
+      ],
+      "path": "skills/requesting-code-review",
+      "tree_digest": "589b5cfa761559e2d4cc4db03f7af0fe5047a769d78792943522e5d93ddb4cf8"
+    },
+    "receiving-code-review": {
+      "source": "superpowers",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "developer"
+      ],
+      "path": "skills/receiving-code-review",
+      "tree_digest": "9e67888034ed1c6d60fdaf72212785b985c577d29def0337ec729fae2739f9c2"
+    },
+    "doc-coauthoring": {
+      "source": "anthropic",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "planner",
+        "tech-writer"
+      ],
+      "path": "skills/doc-coauthoring",
+      "tree_digest": "ac9739b49547f7f2ea448ba5f3a8ae68a4ebf9c150a1d496aff948dfd3fe002e"
+    },
+    "differential-review": {
+      "source": "trailofbits",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "security",
+        "reviewer"
+      ],
+      "path": "plugins/differential-review/skills/differential-review",
+      "tree_digest": "d9afc10b50779be56a0ccf22028de2e3977be602dd8d4f9c8cfa450bd54ac844"
+    },
+    "sharp-edges": {
+      "source": "trailofbits",
+      "bundles": [
+        "core"
+      ],
+      "roles": [
+        "architect",
+        "security"
+      ],
+      "path": "plugins/sharp-edges/skills/sharp-edges",
+      "tree_digest": "32d4c8dc041ded43f6f891e53e6e22bf43e194e84200683490c6e164505a7952"
+    },
+    "semgrep": {
+      "source": "trailofbits",
+      "bundles": [
+        "security-scan"
+      ],
+      "roles": [
+        "security"
+      ],
+      "path": "plugins/static-analysis/skills/semgrep",
+      "tree_digest": "8e00074797629e6d1a1df0bb6456fa019a9acf2665df888c5b5dd6f0175986c9"
+    },
+    "supply-chain-risk-auditor": {
+      "source": "trailofbits",
+      "bundles": [
+        "security-scan"
+      ],
+      "roles": [
+        "security",
+        "developer-infra"
+      ],
+      "path": "plugins/supply-chain-risk-auditor/skills/supply-chain-risk-auditor",
+      "tree_digest": "d618093c858aab562386e7c777115b6d3efd9d72a1d2c560882bee8ff4e5e4dc"
+    },
+    "frontend-design": {
+      "source": "anthropic",
+      "bundles": [
+        "web-react"
+      ],
+      "roles": [
+        "designer",
+        "developer-frontend"
+      ],
+      "path": "skills/frontend-design",
+      "tree_digest": "d00e5e78be144b88160a6c61e9d0dec8a703c84e8002e7aa56e08eeb9dfb361c"
+    },
+    "web-design-guidelines": {
+      "source": "devroster",
+      "bundles": [
+        "web-react"
+      ],
+      "roles": [
+        "ux-ui",
+        "designer",
+        "qa"
+      ],
+      "path": "skill_catalog/web-design-guidelines"
+    },
+    "webapp-testing": {
+      "source": "anthropic",
+      "bundles": [
+        "web-react"
+      ],
+      "roles": [
+        "qa",
+        "test-automation"
+      ],
+      "path": "skills/webapp-testing",
+      "tree_digest": "380c5aca598b329c0a557b0499bd1f63ce0d378f6f6af52fe2e5c89a11f0d29a"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel",
+      "bundles": [
+        "web-react"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/react-best-practices",
+      "tree_digest": "dd9d1fda97727eff044b0482735ed8b08adfd31957afc8248ce19ba87732b0be"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel",
+      "bundles": [
+        "web-react"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/composition-patterns",
+      "tree_digest": "9e44eba30a911f323781d2402dfc29d132feccd4015df550c23d9a17e3a247e8"
+    },
+    "spring-boot": {
+      "source": "piomin",
+      "bundles": [
+        "spring"
+      ],
+      "roles": [
+        "developer-backend"
+      ],
+      "path": "skills/spring-boot",
+      "tree_digest": "8394e4783c7b2442e4fdf34f1db219d2049b6778cfeb19a7275888470ccf622d"
+    },
+    "jpa-patterns": {
+      "source": "piomin",
+      "bundles": [
+        "spring"
+      ],
+      "roles": [
+        "developer-backend",
+        "dba"
+      ],
+      "path": "skills/jpa-patterns",
+      "tree_digest": "8e1f197c5bbd964541faa20943ebe83a2bceb9bc98b0878d42241c619fc57c52"
+    },
+    "testing-patterns": {
+      "source": "piomin",
+      "bundles": [
+        "spring"
+      ],
+      "roles": [
+        "developer-backend",
+        "test-automation"
+      ],
+      "path": "skills/testing-patterns",
+      "tree_digest": "efc4dac6a92aea245d5409320dcf582e087c54f488126c94ea9d78de8991a2aa"
+    },
+    "java-modern": {
+      "source": "piomin",
+      "bundles": [
+        "spring"
+      ],
+      "roles": [
+        "developer-backend"
+      ],
+      "path": "skills/java-modern",
+      "tree_digest": "546963c1ae76fe15490ff879b4fe1bf1cde4cb717e0b7d04effe993eafb4514b"
+    },
+    "logging-patterns": {
+      "source": "piomin",
+      "bundles": [
+        "spring"
+      ],
+      "roles": [
+        "developer-backend"
+      ],
+      "path": "skills/logging-patterns",
+      "tree_digest": "76195b3145a70ebfdb02788db9e7e731a50f152e32b637f0cfb6af9a1be7a93f"
+    },
+    "gradle-run": {
+      "source": "chrisbanes",
+      "bundles": [
+        "spring",
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-backend",
+        "developer-infra",
+        "test-automation"
+      ],
+      "path": "skills/gradle-run",
+      "tree_digest": "dd50ec5c9e7b0fca3676da4fa8d76867feb78b9c4ba0fa218d43428cd5a39887"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase",
+      "bundles": [
+        "postgres"
+      ],
+      "roles": [
+        "dba",
+        "developer-backend"
+      ],
+      "path": "skills/supabase-postgres-best-practices",
+      "tree_digest": "a2ab438c9b1bee5916f511746ac8942e800f2dd798d0bb16a66f17ee617f2d4f"
+    },
+    "docker-build-strategies": {
+      "source": "docker",
+      "bundles": [
+        "container"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "skills/docker-build-strategies",
+      "tree_digest": "8e56fdf6fba8d777d772cc95254ae7ad077152183dae2aa048675e767a0ba2a6"
+    },
+    "docker-compose-patterns": {
+      "source": "docker",
+      "bundles": [
+        "container"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "skills/docker-compose-patterns",
+      "tree_digest": "580e43c988247396bb7ef51e948dfab81d30cfdfe8f0931560b33f051945192f"
+    },
+    "docker-project-foundations": {
+      "source": "docker",
+      "bundles": [
+        "container"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "skills/docker-project-foundations",
+      "tree_digest": "5dc892efacaea3492c2c0bf9611ab72ec737a21c6a1ed4188013622e298835e9"
+    },
+    "docker-destructive-guardrails": {
+      "source": "docker",
+      "bundles": [
+        "container"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "skills/docker-destructive-guardrails",
+      "tree_digest": "1f9998019a298db01be40c15ae465cd5ab2663afcbafe5e984c9a2df7199bf0d"
+    },
+    "gke-manifest-generation": {
+      "source": "google",
+      "bundles": [
+        "container"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "skills/cloud/gke-manifest-generation",
+      "tree_digest": "bd8c9a1f87cb8d7a924a334b5dddb77b7672394a5de570a75d37cf1501ec3c67"
+    },
+    "terraform-style-guide": {
+      "source": "hashicorp",
+      "bundles": [
+        "terraform"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "plugins/terraform/skills/terraform-style-guide",
+      "tree_digest": "0a1dd1f3b9ecd42432897aeaee462c3158f008860af859b667f70ccd651008da"
+    },
+    "terraform-test": {
+      "source": "hashicorp",
+      "bundles": [
+        "terraform"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "plugins/terraform/skills/terraform-test",
+      "tree_digest": "03de0f252fe409a5c0d936ca2a4a7b5289ec0103dd53b5fcd47341fd28cff7ed"
+    },
+    "refactor-module": {
+      "source": "hashicorp",
+      "bundles": [
+        "terraform"
+      ],
+      "roles": [
+        "developer-infra"
+      ],
+      "path": "plugins/terraform/skills/refactor-module",
+      "tree_digest": "40e4db9d04daf7772f4c8f11c45f611e66673555becbd1e0b5ceba36996c6bed"
+    },
+    "expo-overview": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "plugins/expo/skills/expo-overview",
+      "tree_digest": "5149855fa5d03fe25b3033a54f75b4aae6129d135f74b4c1901d8b1690282c3a"
+    },
+    "expo-router": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "plugins/expo/skills/expo-router",
+      "tree_digest": "40677f8e03db831c7a2ec3c595031f7de03f157d899b9bc60ae8818d6541f70f"
+    },
+    "expo-native-ui": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "plugins/expo/skills/expo-native-ui",
+      "tree_digest": "0580fca571fb4457c92986abba2f2fce2b4cdab53fcb96a37823db127b66b3d5"
+    },
+    "expo-data-fetching": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "plugins/expo/skills/expo-data-fetching",
+      "tree_digest": "239c160ab6bd2927983d54dd47bbddf7eb43f86cc9f057f4ed60b37e52fc5ba4"
+    },
+    "expo-upgrade": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "plugins/expo/skills/expo-upgrade",
+      "tree_digest": "867a5f395cf471a938c845cc24e4678541bdd3cc8e24df8128f89add54a9e2ee"
+    },
+    "eas-workflows": {
+      "source": "expo",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend",
+        "developer-infra"
+      ],
+      "path": "plugins/expo/skills/eas-workflows",
+      "tree_digest": "ae3328846e4f1fff444116a0845d5f71485bc0c8b9b15053fabe8b8c52e35984"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel",
+      "bundles": [
+        "mobile-expo"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/react-native-skills",
+      "tree_digest": "580d42f1a7a96c9d06675804908f96034d56d79e71638157c3a8472bf14b9ebf"
+    },
+    "flutter-apply-architecture-best-practices": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/flutter-apply-architecture-best-practices",
+      "tree_digest": "7d8ae28831dcf0bf1d5968e0ef79218e2994d68f2463a5ef1e96f4c51c77b489"
+    },
+    "flutter-build-responsive-layout": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/flutter-build-responsive-layout",
+      "tree_digest": "f77247468631edb171477f808da95151dd19ce0164001ca57df3e38f912be6b2"
+    },
+    "flutter-setup-declarative-routing": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/flutter-setup-declarative-routing",
+      "tree_digest": "7d9c8b9d144b4064886b497b62968627fab7615e441fc67d95bfec7fc50e5c4a"
+    },
+    "flutter-add-widget-test": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend",
+        "test-automation"
+      ],
+      "path": "skills/flutter-add-widget-test",
+      "tree_digest": "bc03a884d80821350ce6298b0f528e27af1fe70733f8d8717fb84129750666b6"
+    },
+    "flutter-add-integration-test": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend",
+        "test-automation"
+      ],
+      "path": "skills/flutter-add-integration-test",
+      "tree_digest": "62eb6600a25156b09012ff5c1b5897fc4e02e9dbb1a1a8d3bc80fbce0d8fb345"
+    },
+    "dart-add-unit-test": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend",
+        "test-automation"
+      ],
+      "path": "skills/dart-add-unit-test",
+      "tree_digest": "f20a5cd01db304411467cee78d318760afe3253f7e3882369b9623cf83e1bfe6"
+    },
+    "dart-run-static-analysis": {
+      "source": "flutter",
+      "bundles": [
+        "mobile-flutter"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/dart-run-static-analysis",
+      "tree_digest": "e2a7454ac22d69d6c6ccb3d1c4c5e2da56c846d0a4c9699bbd33827936bec4f4"
+    },
+    "swiftui-pro": {
+      "source": "swiftui",
+      "bundles": [
+        "mobile-ios"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "swiftui-pro",
+      "exclude": [
+        "skills",
+        ".claude-plugin"
+      ],
+      "tree_digest": "0829bc4207e69a25598fec53e76f1b3583c648731d436240e291f2334319901d"
+    },
+    "swift-concurrency-pro": {
+      "source": "swift-concurrency",
+      "bundles": [
+        "mobile-ios"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "swift-concurrency-pro",
+      "exclude": [
+        "skills",
+        ".claude-plugin"
+      ],
+      "tree_digest": "19cb4d206817cbd2b23fbdcbfa4d29cfe2f5e0b87e6a19be4489181156aa68eb"
+    },
+    "swift-testing-pro": {
+      "source": "swift-testing",
+      "bundles": [
+        "mobile-ios"
+      ],
+      "roles": [
+        "developer-frontend",
+        "test-automation"
+      ],
+      "path": "swift-testing-pro",
+      "exclude": [
+        "skills",
+        ".claude-plugin"
+      ],
+      "tree_digest": "a586db3852a9752442d1d8a223dcd8a81716657c6c69fe1c60f020e247d0c82f"
+    },
+    "swiftdata-pro": {
+      "source": "swiftdata",
+      "bundles": [
+        "mobile-ios"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "swiftdata-pro",
+      "tree_digest": "0d68bbbcaefbe929c6eda0022c71cec4c5425b23fd88831b7169f48b5269cea4"
+    },
+    "using-chrisbanes-skills": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/using-chrisbanes-skills",
+      "tree_digest": "67c3b5e7d9daafc307ed99078f6e29b6f5a07d14a1c2d10b5d732c6fdf1c3dad"
+    },
+    "compose-state-and-effects": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/compose-state-and-effects",
+      "tree_digest": "1fe32763fa6d88a17d7dc0a94f813eb49c1b060e62e800e156615e8a86476497"
+    },
+    "compose-performance": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/compose-performance",
+      "tree_digest": "7990ad95b3f94f8aafccba5a354bd434935d6a4c37ac508b90b90757d4c2af9c"
+    },
+    "compose-component-design": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/compose-component-design",
+      "tree_digest": "5836ff3278d7b9ccae62d11495561bc264bcc5b719d3bfe95e0b2de081ab4f4f"
+    },
+    "compose-ui-testing-patterns": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend",
+        "test-automation"
+      ],
+      "path": "skills/compose-ui-testing-patterns",
+      "tree_digest": "45141a2e406279427a421e1697091d467c9bf278ff3946b803ae57c3c675741a"
+    },
+    "kotlin-concurrency-and-flow": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/kotlin-concurrency-and-flow",
+      "tree_digest": "1516d20f33c0f8922b961888d9ac4d12a59694e5d30b3f2faf7ce9a6458db8ef"
+    },
+    "kotlin-api-design": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/kotlin-api-design",
+      "tree_digest": "f065009e376ca3162359b4e165b5bc96904d66ae2833a64fb1515b64dbd6a622"
+    },
+    "kotlin-control-flow": {
+      "source": "chrisbanes",
+      "bundles": [
+        "mobile-android"
+      ],
+      "roles": [
+        "developer-frontend"
+      ],
+      "path": "skills/kotlin-control-flow",
+      "tree_digest": "a046719fc9c0f70ae7eda860ed46dbef40d965865e14f863323fabfba1556aed"
+    }
+  }
+}

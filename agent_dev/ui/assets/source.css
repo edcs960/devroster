@@ -1,0 +1,80 @@
+/* source layout and specialized views; shared chrome lives in ui-*.css. */
+.page-source main{padding:24px;max-width:var(--ui-max-width);margin:auto}
+.page-source .hero,.page-source .section-title,.page-source .toolbar,.page-source .graph-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.page-source .toolbar{margin:24px 0}
+.page-source .toolbar form,.page-source .tabs{display:flex;gap:8px;align-items:center}
+.page-source .source-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px}
+.page-source .tree-pane,.page-source .code-pane,.page-source .detail{min-width:0}
+.page-source .tree-pane{max-height:75vh;overflow:auto}
+.page-source .tree-row{display:flex;gap:4px;align-items:center}
+.page-source .tree-row button{text-align:left;overflow-wrap:anywhere;padding:8px 4px}
+.page-source .tree-children{padding-left:16px;border-left:1px solid var(--ui-border)}
+.page-source .tree-row .selected{font-weight:750;background:var(--ui-accent-soft)}
+.page-source .code{overflow:auto;max-height:65vh;background:#f7f9f8;border:1px solid #e1e9e4;border-radius:8px}
+.page-source .code table{border-collapse:collapse;width:100%;font:13px/1.7 ui-monospace,SFMono-Regular,monospace}
+.page-source .code td{white-space:pre;padding:0 16px;vertical-align:top}
+.page-source .code .line-number{color:#809389;border-right:1px solid #e1e9e4;text-align:right;user-select:none;position:sticky;left:0;background:#f0f5f2}
+.page-source .code .line-focus{background:#def2e5}
+.page-source #line-form{display:flex;align-items:center;gap:8px;margin-top:16px}
+.page-source #line{width:100px}
+.page-source #breadcrumb{font-size:13px;overflow-wrap:anywhere}
+.page-source .empty{padding:24px}
+.page-source #notice:not(:empty){padding:16px;margin:16px 0}
+.page-source .graph-tools{justify-content:flex-start}
+.page-source .graph-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
+.page-source .graph-canvas{overflow:hidden}
+.page-source .graph-canvas svg{width:100%;height:550px;touch-action:none;cursor:grab}
+.page-source .edge{stroke:#b0c6ba;stroke-width:2}
+.page-source .edge.inferred{stroke-dasharray:5 5;stroke:#b298c5}
+.page-source .graph-node circle{fill:#e5f2eb;stroke:#3d9270;stroke-width:2}
+.page-source .graph-node.selected circle{fill:#a5d7ba;stroke-width:4}
+.page-source .graph-node text{fill:#284b3c;font-size:12px;pointer-events:none}
+.page-source .graph-node{cursor:pointer}
+.page-source .node-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:16px 0}
+.page-source .node-list button{text-align:left;overflow-wrap:anywhere}
+.page-source .detail pre{overflow-wrap:anywhere;white-space:pre-wrap;font-size:12px}
+.page-source .detail button{margin:4px 0}
+@media(max-width:750px){
+.page-source main{padding:16px}
+.page-source .source-layout,.page-source .graph-layout{grid-template-columns:1fr}
+.page-source .tree-pane{max-height:250px}
+.page-source .graph-canvas svg{height:400px}
+.page-source .hero{align-items:flex-start}
+.page-source .toolbar form{width:100%}
+.page-source .toolbar input{min-width:0;flex:1}
+.page-source .section-title h2{overflow-wrap:anywhere}
+.page-source .code td{padding:0 8px}
+}
+.page-source label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-source .toolbar form input{width:auto;flex:1;min-width:0}
+
+.page-source .hero>label{min-width:min(300px,100%)}.page-source #module{display:block;width:100%}
+
+.page-source .toolbar form{flex-wrap:wrap;flex:1 1 640px}
+.page-source .toolbar form #search{flex:1 1 160px}
+.page-source .toolbar form #search-path{flex:0 1 180px}
+.page-source .toolbar .check{display:inline-flex;gap:4px;align-items:center;font-size:13px}
+.page-source .search-list{list-style:none;padding:0;margin:8px 0;display:grid;gap:4px}
+.page-source .search-list li{display:grid;gap:2px;min-width:0}
+.page-source .search-list button{text-align:left;overflow-wrap:anywhere}
+.page-source .snippet{display:block;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ui-muted);padding:0 4px}
+.page-source .impact{border:1px solid var(--ui-border);border-radius:8px;padding:8px 16px;margin:12px 0;overflow-wrap:anywhere}
+.page-source .impact ul{padding-left:16px}
+@media(max-width:750px){.page-source .toolbar form #search,.page-source .toolbar form #search-path{flex:1 1 100%}}
+.page-source .search-list button{justify-content:flex-start}
+@media(max-width:750px){.page-source .tree-pane{max-height:none;overflow:visible}.page-source #tree{max-height:250px;overflow:auto}}
+
+/* Files, source and contextual evidence remain adjacent. */
+body.app-shell.page-source .tree-pane,body.app-shell.page-source .code-pane{padding:16px}.app-shell.page-source .section-title h2{font-size:16px}
+body.app-shell.page-source .toolbar{flex-wrap:wrap}.app-shell.page-source .code{min-height:520px}
+body.app-shell.page-source #line-form{margin:8px 0}.app-shell.page-source .code-pane>.section-title{flex-wrap:wrap;gap:8px}
+body.app-shell.page-source .source-layout{grid-template-columns:200px minmax(0,1fr) 240px;gap:16px}
+body.app-shell.page-source .source-context{min-width:0;background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:8px;padding:16px}.app-shell.page-source .source-context h2{font-size:14px}.app-shell.page-source .source-context p{font-size:12px}
+@media(max-width:1199px){body.app-shell.page-source .source-layout{grid-template-columns:200px minmax(0,1fr)}.app-shell.page-source .source-context{grid-column:1/-1}}
+@media(max-width:767px){body.app-shell.page-source .source-layout{grid-template-columns:1fr}}
+/* Flat file tree rows instead of bordered boxes (screen-designs pass). */
+.page-source #tree .tree-row button{width:100%;justify-content:flex-start;text-align:left;border:0;background:transparent;box-shadow:none;min-height:32px;padding:4px 8px;border-radius:6px;font-weight:500;font-size:13px;overflow-wrap:anywhere}
+.page-source #tree .tree-row button:hover{background:var(--ui-surface-subtle)}
+.page-source #tree .tree-row button[aria-expanded]{font-weight:600}
+.page-source #tree .tree-row .selected,.page-source #tree .tree-row button[aria-current]{background:var(--ui-accent-soft);color:var(--ui-accent)}
+.page-source #tree .tree-children{margin-left:10px;padding-left:8px}

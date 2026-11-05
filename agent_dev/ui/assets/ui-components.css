@@ -1,0 +1,82 @@
+/* Reusable product chrome. Secondary buttons are the default. */
+:where(body>header,.page-header,.panel-heading,.section-heading,.section-title) { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-6); flex-wrap: wrap; }
+body>header { background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); padding: var(--ui-space-5) var(--ui-space-6); }
+:where(.panel,.card,.metric,.preset,.tree-pane,.code-pane,.detail,.graph-canvas,.editor,.workspace-grid>aside,.layout>section,.page-agent main>section:not(.workspace-grid),.page-agent main>details,.page-setup main>form>section) { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-card-radius); padding: var(--ui-space-6); min-width: 0; }
+:where(button,.button,.file-button,a.link):not(:where(.mock-canvas *)) { display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-space-2); min-height: var(--ui-target); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); padding: var(--ui-space-2) var(--ui-space-4); background: var(--ui-surface); color: var(--ui-text); font: 600 var(--ui-font-size)/var(--ui-line-height) var(--ui-font); cursor: pointer; text-decoration: none; overflow-wrap: anywhere; }
+:where(button:hover,.button:hover,.file-button:hover,a.link:hover):not(:where(.mock-canvas *)):not(:disabled) { background: var(--ui-surface-subtle); border-color: var(--ui-accent); text-decoration: none; }
+:where(button.primary,.button.primary):not(:where(.mock-canvas *)) { background: var(--ui-accent); color: white; border-color: var(--ui-accent); }
+:where(button.primary:hover,.button.primary:hover):not(:where(.mock-canvas *)):not(:disabled) { background: var(--ui-accent-hover); }
+:where(button.danger,.button.danger):not(:where(.mock-canvas *)) { background: var(--ui-danger-bg); color: var(--ui-danger); border-color: var(--ui-danger-border); }
+:where([aria-busy=true]) { cursor: progress; }
+:where(body>header a,body>header nav a,.project-controls>a,.page-setup main>nav a) { min-height: var(--ui-target); display: inline-flex; align-items: center; }
+:where(.field) { display: grid; gap: var(--ui-space-2); }
+:where(.help,.hint,.field-help,.muted,.small) { color: var(--ui-muted); font-size: 12px; }
+:where(.field-error,[aria-invalid=true]) { color: var(--ui-danger); }
+:where([aria-invalid=true]) { border-color: var(--ui-danger); }
+:where(.badge,.state) { display: inline-block; border-radius: var(--ui-radius); padding: var(--ui-space-1) var(--ui-space-2); font-size: 12px; font-weight: 600; line-height: var(--ui-line-height); background: var(--ui-accent-soft); color: var(--ui-accent-hover); }
+:where(.badge.pass,.badge.ready,.badge.completed,.badge.passed,.state.completed,.pass) { background: var(--ui-success-bg); color: var(--ui-success); }
+:where(.badge.fail,.badge.failed,.badge.blocked,.badge.interrupted,.state.failed,.fail) { background: var(--ui-danger-bg); color: var(--ui-danger); }
+:where(.badge.warn,.badge.verifying,.badge.approval_pending,.badge.waiting_for_capacity,.badge.user_review,.warn) { background: var(--ui-warning-bg); color: var(--ui-warning); }
+:where(.badge.running,.state.running) { background: var(--ui-accent-soft); color: var(--ui-accent-hover); }
+:where(.notice,.job-status,.info,#notice:not(:empty),#error) { padding: var(--ui-space-4) var(--ui-space-5); border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-accent-soft); color: var(--ui-accent-hover); overflow-wrap: anywhere; white-space: pre-line; }
+:where(.notice.error,#notice.error,#error,.field-error) { background: var(--ui-danger-bg); color: var(--ui-danger); border-color: var(--ui-danger-border); }
+:where(.empty,.empty-state,.loading) { padding: var(--ui-space-6); border: 1px dashed var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-muted); background: var(--ui-surface-subtle); overflow-wrap: anywhere; }
+:where(.eyebrow) { color: var(--ui-accent); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+:where(.tabs,.segmented) { display: flex; flex-wrap: wrap; gap: var(--ui-space-1); }
+:where(button[aria-selected=true],button[aria-pressed=true],button[aria-current],button.selected,button.active) { background: var(--ui-accent-soft); color: var(--ui-accent-hover); border-color: var(--ui-accent); }
+:where(dialog) { border: 1px solid var(--ui-border); border-radius: var(--ui-card-radius); padding: var(--ui-space-6); width: min(760px,calc(100% - 32px)); max-height: 90vh; overflow: auto; color: var(--ui-text); background: var(--ui-surface); }
+dialog::backdrop { background: #1c274166; }
+:where(.dialog-actions,.actions,.header-actions) { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; align-items: center; }
+@media(max-width:700px) { :where(.panel,.card,.metric,.preset,.tree-pane,.code-pane,.detail,.editor) { padding: var(--ui-space-4); } }
+
+/* Studio-style identity and action slots, shared by every product route. */
+body>.app-header { padding: var(--ui-space-5) max(var(--ui-space-6),4vw); gap: var(--ui-space-5); }
+.app-header-identity { display: flex; align-items: center; gap: var(--ui-space-4); min-width: 0; }
+.app-brand { display: flex; align-items: center; gap: var(--ui-space-3); color: var(--ui-text); text-decoration: none; min-width: 0; }
+.app-brand:hover { text-decoration: none; }
+.app-brand .brand-mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 11px; background: var(--ui-accent); color: white; font-weight: 700; }
+img.brand-mark { object-fit: contain; background: none; }
+.app-brand-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--ui-space-2); font-size: 17px; font-weight: 650; }
+.app-brand-name strong { color: var(--ui-muted); font-size: 14px; font-weight: 500; }
+.app-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-space-2); min-width: 0; }
+.app-header-actions:empty { display: none; }
+.page-intro { margin-bottom: var(--ui-space-6); }
+@media(max-width:700px) {
+ body>.app-header { padding: var(--ui-space-4); gap: var(--ui-space-4); }
+ .app-header-identity { gap: var(--ui-space-3); }
+ .app-brand-name { flex-direction: column; gap: 0; }
+ .app-header-actions { width: 100%; }
+}
+
+/* Page task hierarchy and native catalogue disclosures share product tokens. */
+:where(.page-intro,.hero,.intro):not(:where(.mock-canvas *)){margin-bottom:var(--ui-space-6)}
+:where(.catalog-group){padding:var(--ui-space-3) var(--ui-space-4);border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface)}
+:where(.catalog-group>summary){min-height:var(--ui-target)}
+:where(.catalog-group .grid){margin-top:var(--ui-space-3)}
+
+/* Shared page context and status cues (screen-designs pass). */
+:where(.page-intro .breadcrumb) { margin: 0 0 4px; color: var(--ui-muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+:where(.status-dot) { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ui-text); white-space: nowrap; }
+:where(.status-dot) > i { width: 8px; height: 8px; border-radius: 50%; background: var(--ui-muted); flex: none; }
+:where(.status-dot.ok) > i { background: #16a34a; }
+:where(.status-dot.active) > i { background: var(--ui-accent); }
+:where(.status-dot.attention) > i { background: #f59e0b; }
+:where(.info-note) { display: grid; gap: 4px; margin-top: 16px; padding: 14px 16px; border-radius: var(--ui-radius); background: var(--ui-surface-subtle); color: var(--ui-text); font-size: 13px; line-height: 1.6; }
+:where(.info-note) p { margin: 0; color: var(--ui-muted); }
+:where(.page-footnote) { margin: 24px 0 0; font-size: 12px; color: var(--ui-muted); }
+
+/* Progress bar (ui-progress.js): known fraction, "active" stripes, "over" estimate, or unknown length. */
+.ui-progress { position: relative; height: 10px; border-radius: 999px; background: var(--ui-surface); border: 1px solid var(--ui-border); overflow: hidden; }
+.ui-progress-fill { width: 0; height: 100%; background: var(--ui-accent); transition: width .6s linear; }
+.ui-progress.active .ui-progress-fill,
+.ui-progress.over .ui-progress-fill { background-image: repeating-linear-gradient(45deg, transparent 0 8px, rgba(255, 255, 255, .35) 8px 16px); background-size: 22.63px 22.63px; animation: ui-progress-stripes 1s linear infinite; }
+.ui-progress.over .ui-progress-fill { width: 100%; }
+.ui-progress.indeterminate .ui-progress-fill { width: 35%; animation: ui-progress-slide 1.4s ease-in-out infinite; }
+@keyframes ui-progress-stripes { to { background-position: 22.63px 0; } }
+@keyframes ui-progress-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-fill { transition: none; }
+  .ui-progress.active .ui-progress-fill, .ui-progress.over .ui-progress-fill { animation: none; }
+  .ui-progress.indeterminate .ui-progress-fill { width: 100%; opacity: .45; animation: none; }
+}
+.ui-progress[data-busy-for] { margin: 8px 0; }

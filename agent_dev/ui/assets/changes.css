@@ -1,0 +1,51 @@
+/* Requirement change workspace uses the shared product tokens. */
+.page-changes main {max-width:1100px;margin:auto;padding:var(--ui-space-7);}
+.page-changes :is(.changes-toolbar,.change-card-actions,.form-actions,#changes-result-links){display:flex;flex-wrap:wrap;gap:var(--ui-space-2);align-items:center;}
+.page-changes .changes-toolbar{margin-bottom:var(--ui-space-5);}
+.page-changes .changes-toolbar select{flex:1 1 160px;min-width:0;}
+.page-changes .changes-list{display:grid;gap:var(--ui-space-4);}
+.page-changes :is(.change-card,.changes-propose-panel,#changes-detail,.impact-item,.task-mapping){border:1px solid var(--ui-border);border-radius:var(--ui-radius);padding:var(--ui-space-5);background:var(--ui-surface);min-width:0;overflow-wrap:anywhere;}
+.page-changes .change-card[data-state="applied"]{border-left:4px solid var(--ui-success);}
+.page-changes .change-card[data-state="proposed"]{border-left:4px solid var(--ui-accent);}
+.page-changes .change-card[data-state="rejected"]{border-left:4px solid var(--ui-danger);}
+.page-changes :is(.changes-propose-panel,#changes-detail){margin-top:var(--ui-space-6);}
+.page-changes summary{cursor:pointer;font-weight:600;}
+.page-changes form{display:grid;gap:var(--ui-space-4);margin-top:var(--ui-space-5);}
+.page-changes label{display:grid;gap:var(--ui-space-1);margin:var(--ui-space-3) 0;}
+.page-changes :is(input:not([type="checkbox"]),select){width:100%;min-width:0;min-height:var(--ui-target);}
+.page-changes fieldset{min-width:0;border:1px solid var(--ui-border);border-radius:var(--ui-radius);padding:var(--ui-space-4);margin:var(--ui-space-2) 0;}
+.page-changes legend{font-weight:600;padding:0 var(--ui-space-2);}
+.page-changes input[type="checkbox"]{width:20px;height:20px;flex:none;vertical-align:middle;margin-right:var(--ui-space-2);}
+.page-changes .check-label{display:flex;align-items:center;min-height:var(--ui-target);}
+.page-changes :is(.changes-hint,.changes-meta,small){color:var(--ui-muted);overflow-wrap:anywhere;}
+.page-changes .delta-row{display:flex;justify-content:space-between;gap:var(--ui-space-4);padding:var(--ui-space-2);border-bottom:1px solid var(--ui-border);}
+.page-changes .delta-badge{padding:2px 8px;border-radius:var(--ui-radius);background:var(--ui-surface-subtle);}
+.page-changes .delta-badge.changed{background:var(--ui-warning-bg);color:var(--ui-warning);}
+.page-changes .delta-badge.removed{background:var(--ui-danger-bg);color:var(--ui-danger);}
+.page-changes .delta-badge.added{background:var(--ui-success-bg);color:var(--ui-success);}
+.page-changes #changes-result-links a{display:inline-block;padding:var(--ui-space-2);}
+.page-changes footer{padding:var(--ui-space-6);text-align:center;color:var(--ui-muted);}
+@media(max-width:700px){
+ .page-changes main{padding:var(--ui-space-4);}
+ .page-changes .changes-toolbar{flex-direction:column;align-items:stretch;}
+ .page-changes .changes-toolbar select{flex:0 0 auto;width:100%;}
+ .page-changes :is(.change-card,.changes-propose-panel,#changes-detail,.impact-item,.task-mapping){padding:var(--ui-space-3);}
+ .page-changes .form-actions button{flex:1 1 auto;}
+}
+
+.page-changes .changes-toolbar{align-items:flex-end}.page-changes .changes-toolbar>label{flex:1 1 160px;margin:0}
+@media(max-width:700px){.page-changes .changes-toolbar>label{flex:none;width:100%}}
+
+.page-changes .changes-toolbar>button{align-self:flex-end}
+
+/* Change row browser and full comparison/impact side panel. */
+body.app-shell.page-changes .change-workbench{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.5fr);gap:20px;align-items:start}
+body.app-shell.page-changes .change-browser,.app-shell.page-changes .change-inspector{min-width:0;background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:10px;padding:20px}
+body.app-shell.page-changes #changes-list{gap:0}.app-shell.page-changes .change-card{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;padding:16px 8px}
+body.app-shell.page-changes .change-card h3{font-size:14px}.app-shell.page-changes .change-card p{font-size:12px}
+body.app-shell.page-changes .change-card-actions button{font-size:12px;padding:8px}.app-shell.page-changes #changes-detail{border:0;padding:0;margin:0}
+body.app-shell.page-changes .changes-propose-panel{margin-top:20px}
+@media(max-width:900px){body.app-shell.page-changes .change-workbench{grid-template-columns:1fr}}
+body.app-shell.page-changes .change-card{border:0;border-bottom:1px solid var(--ui-border);box-shadow:none}.app-shell.page-changes .change-card[aria-current=true]{background:var(--ui-accent-soft);box-shadow:inset 3px 0 var(--ui-accent)}
+body.app-shell.page-changes .change-original-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}.app-shell.page-changes .change-original-columns>section{background:var(--ui-surface-subtle);border:1px solid var(--ui-border);border-radius:6px;padding:12px;min-width:0}.app-shell.page-changes .change-original-columns h4{margin:0 0 16px}.app-shell.page-changes .change-original-columns strong{display:block;font-size:12px}.app-shell.page-changes .change-original-columns p{font:11px var(--ui-mono);margin:6px 0 16px;overflow-wrap:anywhere}
+@media(max-width:600px){body.app-shell.page-changes .change-original-columns{grid-template-columns:1fr}}

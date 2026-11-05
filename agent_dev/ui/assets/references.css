@@ -1,0 +1,38 @@
+/* references layout and specialized views; shared chrome lives in ui-*.css. */
+.page-references main{max-width:1180px;margin:36px auto;padding:0 24px}
+.page-references .hero{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:32px}
+.page-references .section-title{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.page-references .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:32px}
+.page-references .card{display:flex;flex-direction:column;gap:8px}
+.page-references .card h3{margin:0}
+.page-references .card p{margin:0;font-size:14px;flex-grow:1}
+.page-references .badge{padding:4px 8px;align-self:flex-start}
+.page-references .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.page-references .button{display:inline-block;padding:8px 16px}
+.page-references input[type=checkbox]{width:auto}
+.page-references .fields{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.page-references .help{border-top:1px solid var(--ui-border);padding:20px 0}
+.page-references .section-title input{max-width:300px}
+.page-references #notice:not(:empty){padding:16px;margin-bottom:20px}
+.page-references .empty{padding:20px;grid-column:1/-1}
+@media(max-width:640px){
+.page-references .hero{align-items:flex-start;flex-direction:column}
+.page-references .fields{grid-template-columns:1fr}
+.page-references .section-title{flex-wrap:wrap}
+.page-references main{margin-top:24px}
+}
+
+.page-references label>select{display:block;width:100%;margin-top:var(--ui-space-2)}
+
+/* Reference rows with a persistent read-only selection panel. */
+body.app-shell.page-references main{margin:0 auto}
+body.app-shell.page-references .reference-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;align-items:start}
+body.app-shell.page-references .reference-workbench>section{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:10px;padding:20px;min-width:0}
+body.app-shell.page-references #references{display:block;margin:0}.app-shell.page-references #references>.card{border:0;border-bottom:1px solid var(--ui-border);border-radius:0;padding:16px 8px}
+body.app-shell.page-references .reference-row{display:flex;align-items:center;gap:12px}.app-shell.page-references .reference-row label{margin:0;flex:1}.app-shell.page-references .reference-row input{width:18px;height:18px}
+body.app-shell.page-references #references>.card[data-selected=true]{background:var(--ui-accent-soft)}
+body.app-shell.page-references .reference-detail{min-width:0}.app-shell.page-references .reference-detail>.card{margin-bottom:16px}
+body.app-shell.page-references #reference-detail-view pre{max-height:440px;overflow:auto;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+body.app-shell.page-references .reference-import{margin:20px 0}.app-shell.page-references .reference-import>summary{padding:12px 0;color:var(--ui-accent)}
+@media(max-width:900px){body.app-shell.page-references .reference-workbench{grid-template-columns:1fr}}
+@media(min-width:1000px){body.app-shell.page-references .reference-workbench>section{min-height:620px}}

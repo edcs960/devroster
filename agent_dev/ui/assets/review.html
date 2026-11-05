@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>변경 검토</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/review.css"><link rel="stylesheet" href="/navigation.css"><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/ui-progress.js" defer></script><script src="/review.js" defer></script></head>
+<body class="page-review">
+<header class="app-header" data-page-title="변경 검토"><div class="app-header-actions"><a href="/dashboard" class="text-link">개발 현황</a></div></header>
+<main id="review-root">
+<div class="page-intro"><div><p class="breadcrumb">개발·검토</p><h1>변경 검토</h1><p id="review-task">작업의 등록된 저장소 변경 내용을 확인합니다.</p></div></div>
+<details class="review-task-switch" open><summary>작업 대상 변경</summary><form id="task-form" class="review-toolbar"><label for="task-input">작업 ID<input id="task-input" required maxlength="200" autocomplete="off" placeholder="예: TASK-001"></label><button type="submit" class="secondary">불러오기</button><button id="refresh" type="button" class="secondary" hidden>새로고침</button></form></details>
+<div id="review-loading" class="loading-state" role="status" aria-live="polite" hidden>변경 내용을 불러오는 중…</div>
+<div id="review-error" class="error-state" role="alert" hidden></div>
+<p id="review-empty" class="empty-state" hidden>작업 ID를 입력하거나 <a href="/dashboard">개발 현황</a>에서 작업의 <strong>변경 검토</strong>를 눌러주세요.</p>
+<p id="review-notice" class="review-notice" role="status" aria-live="polite" hidden></p>
+<div class="review-tabs" role="tablist" aria-label="검토 대상"><button id="review-code-tab" type="button" role="tab" aria-selected="true">코드</button><button id="review-screen-tab" disabled type="button" role="tab" aria-selected="false">실제 화면</button></div><div id="review-layout" class="review-layout" hidden>
+  <nav class="review-files" aria-labelledby="files-title"><h2 id="files-title">변경 파일</h2><p id="files-summary" class="review-meta"></p><div id="file-list"></div><p id="files-hidden" class="review-meta"></p></nav>
+  <section class="review-diff" aria-labelledby="diff-title"><h2 id="diff-title">파일을 선택하세요</h2><p id="diff-meta" class="review-meta"></p><div id="diff-body" class="diff-body"></div>
+    <form id="comment-form" class="comment-form" hidden><p id="comment-anchor" class="review-meta"></p><label for="comment-body">코멘트<textarea id="comment-body" rows="3" maxlength="4000" required></textarea></label><div class="form-actions"><button type="submit" class="primary">코멘트 남기기</button><button id="comment-cancel" type="button" class="secondary">취소</button></div></form>
+  </section>
+  <aside class="review-side" aria-label="검증과 결정">
+    <section><h2>검증 근거</h2><div id="verification"></div><div id="publish"></div></section>
+    <section><h2>코멘트 <span id="thread-count" class="review-meta"></span></h2><div id="threads"></div></section>
+    <section><h2>코드 검토 결정</h2><p class="review-meta">결정은 현재 변경 내용(digest)에만 묶입니다. 작업 승인·게시 조건을 대신하지 않습니다.</p>
+      <p id="decision-reason" class="review-meta" role="status"></p><form id="decision-form"><fieldset><legend>결과</legend><label class="check-label"><input type="radio" name="decision" value="approved" checked> 승인</label><label class="check-label"><input type="radio" name="decision" value="rejected"> 수정 요청</label></fieldset><label for="decision-note">의견<textarea id="decision-note" rows="2" maxlength="4000"></textarea></label><button type="submit" class="primary">결정 기록</button></form>
+      <div id="decisions"></div></section>
+  </aside>
+</div>
+<section id="preview-section" class="preview-section" aria-labelledby="preview-title" hidden>
+  <h2 id="preview-title">실제 화면 미리보기</h2>
+  <p class="review-meta">작업 승인 때 등록한 미리보기 서비스만 사용합니다. 앱 화면은 별도 브라우저에서 캡처한 이미지로 검토하며, 이 화면에 앱을 직접 띄우지 않습니다.</p>
+  <p id="preview-empty" class="empty-state" hidden>이 작업에 등록된 미리보기 서비스가 없습니다. <a href="/setup#development">프로젝트 설정</a>에서 서비스를 등록하고 다음 작업 승인부터 사용할 수 있습니다.</p>
+  <form id="preview-prepare" class="review-toolbar"><label for="preview-service">서비스<select id="preview-service"></select></label><button type="submit" class="secondary">실행 정보 확인</button></form>
+  <div id="preview-confirm" hidden><p id="preview-command" class="review-meta"></p>
+    <form id="preview-start"><fieldset><legend>연결 방식</legend><label class="check-label"><input type="radio" name="mode" value="connect" checked> 이미 실행 중인 서비스에 연결</label><label class="check-label"><input type="radio" name="mode" value="launch"> 이 화면에서 시작 (종료 시 이 화면이 시작한 프로세스만 정리)</label></fieldset><button type="submit" class="primary">연결</button></form></div>
+  <div id="preview-session" hidden><p id="preview-session-text" class="review-meta"></p>
+    <form id="preview-capture" class="review-toolbar"><label for="preview-path">화면 경로<input id="preview-path" value="/" maxlength="500"></label><label for="preview-width">너비<input id="preview-width" type="number" min="320" max="1920" value="1280"></label><label for="preview-height">높이<input id="preview-height" type="number" min="320" max="2000" value="800"></label><button type="submit" class="primary">화면 캡처</button><button id="preview-stop" type="button" class="secondary">연결 종료</button></form></div>
+  <p id="preview-status" class="review-meta" role="status" aria-live="polite"></p>
+  <div id="preview-capture-view" class="preview-capture" hidden>
+    <div class="preview-shot"><img id="preview-image" alt="캡처한 화면"><div id="preview-overlay"></div></div>
+    <div class="preview-panel"><h3>화면 요소</h3><p class="review-meta">이미지의 표시 영역이나 아래 목록에서 요소를 선택해 코멘트를 남깁니다.</p><div id="preview-elements" class="preview-elements"></div>
+      <form id="preview-comment" class="comment-form" hidden><p id="preview-anchor" class="review-meta"></p><label for="preview-body">요소 코멘트<textarea id="preview-body" rows="3" maxlength="4000" required></textarea></label><button type="submit" class="primary">코멘트 남기기</button></form>
+      <h3>화면 코멘트</h3><div id="preview-threads"></div>
+      <h3>화면 검토 결정</h3><form id="preview-decision"><fieldset><legend>결과</legend><label class="check-label"><input type="radio" name="screen-decision" value="approved" checked> 화면 확정</label><label class="check-label"><input type="radio" name="screen-decision" value="rejected"> 수정 요청</label></fieldset><label for="preview-note">의견<textarea id="preview-note" rows="2" maxlength="4000"></textarea></label><button type="submit" class="primary">결정 기록</button></form><div id="preview-decisions"></div></div>
+  </div>
+</section>
+</main>
+</body>
+</html>
