@@ -122,11 +122,15 @@ def validate_arguments(schema, value, depth=0):
             invalid("MCP 문자열 길이를 확인해주세요.")
         if "pattern" in schema and not re.search(schema["pattern"], value):
             invalid("MCP 문자열 형식을 확인해주세요.")
-    elif isinstance(value, (int, float)) and not isinstance(value, bool):
-        if value < schema.get("minimum", float("-inf")) or value > schema.get(
-            "maximum", float("inf")
-        ):
-            invalid("MCP 숫자 범위를 확인해주세요.")
+    elif (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and (
+            value < schema.get("minimum", float("-inf"))
+            or value > schema.get("maximum", float("inf"))
+        )
+    ):
+        invalid("MCP 숫자 범위를 확인해주세요.")
 
 
 class Integrations:

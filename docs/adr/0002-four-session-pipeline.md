@@ -14,7 +14,7 @@
 - 세부 결정:
   - 대상: DevRoster **v2 Workflow 엔진만** (E1). 레거시 orchestrator는 수정하지 않고 v2 승격 후 은퇴한다.
   - 표현: v2 role 노드의 `session` 필드. 같은 세션 노드 사이에는 조건·합류 노드만 올 수 있고, 같은 세션은 module·provider·model이 같아야 한다.
-  - 활성화: 프로젝트 roster `session_mode`(기본 off, 필요한 프로젝트만 켬)와 `gates`. v2 승격 비교(zero_diff)는 레거시 데이터 이관만 검사하므로 세션 활성화와 무관하다(I-03, 2026-10-16 정정).
+  - 활성화: 프로젝트 roster `session_mode`(기본 off, 필요한 프로젝트만 켬)와 `gates`. v2 승격 비교(zero_diff)는 레거시 데이터 이관만 검사하므로 세션 활성화와 무관하다(2026-10-16 정정).
   - 역할 순서: FMEA Expert를 Planner 다음으로(D2). v2 node id에는 번호가 없어 id 재부여 없이 순서만 바꾼다. 레거시 실행 데이터는 변환하지 않는다.
   - 역할 지시 대체(D1): 워크스페이스 `.agent-dev/roles/<role>.md`만 허용하고 snapshot에 경로·digest를 고정한다. 저장소 `agent/`·`AGENTS.md`는 계속 무시한다.
   - 문서 세션 분리(D4): 도구 노드는 세션 구간 안에 둘 수 없으므로 Tech Writer를 별도 세션으로 두고, 그 앞에 연결 ID `graphify` 조회 노드(선택)를 자동 삽입한다.
