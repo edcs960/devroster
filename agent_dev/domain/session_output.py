@@ -6,6 +6,8 @@ import json
 RESUME_OMITTED = (
     "operating_rules",
     "project_rules",
+    "output_language_rule",
+    "commit_message_rule",
     "project_rules_rule",
     "project_skills_rule",
     "context_policy",

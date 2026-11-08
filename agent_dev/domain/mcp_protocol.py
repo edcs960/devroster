@@ -11,7 +11,7 @@ from agent_dev.domain.errors import DomainError, ErrorCode
 MODERN_PROTOCOLS = ("2026-07-28",)
 LEGACY_PROTOCOLS = frozenset({"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"})
 MODERN_ERRORS = frozenset({-32020, -32021, -32022})
-CLIENT_INFO = {"name": "devroster", "version": "0.4.0"}
+CLIENT_INFO = {"name": "devroster", "version": "0.4.1"}
 MAX_BYTES = 2 * 1024 * 1024
 TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+\Z")
 

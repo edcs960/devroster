@@ -64,6 +64,77 @@ class PublishAdapter:
             else ProcessOperation(["gh", *args], worktree).execute(120)
         )
 
+    def commit_message(self, task_id, repository_name):
+        """Latest AI-written commit_message from a passed phase output, safe-checked.
+
+        Prefers the node working on this repository's module; falls back to the task title.
+        """
+        import json
+        import re
+
+        from agent_dev.domain.output_language import clean_commit_message
+
+        resolved = self.store.snapshot(task_id)["resolved"]
+        modules = {
+            n["id"]: n.get("module")
+            for n in resolved.get("workflow_graph", {}).get("nodes", [])
+        }
+        rows = self.store.db.rows(
+            "SELECT a.path, p.phase_id FROM artifacts a JOIN phase_attempts p ON p.id=a.attempt_id "
+            "WHERE a.task_id=? AND a.kind='phase_output' AND p.state='passed' ORDER BY a.created_at DESC",
+            (task_id,),
+        )
+        found = []
+        for row in rows:
+            path = (self.runtime.artifacts.root / row["path"]).resolve()
+            if not path.is_relative_to(self.runtime.artifacts.root) or not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for block in re.findall(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL):
+                try:
+                    control = json.loads(block)
+                except ValueError:
+                    continue
+                if isinstance(control, dict) and control.get("handoff_status") == "pass":
+                    cleaned = clean_commit_message(control.get("commit_message"))
+                    if cleaned:
+                        found.append((modules.get(row["phase_id"]), cleaned))
+        chosen = next((m for module, m in found if module == repository_name), None) or (
+            found[0][1] if found else None
+        )
+        task = self.store.task(task_id)
+        if not chosen:
+            chosen = str(task.definition.get("title") or task_id)[:100]
+        return f"{chosen}\n\nDevRoster-Task: {task_id}"
+
+    def pull_request_body(self, task_id, message):
+        """The AI's own explanation (commit body) plus the facts DevRoster verified."""
+        from agent_dev.domain.output_language import language
+
+        resolved = self.store.snapshot(task_id)["resolved"]
+        korean = language(resolved).startswith(("한국", "ko", "Ko"))
+        explanation = message.split("\n", 1)[1].strip() if "\n" in message else ""
+        runs = self.store.db.rows(
+            "SELECT id FROM verification_runs WHERE task_id=? ORDER BY created_at DESC LIMIT 1",
+            (task_id,),
+        )
+        gates = (
+            self.store.db.rows(
+                "SELECT gate, passed FROM verification_results WHERE run_id=? ORDER BY gate",
+                (runs[0]["id"],),
+            )
+            if runs
+            else []
+        )
+        heading = "## 검증" if korean else "## Verification"
+        passed, failed = ("통과", "실패") if korean else ("passed", "failed")
+        lines = [explanation, "", heading] if explanation else [heading]
+        lines += [f"- {g['gate']}: {passed if g['passed'] else failed}" for g in gates] or ["-"]
+        requirements = self.store.task(task_id).definition.get("requirement_ids") or []
+        if requirements:
+            lines += ["", ("## 요구사항" if korean else "## Requirements"), ", ".join(requirements)]
+        return "\n".join(lines) + "\n"
+
     def publish(self, task_id, repository_name, request_id, *, dry_run=False):
         self.store.assert_change_allowed(task_id)
         self.runtime.validate_snapshot_paths(task_id)
@@ -104,6 +175,8 @@ class PublishAdapter:
             if failed:
                 raise DomainError(ErrorCode.VERIFICATION_FAILED, failed)
         binding = bindings[repository_name]
+        # The commit message the code role wrote in the project's language, else a fallback.
+        message = self.commit_message(task_id, repository_name)
         if not WorktreeManager.validate(binding):
             raise DomainError(ErrorCode.POLICY_VIOLATION, "Publish worktree ownership mismatch.")
         target = RepositoryTarget(
@@ -126,7 +199,7 @@ class PublishAdapter:
                 commit=True,
                 push=not local,
                 branch=binding["branch"],
-                message=None,
+                message=message,
                 dry_run=True,
             )
             return {
@@ -171,7 +244,7 @@ class PublishAdapter:
                         commit=True,
                         push=False,
                         branch=binding["branch"],
-                        message=None,
+                        message=message,
                         dry_run=False,
                     )
                     publish_id, sha = identifier(), git(target.path, "rev-parse", "HEAD")
@@ -213,12 +286,12 @@ class PublishAdapter:
                         commit=True,
                         push=True,
                         branch=binding["branch"],
-                        message=None,
+                        message=message,
                         dry_run=False,
                     )
                     with tempfile.TemporaryDirectory() as folder:
                         body = Path(folder) / "body.md"
-                        body.write_text(f"{task_id}: approved design and verification evidence.\n", encoding="utf-8")
+                        body.write_text(self.pull_request_body(task_id, message), encoding="utf-8")
                         self._gh(
                             target.path,
                             [
@@ -230,7 +303,7 @@ class PublishAdapter:
                                 "--base",
                                 target.default_branch,
                                 "--title",
-                                f"{task_id}: {task.definition['title']}",
+                                message.split("\n", 1)[0],
                                 "--body-file",
                                 str(body),
                             ],

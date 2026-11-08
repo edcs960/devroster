@@ -461,7 +461,14 @@ def test_snapshot_binds_bundled_rules_and_ignores_project_role_files(runtime):
 
 def test_phase_context_starts_with_project_stable_keys(runtime):
     context = json.loads(runtime.artifacts.context("T", "developer"))
-    assert list(context)[:4] == ["operating_rules", "rule", "context_policy", "role_instruction"]
+    assert list(context)[:6] == [
+        "operating_rules",
+        "rule",
+        "context_policy",
+        "output_language_rule",
+        "commit_message_rule",
+        "role_instruction",
+    ]
 
 
 def test_wiki_items_are_frozen_into_the_snapshot(runtime):

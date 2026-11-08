@@ -7,6 +7,7 @@ from pathlib import Path
 from agent_dev.adapters.skill_store import SKILLS_RULE, prompt_skills
 from agent_dev.adapters.state.sqlite.store import identifier
 from agent_dev.adapters.wiki_knowledge import prompt_items
+from agent_dev.domain import output_language
 from agent_dev.domain.content import content_digest, redact
 from agent_dev.domain.errors import DomainError, ErrorCode
 
@@ -183,6 +184,9 @@ class FilesystemArtifacts:
                 "DevRoster records task checkpoints and handoff notes itself: do not create checkpoint "
                 "or handoff files (latest-checkpoint.md, checkpoints/) in the project.",
                 "context_policy": __import__("agent_dev.domain.context_policy", fromlist=["instructions"]).instructions(resolved.get("context_policy")),
+                # Everything people read is written in the project's language, by the AI.
+                "output_language_rule": output_language.writing_rule(output_language.language(resolved)),
+                "commit_message_rule": output_language.commit_rule(output_language.language(resolved)),
                 "role_instruction": resolved.get("role_context", {}).get(phase_id, ""),
                 "task": self.repository.task(task_id).definition,
                 "snapshot_digest": snapshot["digest"],

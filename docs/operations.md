@@ -74,6 +74,7 @@ devroster task complete V2-TASK-001 PUBLISH-RECORD-ID --json
 ```
 
 - publish는 task worktree와 approved allowed_paths에 한정한다. 검증 후 source 변경은 게시를 차단한다.
+- 커밋 메시지와 PR 제목·본문은 프로젝트 설정의 작업 언어(`output_language`, 기본 한국어)로 개발 역할 AI가 쓴 `commit_message`를 쓴다. PR 본문에는 그 설명 뒤에 마지막 검증 결과와 요구사항 ID가 붙는다.
 - 완료 방식은 프로젝트 설정의 `completion_mode`다. 기본 `local`은 publish가 task 브랜치에 커밋하고, review가 HEAD 일치와 깨끗한 작업 트리를 확인하며, complete가 기본 브랜치를 빠른 병합(fast-forward)한다. push·PR·CI는 쓰지 않는다.
 - `github`를 고르면 아래처럼 PR과 CI가 필요하다. PR 생성은 완료가 아니다. 모든 publish_required repository의 명시된 CI check가 SUCCESS이고, PR head가 기록 SHA와 같아야 한다.
 - 사용자가 실제 PR을 merge하고 complete를 실행해야 completed가 된다. completed 직후 프로젝트에 Graphify 그래프(`graphify-out/graph.json`)가 있으면 `graphify update`로 코드 그래프를 갱신하고 결과를 `code_graph`로 남긴다(실패해도 완료는 유지). SKIPPED/누락/FAILURE는 required check의 성공으로 인정하지 않는다.

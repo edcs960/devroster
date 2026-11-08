@@ -14,6 +14,8 @@ _FIELDS = {
     "root_cause",
     "reentry_step_id",
     "summary",
+    # Code roles write the commit message in the project's language (see output_language).
+    "commit_message",
 }
 
 

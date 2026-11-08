@@ -233,6 +233,7 @@ class ProjectSetup:
                 "ports": {"setup": 8768, "studio": 8767, "dashboard": 8766},
             }
         value.setdefault("context_policy", (profile or {}).get("context_policy", {"token_mode": "balanced", "ponytail": "off"}))
+        value.setdefault("output_language", (profile or {}).get("output_language", ""))
         # The roster always reflects the latest profile, including /workflows changes.
         value["roles"] = roles_view(profile or self.initial_profile())
         value["preview_services"] = (profile or {}).get("preview_services", [])
@@ -379,12 +380,16 @@ class ProjectSetup:
             "document_paths",
             "verification_scope",
             "completion_mode",
+            "output_language",
         }
         if set(value) - allowed_keys:
             invalid("지원하지 않는 설정 항목이 있습니다.")
         value.pop("preparation_mode", None)  # Derived, never trusted or persisted.
         from agent_dev.domain.context_policy import normalize as context_policy
         value["context_policy"] = context_policy(value.get("context_policy"))
+        from agent_dev.domain.output_language import normalize as output_language
+
+        value["output_language"] = output_language(value.get("output_language"))
         value["name"] = bounded(value.get("name"), "프로젝트 이름", 120)
         value["project_id"] = bounded(value.get("project_id"), "프로젝트 ID", 100)
         if not re.fullmatch(r"[a-zA-Z0-9가-힣][a-zA-Z0-9가-힣_-]{0,99}", value["project_id"]):
@@ -589,6 +594,7 @@ class ProjectSetup:
             },
             context_policy=value["context_policy"],
             execution_limits=value["limits"],
+            **({"output_language": value["output_language"]} if value["output_language"] else {}),
             environment_keys=sorted(secrets),
         )
         scope = value.get("verification_scope", "all")

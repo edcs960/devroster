@@ -91,6 +91,7 @@ PROFILE_KEYS = {
     "knowledge",
     "execution_limits",
     "context_policy",
+    "output_language",
     "environment_keys",
     "workflow",
     "role_files",
