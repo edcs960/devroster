@@ -29,7 +29,7 @@ def approved(workspace, cwd, target, *, execute=True, ambiguous=False):
     if ambiguous:
         (source / "other").mkdir()
         (source / "other/test_acceptance.py").write_text(
-            "def test_acceptance():\n    assert True\n"
+            "def test_acceptance():\n    assert True\n", encoding="utf-8"
         )
         profile["repositories"]["backend"]["allowed_paths"] = ["tests", "other"]
         profile["verification"]["commands"].append(dict(gate, name="other", cwd="other"))
@@ -101,7 +101,7 @@ def test_frozen_cwd_relative_actual_pass_and_current_file_stale(workspace, cwd, 
     assert link["state"] == "verified"
     stored = repo.db.rows("SELECT * FROM requirement_links WHERE id=?", (link["id"],))[0]
     assert stored["target_ref"] == target
-    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n")
+    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n", encoding="utf-8")
     assert traceability.detail(repo.db, link["id"])["link"]["state"] == "stale"
     assert (
         repo.db.rows("SELECT state FROM requirement_links WHERE id=?", (link["id"],))[0]["state"]
@@ -122,7 +122,7 @@ def test_manual_registered_selector_uses_gate_cwd_for_file_digest(workspace, cwd
     _root, repo, source, _old = workspace
     link = traceability.create_link(repo.db, params)
     assert link["state"] == "mapped"
-    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n")
+    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n", encoding="utf-8")
     assert traceability.detail(repo.db, link["id"])["link"]["state"] == "stale"
     assert (
         traceability.query(repo.db, {"import_id": params["import_id"], "state": "stale"})["links"][

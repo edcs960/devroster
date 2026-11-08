@@ -2,7 +2,9 @@
 
 import hmac
 import json
+import logging
 import secrets
+import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from typing import Any
@@ -135,6 +137,15 @@ class LocalWeb:
             )
         except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
             StudioWeb.send(handler, {"error": "입력 형식을 확인해주세요."}, status=400)
+        except sqlite3.Error:
+            # A database failure must still answer; a dropped connection reaches the page as a
+            # bare "Failed to fetch". Details stay in the server log, not in the response.
+            logging.getLogger(__name__).exception("Database error while handling %s", handler.path)
+            StudioWeb.send(
+                handler,
+                {"error": "작업 데이터를 읽지 못했습니다. 앱을 다시 시작한 뒤 다시 시도하세요."},
+                status=503,
+            )
         except OSError:
             StudioWeb.send(handler, {"error": "파일/서버 접근에 실패했습니다."}, status=503)
 

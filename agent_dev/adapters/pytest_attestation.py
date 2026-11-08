@@ -123,7 +123,7 @@ def observe(command, environment, root, cwd, source_roots=None):
         destination = directory / "observations.json"
         plugin = directory / (module + ".py")
         plugin.write_text(
-            "NONCE = " + repr(nonce) + "\nDESTINATION = " + repr(str(destination)) + "\n" + PLUGIN
+            "NONCE = " + repr(nonce) + "\nDESTINATION = " + repr(str(destination)) + "\n" + PLUGIN, encoding="utf-8"
         )
         plugin.chmod(0o600)
         env = dict(os.environ if environment is None else environment)

@@ -116,7 +116,7 @@ def ensure_mcp_servers(
         [command, "mcp", "list"],
         cwd=PROJECT_ROOT,
         env=isolated_environment(),
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         check=False,
     )

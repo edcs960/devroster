@@ -108,7 +108,7 @@ def detect(root):
 
 def profile(name, root=None):
     name = select(name, root or Path.cwd())
-    result = json.loads(files("agent_dev.templates").joinpath("profile.json").read_text())
+    result = json.loads(files("agent_dev.templates").joinpath("profile.json").read_text(encoding="utf-8"))
     spec = dict(PRESETS[name])
     if root is not None:
         # Leave out `npm run` scripts the project does not define.

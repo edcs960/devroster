@@ -1,16 +1,94 @@
 <!doctype html>
 <html lang="ko">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>기획·화면 검토</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/mock.css"><link rel="stylesheet" href="/journey.css"><link rel="stylesheet" href="/navigation.css"><script src="/mock_renderer.js" defer></script><script src="/ui-progress.js" defer></script><script src="/studio.js" defer></script><script src="/branding.js" defer></script><script src="/navigation.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>기획·화면 검토</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/mock.css"><link rel="stylesheet" href="/journey.css"><link rel="stylesheet" href="/navigation.css"><script src="/ui-feedback.js" defer></script><script src="/mock_renderer.js" defer></script><script src="/ui-progress.js" defer></script><script src="/studio.js" defer></script><script src="/branding.js" defer></script><script src="/navigation.js" defer></script></head>
 <body class="page-studio">
-<header class="app-header" data-page-title="기획·화면 검토 Studio"><div class="app-header-actions"><div class="project-controls"><label class="sr-only" for="projects">프로젝트 선택</label><select id="projects"><option value="">새 프로젝트</option></select><button id="new-project" class="secondary">새 프로젝트</button><a href="/references" class="text-link">화면 참고 자료</a><a href="/setup" class="text-link">AI·환경 설정</a><a href="/dashboard" class="text-link">개발 현황</a></div></div></header>
-<div class="studio-intro"><p class="breadcrumb" id="studio-context">기획 프로젝트 · 새 프로젝트</p><h1 id="studio-step-title">기획서 작성</h1><p id="studio-step-description">기획 내용을 작성하고 생성 조건을 확인하세요.</p></div>
-<nav id="steps" class="steps" aria-label="작업 단계"><button data-step="brief" aria-current="step"><span>1</span>기획서 작성</button><button data-step="spec"><span>2</span>명세서 검토</button><button data-step="mock"><span>3</span>화면 검토</button><button data-step="handoff"><span>4</span>개발 인계</button></nav>
-<div id="notice" role="status" aria-live="polite" class="notice" hidden></div>
-<div id="job-status" role="status" class="job-status" hidden></div>
+<header class="app-header" data-page-title="기획·화면 검토 Studio"><div class="app-header-actions"><div class="project-controls"><label class="sr-only" for="projects">기획 프로젝트 선택</label><select id="projects"><option value="">새 프로젝트</option></select><button id="new-project" class="sm" type="button"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-plus"/></svg>새 프로젝트</button><a href="/references" class="text-link">화면 참고 자료</a><a href="/setup" class="text-link">AI·환경 설정</a></div></div></header>
+<div class="studio-intro">
+  <div class="studio-title-row">
+    <div class="studio-title-block">
+      <p class="breadcrumb" id="studio-context">기획 프로젝트 · 새 프로젝트</p>
+      <div class="studio-title-line"><h1 id="studio-step-title" tabindex="-1">기획서 작성</h1><span id="studio-step-badge"></span></div>
+      <p id="studio-step-description">기획 내용을 작성하고 생성 조건을 확인하세요.</p>
+    </div>
+  </div>
+  <nav id="steps" class="steps" aria-label="작업 단계">
+    <button type="button" data-step="brief" aria-current="step"><span class="s-ico" aria-hidden="true">1</span><span class="s-text"><span class="s-label">기획서 작성</span><span class="s-status"></span></span></button>
+    <button type="button" data-step="spec"><span class="s-ico" aria-hidden="true">2</span><span class="s-text"><span class="s-label">명세서 검토</span><span class="s-status"></span></span></button>
+    <button type="button" data-step="mock"><span class="s-ico" aria-hidden="true">3</span><span class="s-text"><span class="s-label">화면 검토</span><span class="s-status"></span></span></button>
+    <button type="button" data-step="handoff"><span class="s-ico" aria-hidden="true">4</span><span class="s-text"><span class="s-label">개발 인계</span><span class="s-status"></span></span></button>
+  </nav>
+</div>
+<div class="studio-banners">
+  <div id="notice" role="alert" class="notice" hidden></div>
+  <div id="job-status" role="status" class="job-status" hidden></div>
+</div>
 <main id="workspace">
-<section id="brief-panel" class="panel"><div class="panel-heading"><div><p class="eyebrow">시작은 기획서 한 장으로</p><h2>만들고 싶은 서비스를 설명해주세요.</h2><p>누가 사용하고, 어떤 일을 하고, 완료되면 무엇을 보게 되는지 적어주세요.</p></div></div><div class="brief-layout"><div><label for="title">프로젝트 이름</label><input id="title" maxlength="120" placeholder="예: 팀 업무 관리 서비스"><div class="editor-label"><label for="brief">기획서 내용</label><label class="file-button" for="upload">MD·TXT 파일 가져오기</label><button id="template" class="secondary">템플릿 다운로드</button><input id="upload" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" class="sr-only"></div><textarea id="brief" class="brief-editor" maxlength="120000" placeholder="템플릿을 참고해 작성하거나 Markdown·텍스트 파일을 가져오세요."></textarea></div><aside class="guidance"><div class="generation-summary"><label for="provider">생성 도구</label><select id="provider"><option value="codex_cli">Codex CLI</option><option value="claude_cli">Claude CLI</option></select><label class="check"><input id="auto-routing" type="checkbox" checked> 프로젝트의 선택 정책 적용</label><p id="routing-hint" class="hint">고정/자동 선택 방식은 프로젝트 설정에서 변경합니다.</p><p id="last-selection" class="hint" role="status" aria-live="polite"></p></div><details class="ai-details"><summary>AI 설정 상세</summary><label for="effort">이번 생성의 추론 강도</label><select id="effort"><option value="">도구 기본값</option><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select><label for="model">모델 이름 <small>선택</small></label><input id="model" maxlength="100" placeholder="비워두면 CLI 기본 모델"><p id="provider-help" class="hint">로컬에 설치하고 로그인한 CLI를 사용합니다. 생성 버튼을 누르면 기획서가 선택한 AI 서비스로 전달됩니다. 생성에 수 분이 걸릴 수 있습니다.</p></details></aside></div><details class="brief-help"><summary>기획서 작성 도움말</summary><h3>처음이라면 이렇게 적어보세요.</h3><ol><li>사용자와 해결할 문제</li><li>필요한 기능과 화면</li><li>입력값과 완료 기준</li><li>확인이 필요한 규칙</li></ol><button id="use-template" class="secondary">편집기에 템플릿 넣기</button></details><div class="brief-actions"><p id="brief-save-state" class="hint" role="status" aria-live="polite"></p><div class="actions"><button id="save-brief" class="secondary">기획서 저장</button><button id="generate-spec" class="primary">명세서 생성 →</button></div></div></section>
-<section id="spec-panel" class="panel" hidden><div class="panel-heading"><div><p class="eyebrow">요구사항과 근거를 먼저 확인하세요</p><h2>명세서 검토</h2><p id="spec-summary">기획서에서 명세서를 생성하면 이곳에서 검토할 수 있습니다.</p></div><div class="actions"><label class="revision-label">명세 버전 <select id="spec-revisions"></select></label><button id="save-spec" class="secondary">수정 저장</button><button id="approve-spec">명세서 확정</button><button id="generate-mock" class="primary">목업 생성 →</button><button id="carry-mock" class="secondary" type="button" title="명세서를 새 버전으로 고친 뒤 마지막 목업을 AI 없이 이어서 씁니다.">이전 목업 이어서 쓰기</button></div></div><div id="spec-empty" class="empty">아직 명세서가 없습니다. 1단계에서 기획서를 작성하고 ‘명세서 생성’을 눌러주세요.</div><div id="spec-content" hidden><div class="spec-layout"><nav id="documents" aria-label="명세서 파일"></nav><div class="document-editor"><div class="editor-label"><h3 id="document-title"></h3><div class="actions"><button id="document-toggle" class="secondary">미리보기</button><button id="download-spec" class="secondary">22종 ZIP 다운로드</button></div></div><textarea id="document-body" spellcheck="false" aria-label="명세서 내용 편집"></textarea><article id="document-preview" class="markdown" hidden></article></div><aside class="spec-inspector" aria-label="확인 질문과 요구사항 근거"><h3>확인 질문 · 근거</h3><div id="questions" class="questions"></div><details class="requirements"><summary>추출한 요구사항과 기획서 근거</summary><div id="requirements"></div></details></aside></div></div></section>
-<section id="mock-panel" class="panel" hidden><div class="panel-heading"><div><p class="eyebrow">말로 설명하기 어려운 부분은 화면에서</p><h2>목업 화면 검토</h2><p>의견 모드에서 요소를 선택하고 코멘트를 남겨주세요. 미해결 의견을 처리한 뒤 화면을 확정할 수 있습니다.</p></div><div class="actions"><button id="regenerate-mock" class="secondary">의견 반영해 재생성</button><button id="new-review" class="secondary">새 검토 버전</button></div></div><div id="mock-empty" class="empty">명세서를 확정한 뒤 목업을 생성해주세요.</div><div id="mock-content" hidden><div class="canvas-toolbar"><label>버전 <select id="revisions"></select></label><div class="segmented"><button id="comment-mode" aria-pressed="true">요소에 의견 남기기</button><button id="preview-mode" aria-pressed="false">화면 조작하기</button></div><label>화면 크기 <select id="viewport"><option value="desktop">데스크톱</option><option value="mobile">모바일</option></select></label><span id="mock-badge" class="badge"></span></div><div class="review-layout"><nav id="screens" class="screen-list" aria-label="목업 화면"></nav><div class="canvas-area"><p class="sample-note">검토용 목업 · 표시된 데이터와 동작은 샘플입니다.</p><div id="canvas" class="mock-canvas"></div></div><aside id="inspector" class="inspector"></aside></div><section class="screen-comments"><h3>이 화면의 의견</h3><div id="screen-comments-list"></div></section><div class="screen-decision"><div><strong id="screen-status"></strong><p id="screen-help" class="hint"></p></div><label for="approval-note" class="sr-only">화면 확정 메모</label><input id="approval-note" placeholder="확정 메모 (선택)" maxlength="8000"><button id="approve-screen" class="primary">이 화면 확정</button></div><details><summary>삭제된 요소에 남은 미해결 의견</summary><div id="orphan-comments"></div></details></div></section>
-<section id="handoff-panel" class="panel" hidden><div class="panel-heading"><div><p class="eyebrow">확정한 내용을 개발팀에 전달하세요</p><h2>개발 인계 패키지</h2><p>명세서, 실제로 열어볼 수 있는 목업, 요소별 결정 이력과 개발 작업 목록을 하나로 전달합니다.</p></div></div><div class="handoff-workbench"><section class="handoff-overview"><h3>인계 준비 상태</h3><div id="handoff-status"></div><h3>인계 구성 · 연결</h3><div class="handoff-cards"><article><h3>명세서 22종</h3><p>요구사항·화면·API·데이터·권한·테스트·추적성 문서를 Markdown으로 제공합니다.</p></article><article><h3>확정 목업과 검토 근거</h3><p>브라우저에서 열 수 있는 HTML 목업과 버전·해시·코멘트 처리·화면 확정 이력을 포함합니다.</p></article><article><h3>개발 실행에 연결</h3><p>development-handoff.md와 tasks.json을 기존 설계·계획 승인 흐름으로 가져올 수 있습니다.</p></article></div></section><aside class="handoff-connection"><h3>개발 대상 연결</h3><p class="hint">확정 조건을 확인한 뒤 개발 계획 준비를 누르면 등록된 프로젝트·모듈과 연결할 수 있습니다.</p><div id="journey-editor" hidden><label for="handoff-project">등록된 개발 프로젝트</label><select id="handoff-project"></select><p id="handoff-profile"></p><div id="handoff-mappings"></div><details><summary>고급: 선택한 인계 데이터</summary><pre id="handoff-json"></pre></details><div class="actions"><button id="handoff-preview" class="secondary">미리보기 갱신</button><button id="handoff-register" disabled>초안 설계·계획 등록</button></div></div></aside></div><section class="handoff-planning" aria-label="정규 개발 계획 준비"><h3>이 작업대에서 개발 계획 준비</h3><p>확정 자료를 등록된 프로젝트·모듈·검증 범위에 연결합니다. 설계와 계획은 등록 후 각각 직접 승인해야 합니다.</p><button id="prepare-development" class="primary">개발 계획 준비</button><p id="journey-status" role="status" aria-live="polite"></p><div id="journey-result"></div></section><button id="download-handoff">확정된 개발 인계 ZIP 다운로드</button><p class="hint">패키지를 받으면 README.md의 순서대로 개발 계획을 등록하세요. 실제 개발 실행은 별도 승인 단계에서 진행합니다.</p><details><summary>최근 변경 이력</summary><div id="history"></div></details></section>
-</main><footer>기획서 → 명세서 → 화면 검토 → 확정된 개발 인계 · 프로젝트별로 자동 보관됩니다.</footer>
+<section id="brief-panel" class="panel" aria-labelledby="studio-step-title">
+  <div class="brief-layout">
+    <div class="brief-main">
+      <div class="field"><label for="title">프로젝트 이름</label><input id="title" maxlength="120" placeholder="예: 팀 업무 관리 서비스"></div>
+      <div class="field">
+        <div class="editor-label"><label for="brief">기획서 내용</label><label class="file-button sm" for="upload"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-upload"/></svg>파일 가져오기</label><button id="use-template" class="ghost sm" type="button">템플릿 넣기</button><input id="upload" type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" class="sr-only"></div>
+        <textarea id="brief" class="brief-editor" maxlength="120000" placeholder="누가 사용하고, 어떤 일을 하고, 완료되면 무엇을 보게 되는지 적어주세요. 템플릿을 넣거나 Markdown·텍스트 파일을 가져올 수 있습니다."></textarea>
+        <p class="hint">Markdown·텍스트 파일(500KB 이하)을 가져올 수 있습니다.</p>
+      </div>
+    </div>
+    <aside class="guidance" aria-label="생성 설정">
+      <div class="generation-summary">
+        <h2 class="guidance-title">생성 설정</h2>
+        <label for="provider">생성 도구</label><select id="provider"><option value="codex_cli">Codex CLI</option><option value="claude_cli">Claude CLI</option></select>
+        <label class="check"><input id="auto-routing" type="checkbox" checked> 프로젝트의 선택 정책 적용</label>
+        <p id="routing-hint" class="hint">고정/자동 선택 방식은 프로젝트 설정에서 변경합니다.</p>
+        <p id="last-selection" class="hint" role="status" aria-live="polite"></p>
+      </div>
+      <details class="ai-details"><summary>고급 설정</summary><label for="effort">이번 생성의 추론 강도</label><select id="effort"><option value="">도구 기본값</option><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select><label for="model">모델 이름 <small>선택</small></label><input id="model" maxlength="100" placeholder="비워두면 CLI 기본 모델"></details>
+      <p id="provider-help" class="hint provider-help">로컬에 설치하고 로그인한 CLI를 사용합니다. 생성 버튼을 누르면 기획서가 선택한 AI 서비스로 전달됩니다. 생성에 수 분이 걸릴 수 있습니다.</p>
+      <details class="brief-help" open><summary>처음이라면 이렇게 적어보세요</summary><ol><li>사용자와 해결할 문제</li><li>필요한 기능과 화면</li><li>입력값과 완료 기준</li><li>확인이 필요한 규칙</li></ol><button id="template" class="sm" type="button"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-download"/></svg>템플릿 파일 받기</button></details>
+    </aside>
+  </div>
+  <div class="brief-actions"><p id="brief-save-state" class="hint" role="status" aria-live="polite"></p><div class="actions"><span id="brief-gate" class="gate-reason" hidden></span><button id="save-brief" type="button">기획서 저장</button><button id="generate-spec" class="primary" type="button">명세서 생성 →</button></div></div>
+</section>
+<section id="spec-panel" class="panel" aria-labelledby="studio-step-title" hidden>
+  <div class="panel-heading"><div><p id="spec-summary">기획서에서 명세서를 생성하면 이곳에서 검토할 수 있습니다.</p></div><div class="actions"><label class="revision-label">명세 버전 <select id="spec-revisions"></select></label><button id="carry-mock" class="ghost" type="button" title="명세서를 새 버전으로 고친 뒤 마지막 목업을 AI 없이 이어서 씁니다.">이전 목업 이어서 쓰기</button><span id="spec-gate" class="gate-reason" hidden></span><button id="save-spec" type="button">수정 저장</button><button id="approve-spec" type="button">명세서 확정</button><button id="generate-mock" class="primary" type="button">목업 생성 →</button></div></div>
+  <div id="spec-empty" class="empty">아직 명세서가 없습니다. 1단계에서 기획서를 저장하고 ‘명세서 생성’을 누르면 22종 문서와 확인 질문이 이곳에 나타납니다.</div>
+  <div id="spec-content" hidden><div class="spec-layout"><div class="doc-column"><label class="sr-only" for="document-filter">문서 찾기</label><input id="document-filter" type="search" placeholder="문서 찾기" autocomplete="off"><nav id="documents" aria-label="명세서 문서"></nav></div><div class="document-editor"><div class="editor-label"><h3 id="document-title"></h3><div class="actions"><button id="document-toggle" class="sm" type="button">미리보기</button><button id="download-spec" class="ghost sm" type="button"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-download"/></svg>22종 ZIP</button></div></div><textarea id="document-body" spellcheck="false" aria-label="명세서 내용 편집"></textarea><article id="document-preview" class="markdown" hidden></article></div><aside class="spec-inspector" aria-label="확인 질문과 요구사항 근거"><h3>확인 질문 · 근거</h3><div id="questions" class="questions"></div><details class="requirements" open><summary>추출한 요구사항과 기획서 근거</summary><div id="requirements"></div></details></aside></div></div>
+</section>
+<section id="mock-panel" class="panel" aria-labelledby="studio-step-title" hidden>
+  <div class="panel-heading"><div><p>의견 모드에서 요소를 선택하고 의견을 남기세요. 미해결 의견을 처리한 화면부터 확정할 수 있습니다.</p></div><div class="actions"><button id="new-review" class="ghost" type="button">새 검토 버전</button><button id="regenerate-mock" type="button">의견 반영해 재생성</button></div></div>
+  <div id="mock-empty" class="empty">명세서를 확정한 뒤 목업을 생성해주세요.</div>
+  <div id="mock-content" hidden>
+    <div class="review-layout">
+      <nav id="screens" class="screen-list" aria-label="목업 화면"></nav>
+      <div class="canvas-column">
+        <div class="canvas-toolbar"><div class="segmented" role="group" aria-label="캔버스 모드"><button id="comment-mode" type="button" aria-pressed="true">요소에 의견 남기기</button><button id="preview-mode" type="button" aria-pressed="false">화면 조작하기</button></div><span class="toolbar-grow"></span><label>화면 크기 <select id="viewport"><option value="desktop">데스크톱</option><option value="mobile">모바일</option></select></label><label>버전 <select id="revisions"></select></label><span id="mock-badge" class="badge"></span></div>
+        <div class="canvas-area"><p class="sample-note">검토용 목업 · 표시된 데이터와 동작은 샘플입니다.</p><div id="canvas" class="mock-canvas"></div></div>
+        <div class="screen-decision"><div><strong id="screen-status"></strong><p id="screen-help" class="hint"></p></div><label for="approval-note" class="sr-only">화면 확정 메모</label><input id="approval-note" placeholder="확정 메모 (선택)" maxlength="8000"><button id="approve-screen" class="primary" type="button">이 화면 확정</button></div>
+      </div>
+      <aside id="inspector" class="inspector" aria-label="선택 요소와 의견"></aside>
+    </div>
+    <section class="screen-comments" aria-labelledby="screen-comments-h"><h3 id="screen-comments-h">이 화면의 의견</h3><div id="screen-comments-list"></div></section>
+    <details class="orphan-comments"><summary>삭제된 요소에 남은 미해결 의견</summary><div id="orphan-comments"></div></details>
+  </div>
+</section>
+<section id="handoff-panel" class="panel" aria-labelledby="studio-step-title" hidden>
+  <div class="handoff-workbench">
+    <section class="handoff-overview card" aria-labelledby="handoff-ready-h">
+      <div class="card-head"><div><h2 id="handoff-ready-h">인계 준비 상태</h2><p class="sub">모든 조건을 충족하면 인계 패키지를 받을 수 있습니다.</p></div><button id="download-handoff" class="primary" type="button"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-download"/></svg>인계 ZIP 다운로드</button></div>
+      <div class="card-body"><div id="handoff-status"></div>
+        <h3 class="handoff-sub">인계 패키지 구성</h3>
+        <div class="handoff-cards"><article><h3>명세서 22종</h3><p>요구사항·화면·API·데이터·권한·테스트·추적성 문서(Markdown)</p></article><article><h3>확정 목업과 검토 근거</h3><p>브라우저로 여는 HTML 목업, 버전·해시, 의견 처리와 화면 확정 이력</p></article><article><h3>개발 실행 연결</h3><p>development-handoff.md와 tasks.json — 설계·계획 승인 흐름으로 가져오기</p></article></div>
+        <p class="hint">패키지를 받으면 README.md의 순서대로 개발 계획을 등록하세요. 실제 개발 실행은 별도 승인 단계에서 진행합니다.</p>
+      </div>
+    </section>
+    <aside class="handoff-connection card" aria-labelledby="handoff-conn-h">
+      <div class="card-head"><div><h2 id="handoff-conn-h">개발 대상 연결</h2><p class="sub">확정 자료를 등록된 프로젝트·모듈·검증 범위에 연결합니다.</p></div></div>
+      <div class="card-body">
+        <section class="handoff-planning" aria-label="정규 개발 계획 준비"><p>설계와 계획은 등록 후 각각 직접 승인해야 합니다.</p><button id="prepare-development" class="primary" type="button">개발 계획 준비</button><p id="journey-status" role="status" aria-live="polite"></p><div id="journey-result"></div></section>
+        <div id="journey-editor" hidden><label for="handoff-project">등록된 개발 프로젝트</label><select id="handoff-project"></select><p id="handoff-profile"></p><div id="handoff-mappings"></div><details><summary>고급: 선택한 인계 데이터</summary><pre id="handoff-json"></pre></details><div class="actions"><button id="handoff-preview" type="button">미리보기 갱신</button><button id="handoff-register" class="primary" type="button" disabled>초안 설계·계획 등록</button></div></div>
+      </div>
+    </aside>
+  </div>
+  <details class="history-details"><summary>최근 변경 이력</summary><div id="history"></div></details>
+</section>
+</main>
 </body></html>

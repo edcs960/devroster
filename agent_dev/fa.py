@@ -5,7 +5,9 @@ import sys
 
 def main(argv: list[str] | None = None) -> None:
     from agent_dev.core.cli_home import apply_to_process
+    from agent_dev.core.stdio import use_utf8_stdio
 
+    use_utf8_stdio()
     apply_to_process()
     args = list(sys.argv[1:] if argv is None else argv)
     if args[:1] == ["app"]:

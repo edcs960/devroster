@@ -33,7 +33,7 @@
       select.value = data.projects.some(p => p.id === data.workspace_project) ? data.workspace_project : data.projects[0].id;
       $('wiki-section').hidden = false;
       await refresh();
-    } catch (error) { fail(error.message); $('wiki-retry').hidden = false; }
+    } catch (error) { fail((globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : error.message)); $('wiki-retry').hidden = false; }
     finally { $('wiki-loading').hidden = true; }
   }
 
@@ -95,12 +95,12 @@
         if (result.render_error) message += ' 열람본 갱신 실패: ' + result.render_error;
         $('wiki-result').textContent = message;
         await refresh();
-      } catch (error) { $('wiki-result').textContent = text + ' 실패: ' + error.message; control.disabled = false; }
+      } catch (error) { $('wiki-result').textContent = text + ' 실패: ' + (globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : error.message); control.disabled = false; }
     });
     return control;
   }
 
-  $('wiki-project').addEventListener('change', () => refresh().catch(error => fail(error.message)));
+  $('wiki-project').addEventListener('change', () => refresh().catch(error => fail((globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : error.message))));
   $('wiki-state').addEventListener('change', render);
   $('wiki-retry').addEventListener('click', load);
   load();

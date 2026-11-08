@@ -13,7 +13,7 @@ def fake_graphify(tmp_path, exit_code=0):
     script.write_text(
         f"#!{sys.executable}\nimport sys\n"
         f"open({str(log)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')\n"
-        f"sys.exit({exit_code})\n"
+        f"sys.exit({exit_code})\n", encoding="utf-8"
     )
     script.chmod(0o755)
     return script, log
@@ -23,7 +23,7 @@ def fake_graphify(tmp_path, exit_code=0):
 def project(tmp_path):
     root = tmp_path / "project"
     (root / "graphify-out").mkdir(parents=True)
-    (root / "graphify-out/graph.json").write_text("{}")
+    (root / "graphify-out/graph.json").write_text("{}", encoding="utf-8")
     return root
 
 
@@ -31,7 +31,7 @@ def test_refresh_updates_an_existing_graph(project, tmp_path, monkeypatch):
     script, log = fake_graphify(tmp_path)
     monkeypatch.setattr(code_graph.shutil, "which", lambda name: str(script))
     assert code_graph.refresh(project) == {"state": "updated", "graph": "graphify-out/graph.json"}
-    assert log.read_text().split() == ["update", str(project.resolve())]
+    assert log.read_text(encoding="utf-8").split() == ["update", str(project.resolve())]
 
 
 def test_refresh_skips_projects_without_a_graph(tmp_path, monkeypatch):

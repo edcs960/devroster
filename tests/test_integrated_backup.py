@@ -249,7 +249,7 @@ def artifacts(workspace):
     reference_path = workspace / ".agent-dev/design-references" / (reference["id"] + ".json")
     for path, value in ((integration_path, integration), (reference_path, reference)):
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(value, ensure_ascii=False))
+        path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
     return integration_path, reference_path
 
 
@@ -275,14 +275,14 @@ def test_invalid_artifact_rejected(workspace, tmp_path, monkeypatch, fault):
     elif fault == "oversize":
         monkeypatch.setattr(backup, "MAX_FILE", 20)
     else:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
         if fault == "digest":
             value["content"]["title"] = "changed"
         elif fault == "provenance":
             value["operation"] = "unregistered"
         else:
             value["content"]["api_key"] = "sensitive-value"
-        path.write_text(json.dumps(value))
+        path.write_text(json.dumps(value), encoding="utf-8")
     with pytest.raises(DomainError):
         backup.create_bundle(workspace, tmp_path / "bad.zip")
     assert not (tmp_path / "bad.zip").exists()
@@ -414,9 +414,9 @@ def test_changed_artifact_during_capture_rejected(workspace, tmp_path, monkeypat
 
     def capture(root, canonical, **options):
         result = original(root, canonical, **options)
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
         value["content"]["title"] = "changed concurrently"
-        path.write_text(json.dumps(value))
+        path.write_text(json.dumps(value), encoding="utf-8")
         return result
 
     monkeypatch.setattr(backup, "_portable_artifacts", capture)
@@ -454,7 +454,7 @@ def test_staged_evidence_must_match_database_artifact_digest(workspace, tmp_path
 
     evidence = workspace / "output/Example/T/notes.md"
     evidence.parent.mkdir(parents=True)
-    evidence.write_text("검증된 근거")
+    evidence.write_text("검증된 근거", encoding="utf-8")
     with Database(workspace / ".agent-dev/state.db").transaction() as sql:
         project = sql.execute("SELECT id FROM projects").fetchone()[0]
         sql.execute(
@@ -486,11 +486,11 @@ def test_staged_evidence_must_match_database_artifact_digest(workspace, tmp_path
 
 def test_design_reference_content_must_derive_from_source(workspace, tmp_path):
     _integration, path = artifacts(workspace)
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_text(encoding="utf-8"))
     value["content"] = {"title": "unrelated content"}
     value["id"] = digest({key: item for key, item in value.items() if key != "id"})
     path.unlink()
-    path.with_name(value["id"] + ".json").write_text(json.dumps(value))
+    path.with_name(value["id"] + ".json").write_text(json.dumps(value), encoding="utf-8")
     with pytest.raises(DomainError):
         backup.create_bundle(workspace, tmp_path / "bad.zip")
 
@@ -499,12 +499,12 @@ def test_valid_truncated_design_reference_is_portable(workspace, tmp_path):
     from agent_dev.domain.content import canonical
 
     _integration, path = artifacts(workspace)
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_text(encoding="utf-8"))
     value["content"] = canonical(value["content"])[:10]
     value["truncated"] = True
     value["id"] = digest({key: item for key, item in value.items() if key != "id"})
     path.unlink()
-    path.with_name(value["id"] + ".json").write_text(json.dumps(value))
+    path.with_name(value["id"] + ".json").write_text(json.dumps(value), encoding="utf-8")
     archive = tmp_path / "truncated.zip"
     backup.create_bundle(workspace, archive)
     assert backup.inspect_bundle(archive)["valid"]
@@ -553,14 +553,14 @@ def test_atomic_install_never_overwrites_racing_destination(workspace, tmp_path,
         else:
             target.mkdir()
             if kind == "nonempty":
-                (target / "owned-by-other").write_text("preserve")
+                (target / "owned-by-other").write_text("preserve", encoding="utf-8")
         return real_install(stage, target)
 
     monkeypatch.setattr(backup, "_atomic_install", raced_install)
     with pytest.raises(DomainError, match="exists|overwritten"):
         backup.restore_bundle(source, destination)
     if kind == "nonempty":
-        assert (destination / "owned-by-other").read_text() == "preserve"
+        assert (destination / "owned-by-other").read_text(encoding="utf-8") == "preserve"
     elif kind == "symlink":
         assert destination.is_symlink()
     else:

@@ -104,7 +104,7 @@ class FakeConsole:
 def workspace(tmp_path):
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}), encoding="utf-8")
     WorkflowRuntime(root).store.register_project("P", "Project", {})
     messenger.save_settings(
         root,

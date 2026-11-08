@@ -1,6 +1,10 @@
 /* External messenger settings: Slack token, channel, allowlist, listener control. */
 (() => {
   'use strict';
+// Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
+  // Shared confirmation dialog (ui-feedback.js); falls back to the browser dialog if it is missing.
+  const ask = (title, body, confirm, opts = {}) => globalThis.DevRosterUI ? globalThis.DevRosterUI.confirmAction(title, body, confirm, opts) : Promise.resolve(window.confirm(title + '\n' + body));
   const $ = id => document.getElementById(id);
   const node = (tag, value, className) => { const el = document.createElement(tag); if (value !== undefined) el.textContent = value; if (className) el.className = className; return el; };
   const KIND = {help: '도움말', request: '요청', status: '상태', run: '실행', approve: '승인', unknown: '알 수 없음', invalid: '형식 오류', notify: '상태 알림'};
@@ -33,14 +37,14 @@
     const recent = $('recent'); recent.replaceChildren(...data.recent.map(row => node('li', `${when(row.at)} · ${row.author} · ${KIND[row.kind] || row.kind} — ${row.reply}`)));
     if (!data.recent.length) recent.append(node('li', '아직 처리한 메시지가 없습니다.'));
   }
-  async function load() { try { render(await call('bootstrap')); } catch (error) { say(error.message, true); } }
+  async function load() { try { render(await call('bootstrap')); } catch (error) { say(errText(error), true); } }
 
   async function act(button, action, message) {
     button.disabled = true;
-    try { const data = await action(); render(data); say(message(data)); } catch (error) { say(error.message, true); } finally { button.disabled = false; }
+    try { const data = await action(); render(data); say(message(data)); } catch (error) { say(errText(error), true); } finally { button.disabled = false; }
   }
   $('token-save').addEventListener('click', () => act($('token-save'), async () => { const data = await call('token', {value: $('token-value').value}); $('token-value').value = ''; return data; }, () => '봇 토큰을 저장했습니다.'));
-  $('token-delete').addEventListener('click', () => { if (confirm('저장한 슬랙 봇 토큰을 삭제할까요?')) act($('token-delete'), () => call('token', {delete: true}), () => '봇 토큰을 삭제했습니다.'); });
+  $('token-delete').addEventListener('click', async () => { if (await ask('슬랙 봇 토큰을 삭제할까요?', '삭제하면 리스너가 슬랙 메시지를 읽거나 답할 수 없습니다. 다시 쓰려면 토큰을 새로 저장해야 합니다.', '토큰 삭제')) act($('token-delete'), () => call('token', {delete: true}), () => '봇 토큰을 삭제했습니다.'); });
   $('settings-form').addEventListener('submit', event => { event.preventDefault(); act($('settings-save'), () => call('save', {settings: {
     enabled: $('enabled').checked, notify: $('notify').checked, channel_id: $('channel-id').value.trim(), allowed_user_ids: ids($('allowed-users').value), allowed_bot_ids: ids($('allowed-bots').value),
     prefix: $('prefix').value.trim(), poll_seconds: Number($('poll-seconds').value),

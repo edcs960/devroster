@@ -39,8 +39,13 @@ async function waitOrigin(page, label, origin) {
 
       // Shared default, then override with an explicit empty value, then return to inheritance.
       await page.locator('#global-model').fill('shared-model-' + width);
+      // Saving reloads the effective table; wait for that reload, not just the status text, or a
+      // late re-render can replace the controls this step is about to edit.
+      const reloaded = page.waitForResponse(response => response.url().includes('/api/settings/effective'));
       await page.locator('#global-save').click();
       await status(page, 'global-status', /저장했습니다/);
+      await reloaded;
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await waitOrigin(page, '모델', '공통값');
       const modelRow = page.locator('#effective-table tbody tr', {has: page.locator('th', {hasText: '모델'})});
       await modelRow.locator('select').selectOption('project');
@@ -88,8 +93,8 @@ async function waitOrigin(page, label, origin) {
       await page.locator('#bind-scopes').fill('repo-A');
       await page.locator('#bind-form button[type=submit]').click();
       await status(page, 'connection-status', /지정했습니다/);
-      page.once('dialog', dialog => dialog.accept());
       await page.locator('#connection-list li', {hasText: id}).locator('button').click();
+      await page.locator('dialog[open] [data-ok]').click();  // shared confirmation dialog
       await status(page, 'connection-status', /비활성화했습니다/);
       await page.waitForFunction(id => /비활성화됨/.test([...document.querySelectorAll('#connection-list li')].find(li => li.textContent.includes(id)).textContent), id);
 

@@ -34,8 +34,8 @@ TOKEN = "e2e-shared-token-value"
 
 def project(root):
     (root / "src").mkdir(parents=True)
-    (root / "src/source.txt").write_text("baseline")
-    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n")
+    (root / "src/source.txt").write_text("baseline", encoding="utf-8")
+    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n", encoding="utf-8")
     git(root, "init", "-q")
     git(root, "config", "user.name", "Fixture")
     git(root, "config", "user.email", "fixture@example.test")
@@ -59,7 +59,7 @@ def status(root):
     return subprocess.run(
         ["git", "-C", str(root), "status", "--porcelain"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         check=True,
     ).stdout
 
@@ -157,7 +157,7 @@ def test_end_to_end_settings_management(tmp_path, monkeypatch):
     monkeypatch.delenv("DEVROSTER_HOME")
     pointer = bootstrap_file({})
     pointer.parent.mkdir(parents=True)
-    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}))
+    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}), encoding="utf-8")
     plan = plan_move(old, tmp_path / "management-b", scope="management")
     assert plan["ready"], plan["checks"]
     result = apply_move(plan["plan_id"], expected_registry_revision=registry()["revision"])

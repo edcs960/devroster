@@ -260,9 +260,9 @@ def test_gemini_cli_actual_policy_and_argv(tmp_path, monkeypatch):
                     json.loads(
                         __import__("pathlib")
                         .Path(kwargs["env"]["GEMINI_CLI_SYSTEM_SETTINGS_PATH"])
-                        .read_text()
+                        .read_text(encoding="utf-8")
                     ),
-                    __import__("pathlib").Path(argv[argv.index("--admin-policy") + 1]).read_text(),
+                    __import__("pathlib").Path(argv[argv.index("--admin-policy") + 1]).read_text(encoding="utf-8"),
                 )
             )
 

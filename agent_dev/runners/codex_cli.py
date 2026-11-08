@@ -139,7 +139,7 @@ class CodexCliRunner:
             command,
             env=isolated_environment(self.process_env),
             cwd=self.workspace_path,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             **({"stdin": subprocess.PIPE} if self.stdin_prompt else {}),
@@ -235,7 +235,7 @@ class CodexCliRunner:
                 [self.command, "mcp", "list"],
                 cwd=self.workspace_path,
                 env=isolated_environment(self.process_env),
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 capture_output=True,
                 check=False,
             )
@@ -254,7 +254,7 @@ class CodexCliRunner:
                 [self.command, "exec", "--help"],
                 cwd=self.workspace_path,
                 env=isolated_environment(self.process_env),
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 capture_output=True,
                 check=False,
             )

@@ -21,7 +21,7 @@ def test_re_registration_keeps_legacy_settings_and_revision(tmp_path, monkeypatc
 
     root, engine = tmp_path / 'legacy', tmp_path / 'legacy/engine'
     (engine / 'config').mkdir(parents=True)
-    (engine / 'config/runtime.json').write_text(json.dumps({'system_name': 'Legacy'}))
+    (engine / 'config/runtime.json').write_text(json.dumps({'system_name': 'Legacy'}), encoding="utf-8")
     monkeypatch.setattr(paths, 'AGENT_DEV_ROOT', engine)
     monkeypatch.setattr(paths, 'PROJECT_ROOT', root)
     monkeypatch.setenv('DEVROSTER_HOME', str(tmp_path / 'home'))
@@ -43,13 +43,13 @@ def test_migrates_legacy_last_used_mapping_when_registering_other_root(tmp_path,
 
     root, engine = tmp_path / 'legacy', tmp_path / 'legacy/engine'
     (engine / 'config').mkdir(parents=True)
-    (engine / 'config/runtime.json').write_text('{}')
+    (engine / 'config/runtime.json').write_text('{}', encoding="utf-8")
     monkeypatch.setattr(paths, 'AGENT_DEV_ROOT', engine)
     monkeypatch.setattr(paths, 'PROJECT_ROOT', root)
     home = tmp_path / 'home'
     home.mkdir()
     monkeypatch.setenv('DEVROSTER_HOME', str(home))
-    (home / 'app.json').write_text(json.dumps({'root': str(engine)}))
+    (home / 'app.json').write_text(json.dumps({'root': str(engine)}), encoding="utf-8")
     other = tmp_path / 'other'
     other.mkdir()
     register_root(other, remember=True)
@@ -208,10 +208,10 @@ def test_git_diff_larger_than_limit_returns_truncated_prefix(tmp_path):
 
     git('init', '-q')
     source = tmp_path / 'source.txt'
-    source.write_text('baseline\n')
+    source.write_text('baseline\n', encoding="utf-8")
     git('add', 'source.txt')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'base')
-    source.write_text(''.join(f'line {i}\n' for i in range(4000)))
+    source.write_text(''.join(f'line {i}\n' for i in range(4000)), encoding="utf-8")
     whole, cut = _bounded(tmp_path, ['diff', '--no-ext-diff', '--no-textconv'], 100000)
     assert not cut
     limit = len(whole) - 100
@@ -252,7 +252,7 @@ def legacy_registry(tmp_path, monkeypatch):
 
     root, engine = tmp_path / 'legacy', tmp_path / 'legacy/engine'
     (engine / 'config').mkdir(parents=True)
-    (engine / 'config/runtime.json').write_text('{}')
+    (engine / 'config/runtime.json').write_text('{}', encoding="utf-8")
     monkeypatch.setattr(paths, 'AGENT_DEV_ROOT', engine)
     monkeypatch.setattr(paths, 'PROJECT_ROOT', root)
     monkeypatch.setenv('DEVROSTER_HOME', str(tmp_path / 'home'))
@@ -265,7 +265,7 @@ def test_managed_configuration_supersedes_live_legacy_mapping(tmp_path, monkeypa
     root, engine = legacy_registry(tmp_path, monkeypatch)
     managed = root / '.agent-dev'
     managed.mkdir()
-    (managed / 'workspace.json').write_text(json.dumps({'format_version': 1, 'project_id': 'p', 'name': 'p'}))
+    (managed / 'workspace.json').write_text(json.dumps({'format_version': 1, 'project_id': 'p', 'name': 'p'}), encoding="utf-8")
     assert engine.exists() and ProjectSetup(root).config == managed
     register_root(root, remember=True)
     assert configuration_for(root) == managed
@@ -320,7 +320,7 @@ def test_detached_pipe_owner_does_not_extend_deadline(tmp_path, monkeypatch):
         # The child deliberately escaped the group; clean up only this owned fixture.
         if child_pid.exists():
             try:
-                os.kill(int(child_pid.read_text()), signal.SIGKILL)
+                os.kill(int(child_pid.read_text(encoding="utf-8")), signal.SIGKILL)
             except ProcessLookupError:
                 pass
 
@@ -334,8 +334,8 @@ def test_corrupt_mapping_is_repaired_on_registration(tmp_path, monkeypatch, dama
     root.mkdir()
     register_root(root, remember=True)
     path = state_file()
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_text(encoding="utf-8"))
     value['configurations'][str(root)] = damaged
-    path.write_text(json.dumps(value))
+    path.write_text(json.dumps(value), encoding="utf-8")
     register_root(root, remember=True)
     assert configuration_for(root) == ProjectSetup(root).config

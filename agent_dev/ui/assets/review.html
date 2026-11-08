@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="ko">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>변경 검토</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/review.css"><link rel="stylesheet" href="/navigation.css"><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/ui-progress.js" defer></script><script src="/review.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>변경 검토</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/review.css"><link rel="stylesheet" href="/navigation.css"><script src="/ui-feedback.js" defer></script><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/ui-progress.js" defer></script><script src="/review.js" defer></script></head>
 <body class="page-review">
-<header class="app-header" data-page-title="변경 검토"><div class="app-header-actions"><a href="/dashboard" class="text-link">개발 현황</a></div></header>
+<header class="app-header" data-page-title="변경 검토"><div class="app-header-actions"><a href="/agent" class="text-link">작업실</a></div></header>
 <main id="review-root">
 <div class="page-intro"><div><p class="breadcrumb">개발·검토</p><h1>변경 검토</h1><p id="review-task">작업의 등록된 저장소 변경 내용을 확인합니다.</p></div></div>
 <details class="review-task-switch" open><summary>작업 대상 변경</summary><form id="task-form" class="review-toolbar"><label for="task-input">작업 ID<input id="task-input" required maxlength="200" autocomplete="off" placeholder="예: TASK-001"></label><button type="submit" class="secondary">불러오기</button><button id="refresh" type="button" class="secondary" hidden>새로고침</button></form></details>
 <div id="review-loading" class="loading-state" role="status" aria-live="polite" hidden>변경 내용을 불러오는 중…</div>
 <div id="review-error" class="error-state" role="alert" hidden></div>
-<p id="review-empty" class="empty-state" hidden>작업 ID를 입력하거나 <a href="/dashboard">개발 현황</a>에서 작업의 <strong>변경 검토</strong>를 눌러주세요.</p>
+<p id="review-empty" class="empty-state" hidden>작업 ID를 입력하거나 <a href="/agent">작업실</a>에서 검토할 작업을 고르세요.</p>
 <p id="review-notice" class="review-notice" role="status" aria-live="polite" hidden></p>
 <div class="review-tabs" role="tablist" aria-label="검토 대상"><button id="review-code-tab" type="button" role="tab" aria-selected="true">코드</button><button id="review-screen-tab" disabled type="button" role="tab" aria-selected="false">실제 화면</button></div><div id="review-layout" class="review-layout" hidden>
   <nav class="review-files" aria-labelledby="files-title"><h2 id="files-title">변경 파일</h2><p id="files-summary" class="review-meta"></p><div id="file-list"></div><p id="files-hidden" class="review-meta"></p></nav>

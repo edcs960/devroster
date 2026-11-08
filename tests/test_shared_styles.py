@@ -40,7 +40,7 @@ class Stylesheets(HTMLParser):
 
 @pytest.mark.parametrize("page", PAGES)
 def test_product_html_loads_shared_styles_before_page_styles(page):
-    paths = Stylesheets(ASSETS.joinpath(page + ".html").read_text()).paths
+    paths = Stylesheets(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8")).paths
     assert paths[:4] == ["/" + name for name in (*SHARED, page + ".css")]
 
 
@@ -164,7 +164,7 @@ def test_product_pages_offer_the_shared_header_identity_and_action_slots(page):
                 self.action_slots += 1
 
     parsed = HeaderSlots()
-    parsed.feed(ASSETS.joinpath(page + ".html").read_text())
+    parsed.feed(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8"))
     assert len(parsed.headers) == 1
     assert parsed.headers[0]["class"] == "app-header"
     assert parsed.headers[0]["data-page-title"]
@@ -187,7 +187,7 @@ def test_navigation_identifies_canonical_and_supported_trailing_slash_routes():
         ],
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
 
 
@@ -221,7 +221,7 @@ def test_installed_browser_drawer_styles_match_studio_on_every_product_page(tmp_
                 ],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=90,
             )
             assert result.returncode == 0, result.stderr

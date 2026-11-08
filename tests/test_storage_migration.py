@@ -38,8 +38,8 @@ def prepared(workspace):  # noqa: F811
     runtime.execute("T", "verify", verify=True)
     managed = workspace / ".agent-dev"
     (managed / "roles").mkdir()
-    (managed / "roles/qa.md").write_text("# Local QA rules\n")
-    (managed / "environment.json").write_text(json.dumps({"APP_TOKEN": SECRET}))
+    (managed / "roles/qa.md").write_text("# Local QA rules\n", encoding="utf-8")
+    (managed / "environment.json").write_text(json.dumps({"APP_TOKEN": SECRET}), encoding="utf-8")
     Studio(StudioStore(managed), None).create("Idea", "Studio document")
     return workspace, runtime
 
@@ -84,7 +84,7 @@ def test_plan_is_read_only_and_apply_switches_after_verification(prepared, tmp_p
     assert moved.flags() == runtime.flags()
     assert read_environment(source) == {"APP_TOKEN": SECRET}
     assert locations.environment_file.stat().st_mode & 0o077 == 0
-    assert (locations.role_dir / "qa.md").read_text() == "# Local QA rules\n"
+    assert (locations.role_dir / "qa.md").read_text(encoding="utf-8") == "# Local QA rules\n"
     assert [p["title"] for p in StudioStore(target).projects()] == ["Idea"]
     for row in before["artifacts"]:
         assert (locations.output_root / row["path"]).is_file()
@@ -96,7 +96,7 @@ def test_plan_is_read_only_and_apply_switches_after_verification(prepared, tmp_p
 def test_new_snapshot_keeps_role_text_and_digest_after_externalization(runtime, tmp_path):
     roles = runtime.project_root / ".agent-dev/roles"
     roles.mkdir(parents=True)
-    (roles / "planner.md").write_text("# Team Planner\n\nOVERRIDE-RULE")
+    (roles / "planner.md").write_text("# Team Planner\n\nOVERRIDE-RULE", encoding="utf-8")
     prepare(runtime, session_graph())
     original = runtime.store.snapshot("DAG")["resolved"]
     plan = plan_move(runtime.root, tmp_path / "managed", scope="workspace")
@@ -133,7 +133,7 @@ def test_unsafe_moves_are_not_ready_and_change_nothing(prepared, tmp_path, monke
         data = source / ".agent-dev/data"
         data.mkdir(exist_ok=True)
         (data / "process_registry.json").write_text(
-            json.dumps({"processes": [{"pid": os.getpid(), "task_id": "T"}]})
+            json.dumps({"processes": [{"pid": os.getpid(), "task_id": "T"}]}), encoding="utf-8"
         )
     plan = plan_move(source, target, scope="workspace")
     assert plan["ready"] is False
@@ -151,7 +151,7 @@ def test_stale_registry_revision_and_concurrent_apply_are_rejected(prepared, tmp
     assert stale.value.code == ErrorCode.STALE_VERSION
     lock = storage_migration.maintenance_lock_path()
     lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.write_text(json.dumps({"pid": os.getpid()}))
+    lock.write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
     with pytest.raises(DomainError) as busy:
         apply_move(plan["plan_id"], expected_registry_revision=0)
     assert busy.value.code == ErrorCode.LEASE_CONFLICT
@@ -262,10 +262,10 @@ def test_legacy_engine_layout_keeps_flags_and_zero_diff_compare(tmp_path, monkey
     root = legacy(tmp_path / "engine")
     # An idle legacy task; a task left in verifying counts as active work, as for backups.
     tasks = {"tasks": [{"id": "T1", "title": "Task", "status": "done", "depends_on": []}]}
-    (root / "data/backlog.json").write_text(json.dumps(tasks))
+    (root / "data/backlog.json").write_text(json.dumps(tasks), encoding="utf-8")
     (root / "config").mkdir()
     flags = {"read": True, "dual_write": True, "execute": True, "publish": False}
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": flags}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": flags}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     import_sources(runtime.store, collect_sources(root, root / "data"), dry_run=False)
     target = tmp_path / "managed"
@@ -291,7 +291,7 @@ def test_management_root_move_switches_the_bootstrap_pointer(tmp_path, monkeypat
     monkeypatch.delenv("DEVROSTER_HOME")
     pointer = bootstrap_file({})
     pointer.parent.mkdir(parents=True)
-    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}))
+    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}), encoding="utf-8")
     assert management_root() == old
     destination = tmp_path / "new-management"
     revision = storage_registry.read()["revision"]

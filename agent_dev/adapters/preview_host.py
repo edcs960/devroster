@@ -494,7 +494,7 @@ def capture(context: PreviewContext, payload):
                 [config["node"], str(worker)],
                 input=json.dumps(request),
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=60,
                 check=False,
             )

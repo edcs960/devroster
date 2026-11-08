@@ -155,7 +155,7 @@ def test_readonly_role_violation_blocks_even_custom_runner(runtime):
 
             context = json.loads(request.context)
             Path(context["repositories"]["source"]["worktree"], "source.txt").write_text(
-                "unauthorized"
+                "unauthorized", encoding="utf-8"
             )
             return super().execute(request)
 
@@ -191,12 +191,12 @@ def test_developer_delta_excludes_preexisting_other_node_changes(runtime):
     snapshot = runtime.store.snapshot("T")["resolved"]
     bindings = snapshot["repositories"]
     root = Path(bindings["source"]["worktree"])
-    (root / "source.txt").write_text("prior approved developer delta")
+    (root / "source.txt").write_text("prior approved developer delta", encoding="utf-8")
     before = capture(bindings)
     # A zero-edit node has a narrower path grant; prior dirty files do not violate it.
     narrower = policy("developer", project_paths=["other.txt"], node_paths=["other.txt"])
     enforce(bindings, before, narrower)
-    (root / "source.txt").write_text("unauthorized current delta")
+    (root / "source.txt").write_text("unauthorized current delta", encoding="utf-8")
     with pytest.raises(DomainError):
         enforce(bindings, before, narrower)
 
@@ -260,7 +260,7 @@ def test_narrow_proposal_invalid_control_never_applies(runtime):
     result = runtime.execute("DAG", "invalid-proposal", runner=Invalid())
     assert result["state"] == "blocked"
     binding = runtime.store.snapshot("DAG")["resolved"]["repositories"]["source"]
-    assert Path(binding["worktree"], "source.txt").read_text() == "base"
+    assert Path(binding["worktree"], "source.txt").read_text(encoding="utf-8") == "base"
 
 
 def test_legacy_planner_cannot_expand_write_authority(runtime):
@@ -286,7 +286,7 @@ def test_legacy_planner_cannot_expand_write_authority(runtime):
         def execute(self, request):
             assert "code.write" not in request.capabilities
             binding = json.loads(request.context)["repositories"]["source"]
-            Path(binding["worktree"], "source.txt").write_text("forged planner write")
+            Path(binding["worktree"], "source.txt").write_text("forged planner write", encoding="utf-8")
             return super().execute(request)
 
     result = runtime.execute("LEGACY", "forged-planner", runner=Mutating())
@@ -322,7 +322,7 @@ def test_failed_gate_returns_to_developer_with_its_output(runtime):
             self.contexts.append(context)
             if len(self.contexts) == 3:  # architect, developer, then developer again
                 worktree = next(iter(context["repositories"].values()))["worktree"]
-                Path(worktree, "source.txt").write_text("fixed")
+                Path(worktree, "source.txt").write_text("fixed", encoding="utf-8")
             return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
     runner = Fixer()

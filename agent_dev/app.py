@@ -55,9 +55,31 @@ def start_path(root: Path) -> str:
     return "/agent" if configured else "/setup"
 
 
+def upgrade_state_database(root: Path) -> bool:
+    """Migrate an existing workspace database before any page opens it read-only.
+
+    Pages read with read-only connections, which never run migrations, so a workspace created by
+    an older release would otherwise keep its old schema until the first write. A newer schema or
+    a locked file is left alone here; the pages report those cases themselves.
+    """
+    from agent_dev.adapters.state.sqlite.database import Database
+    from agent_dev.adapters.storage_registry import state_db_path
+    from agent_dev.adapters.workspace import configuration_root
+
+    try:
+        path = state_db_path(configuration_root(Path(root)))
+        if not path.is_file():
+            return False
+        Database(path)
+        return True
+    except Exception:  # noqa: BLE001 - start-up must not fail because of one workspace
+        return False
+
+
 def make_server(root: Path, port: int):
     from agent_dev.ui.studio_server import make_server as studio_server
 
+    upgrade_state_database(root)
     try:
         return studio_server(root, port)
     except OSError:
@@ -65,7 +87,10 @@ def make_server(root: Path, port: int):
 
 
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(prog="devroster app", description=__doc__.splitlines()[0])
+    from agent_dev.core.stdio import use_utf8_stdio
+
+    use_utf8_stdio()  # Korean help and status lines on Windows pipes.
+    parser = argparse.ArgumentParser(prog="devroster app", description=(__doc__ or "DevRoster app").splitlines()[0])
     parser.add_argument("--root", type=Path, help="Project folder (default: last used)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true")

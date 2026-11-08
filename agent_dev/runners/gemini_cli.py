@@ -38,7 +38,7 @@ class GeminiCliRunner:
             help_result = subprocess.run(
                 [self.command, "--help"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=10,
                 check=False,
                 env=self.process_env,
@@ -162,7 +162,7 @@ class GeminiCliRunner:
                 command,
                 cwd=self.workspace_path,
                 env=env,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

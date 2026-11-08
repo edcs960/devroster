@@ -134,7 +134,7 @@ def _git(*args, cwd=None):
             cwd=cwd,
             env=environment,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=FETCH_TIMEOUT,
             check=False,
         )

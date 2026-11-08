@@ -16,11 +16,11 @@ def verify(provider, root, model=""):
     project = root / "project"
     (project / "src").mkdir(parents=True)
     (project / "tests").mkdir()
-    (project / "src/value.py").write_text("def value():\n    return 1\n")
+    (project / "src/value.py").write_text("def value():\n    return 1\n", encoding="utf-8")
     (project / "tests/test_value.py").write_text(
-        "import unittest\nfrom src.value import value\nclass ValueTest(unittest.TestCase):\n    def test_value(self):\n        self.assertEqual(value(), 2)\n"
+        "import unittest\nfrom src.value import value\nclass ValueTest(unittest.TestCase):\n    def test_value(self):\n        self.assertEqual(value(), 2)\n", encoding="utf-8"
     )
-    (project / ".gitignore").write_text("/.agent-dev/\n/output/\n__pycache__/\n")
+    (project / ".gitignore").write_text("/.agent-dev/\n/output/\n__pycache__/\n", encoding="utf-8")
     for args in [
         ("init", "-q"),
         ("config", "user.name", "Agent Dev Fixture"),
@@ -34,7 +34,7 @@ def verify(provider, root, model=""):
     initialize(project, name="LiveFixture", project_id="LIVE", runner=provider, paths=["src"])
     runtime = WorkflowRuntime(project)
     profile_path = project / ".agent-dev/config/profile.json"
-    profile = json.loads(profile_path.read_text())
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
     profile["runners"][0]["authenticated"] = True
     if model:
         profile["runners"][0]["config"]["model"] = model
@@ -62,7 +62,7 @@ def verify(provider, root, model=""):
         profile["role_context"][role] += (
             " Keep this fixture phase under 100 words. Inspect only src/value.py and tests/test_value.py; no networking, external tools, credentials, publishing or commits. Planner/QA must not write source. Developer changes only return 1 to return 2 in src/value.py. Return final Harness Control fenced JSON with handoff_status pass if completed."
         )
-    profile_path.write_text(json.dumps(profile))
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
     runtime.store.revise_profile("LIVE", profile, 0)
     runtime.store.design(
         "LIVE",
@@ -80,9 +80,9 @@ def verify(provider, root, model=""):
     runtime.store.approve("plan", "PLAN", 1, "fixture")
     runtime.store.create_snapshot("LIVE-001", runtime.resolve_snapshot("LIVE-001"))
     runtime_file = project / ".agent-dev/config/runtime.json"
-    config = json.loads(runtime_file.read_text())
+    config = json.loads(runtime_file.read_text(encoding="utf-8"))
     config["orchestrator_v2"]["execute"] = True
-    runtime_file.write_text(json.dumps(config))
+    runtime_file.write_text(json.dumps(config), encoding="utf-8")
     from agent_dev.runners.claude_cli import ClaudeCliRunner
     from agent_dev.runners.codex_cli import CodexCliRunner
 
@@ -135,7 +135,7 @@ def verify(provider, root, model=""):
         if execution.get("state") == "verifying"
         else None
     )
-    preserved = (project / "src/value.py").read_text() == "def value():\n    return 1\n"
+    preserved = (project / "src/value.py").read_text(encoding="utf-8") == "def value():\n    return 1\n"
     report = {
         "provider": provider,
         "selected_model": model or "inherited CLI configuration",
@@ -180,7 +180,7 @@ def main():
             }
     serialized = json.dumps(report, ensure_ascii=False, indent=2)
     if args.report:
-        args.report.write_text(serialized + "\n")
+        args.report.write_text(serialized + "\n", encoding="utf-8")
     print(serialized)
     return 0 if report["passed"] else 1
 

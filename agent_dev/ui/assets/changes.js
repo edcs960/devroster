@@ -1,6 +1,8 @@
 /* Every request and submit is bound to the complete selected input generation. */
 (() => {
   'use strict';
+// Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
   const $ = id => document.getElementById(id);
   const stale = Symbol('superseded');
   let generation = 0, detailGeneration = 0, detailId = '', token = '', selectedProject = '';
@@ -45,7 +47,7 @@
   }
   function errorAt(id, error, g, d) {
     if (error === stale || !valid(g, d)) return;
-    $(id).textContent = error.message || String(error);
+    $(id).textContent = errText(error) || String(error);
     show(id, true);
   }
   function options(select, entries, value, empty = '선택하세요') {

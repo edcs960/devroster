@@ -1,6 +1,8 @@
 /* Canonical project facts only; checks run through explicit settings actions. */
 (() => {
   'use strict';
+// Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
   const taskStates={planned:'계획됨',approval_pending:'승인 대기',ready:'실행 준비',running:'진행 중',blocked:'조치 필요',waiting_for_capacity:'실행 자리 대기',verifying:'검증 중',pr_ready:'변경 검토 준비',user_review:'사용자 검토',feedback_required:'피드백 반영 필요',completed:'완료',cancelled:'취소'};
   const $=id=>document.getElementById(id);
   const make=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;};
@@ -40,7 +42,7 @@
       for(const task of data.tasks_in_progress){const row=make('tr');if(data.current_task&&task.id===data.current_task.id)row.className='current';const cell=make('td');const link=make('a');link.href=taskTarget(task);link.append(make('strong',task.id),make('span',task.title));cell.append(link);const state=make('td');state.append(dot(tone(task.state),taskStates[task.state]||task.state));const next=make('td');const go=make('a',['pr_ready','user_review'].includes(task.state)?'변경 검토':'작업실');go.href=taskTarget(task);go.className='row-link';next.append(go);row.append(cell,state,next);$('tasks-list').append(row);}
       $('tasks-empty').hidden=!!data.tasks_in_progress.length;$('tasks-table').hidden=!data.tasks_in_progress.length;$('tasks-section').hidden=false;
       const trace=$('home-trace-link');trace.href='/traceability'+(data.selected?'?project_id='+encodeURIComponent(data.selected.id):'');
-    }catch(error){if(current===generation){$('home-error').hidden=false;$('home-retry').hidden=false;$('home-error').textContent=error.message;}}finally{if(current===generation)$('home-loading').hidden=true;}
+    }catch(error){if(current===generation){$('home-error').hidden=false;$('home-retry').hidden=false;$('home-error').textContent=errText(error);}}finally{if(current===generation)$('home-loading').hidden=true;}
   }
   $('project-select').addEventListener('change',()=>{const id=$('project-select').value;const url=new URL(location.href);url.searchParams.set('project_id',id);history.replaceState(null,'',url);load(id);});
   $('home-retry').addEventListener('click',()=>load($('project-select').value));

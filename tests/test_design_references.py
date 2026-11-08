@@ -50,7 +50,7 @@ def test_read_only_reference_cache_and_tamper_detection(tmp_path):
     row = service.inspect("stitch", {"project_id": "p1", "screen_id": "s1"})
     assert service.get(row["id"])["trust"] == "untrusted_data"
     path = service.directory / (row["id"] + ".json")
-    path.write_text(path.read_text().replace("bad()", "other()"))
+    path.write_text(path.read_text(encoding="utf-8").replace("bad()", "other()"), encoding="utf-8")
     with pytest.raises(DomainError):
         service.get(row["id"])
     with pytest.raises(DomainError):

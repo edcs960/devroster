@@ -85,7 +85,7 @@ class ClaudeCliRunner:
                     [self.command, "--help"],
                     env=isolated_environment(self.process_env),
                     capture_output=True,
-                    text=True,
+                    text=True, encoding="utf-8", errors="replace",
                     timeout=15,
                     check=False,
                 )
@@ -136,7 +136,7 @@ class ClaudeCliRunner:
             command,
             env=isolated_environment(self.process_env),
             cwd=self.workspace_path,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

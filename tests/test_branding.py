@@ -124,11 +124,11 @@ const allStrongs=[];
 (function coll(n){{if(n.tag==='strong') allStrongs.push(n._txt); n.children.forEach(coll);}})(body);
 console.log(JSON.stringify({{title:_title,allStrongs,brandSlots}}));
 """
-    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
         f.write(harness)
         tmp = f.name
     try:
-        r = subprocess.run(["node", tmp], capture_output=True, text=True, check=False, timeout=10)
+        r = subprocess.run(["node", tmp], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=10)
         assert r.returncode == 0, f"harness crashed: {r.stderr}"
         return _json.loads(r.stdout.strip())
     finally:
@@ -140,7 +140,7 @@ console.log(JSON.stringify({{title:_title,allStrongs,brandSlots}}));
 @pytest.mark.parametrize("page", PAGES)
 def test_page_html_title_is_generic_no_product_name(page):
     """HTML title must be a generic screen name with NO hardcoded product name."""
-    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text())
+    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8"))
     assert PRODUCT_NAME not in parsed.title, (
         f"{page}: HTML title must not hardcode '{PRODUCT_NAME}'; "
         "document.title is set at runtime by navigation.js"
@@ -151,7 +151,7 @@ def test_page_html_title_is_generic_no_product_name(page):
 @pytest.mark.parametrize("page", PAGES)
 def test_page_html_title_has_no_brand_separator(page):
     """HTML title must not contain '· DevRoster' brand separator — that is runtime-only."""
-    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text())
+    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8"))
     title = parsed.title.strip()
     assert "· " + PRODUCT_NAME not in title, (
         f"{page}: static HTML title '{title}' must not embed brand separator"
@@ -161,7 +161,7 @@ def test_page_html_title_has_no_brand_separator(page):
 @pytest.mark.parametrize("page", PAGES)
 def test_page_has_favicon_link(page):
     """All product pages must declare brand-mark.svg as favicon."""
-    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text())
+    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8"))
     icons = [
         lnk for lnk in parsed.links
         if lnk.get("rel") == "icon" and lnk.get("href") == "/brand-mark.svg"
@@ -173,7 +173,7 @@ def test_page_has_favicon_link(page):
 @pytest.mark.parametrize("page", PAGES)
 def test_branding_script_loads_before_navigation_script(page):
     """branding.js must appear in <head> before navigation.js."""
-    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text())
+    parsed = HeadParser(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8"))
     srcs = [s.get("src", "") for s in parsed.scripts]
     assert "/branding.js" in srcs, f"{page}: missing <script src='/branding.js'>"
     assert "/navigation.js" in srcs, f"{page}: missing <script src='/navigation.js'>"
@@ -184,7 +184,7 @@ def test_branding_script_loads_before_navigation_script(page):
 
 def test_dashboard_footer_has_brand_name_slot():
     """dashboard.html footer must contain a data-brand-name slot, not a hardcoded product name."""
-    html = ASSETS.joinpath("dashboard.html").read_text()
+    html = ASSETS.joinpath("dashboard.html").read_text(encoding="utf-8")
     assert "Agent Dev" not in html, (
         "dashboard.html must not contain hardcoded 'Agent Dev' old product name"
     )
@@ -197,7 +197,7 @@ def test_dashboard_footer_has_brand_name_slot():
 
 def test_brand_mark_svg_no_text_or_font_elements():
     """brand-mark.svg must not use <text> elements or font-family attributes."""
-    svg = ASSETS.joinpath("brand-mark.svg").read_text()
+    svg = ASSETS.joinpath("brand-mark.svg").read_text(encoding="utf-8")
     assert "<text" not in svg.lower(), (
         "brand-mark.svg must not use <text> elements; use vector paths/polylines instead"
     )
@@ -211,7 +211,7 @@ def test_brand_mark_svg_no_text_or_font_elements():
 
 def test_brand_mark_svg_has_minimum_stroke_width():
     """brand-mark.svg vector strokes must be at least 2px in the 32-unit viewBox."""
-    svg = ASSETS.joinpath("brand-mark.svg").read_text()
+    svg = ASSETS.joinpath("brand-mark.svg").read_text(encoding="utf-8")
     stroke_widths = re.findall(r'stroke-width=["\']([0-9.]+)["\']', svg)
     for w in stroke_widths:
         assert float(w) >= 2.0, f"stroke-width {w} is below 2px minimum in 32-unit viewBox"
@@ -219,7 +219,7 @@ def test_brand_mark_svg_has_minimum_stroke_width():
 
 def test_brand_mark_svg_has_no_external_references():
     """brand-mark.svg must be self-contained: no external hrefs, scripts, or fonts."""
-    svg = ASSETS.joinpath("brand-mark.svg").read_text()
+    svg = ASSETS.joinpath("brand-mark.svg").read_text(encoding="utf-8")
     assert "<script" not in svg.lower(), "SVG must not contain <script>"
     assert "font-face" not in svg.lower(), "SVG must not embed @font-face"
     for attr in ("href=", "src=", "xlink:href="):
@@ -231,7 +231,7 @@ def test_brand_mark_svg_has_no_external_references():
 def test_brand_mark_svg_xml_valid():
     """brand-mark.svg must parse as valid XML with the expected root element."""
     import xml.etree.ElementTree as ET
-    svg_text = ASSETS.joinpath("brand-mark.svg").read_text()
+    svg_text = ASSETS.joinpath("brand-mark.svg").read_text(encoding="utf-8")
     root = ET.fromstring(svg_text)
     assert root.tag in ("{http://www.w3.org/2000/svg}svg", "svg"), "root must be <svg>"
     # Must have no text elements anywhere in the tree
@@ -253,7 +253,7 @@ def test_branding_js_defines_frozen_app_brand():
     """branding.js must define AppBrand with required fields."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    branding_src = ASSETS.joinpath("branding.js").read_text()
+    branding_src = ASSETS.joinpath("branding.js").read_text(encoding="utf-8")
     check = (
         branding_src
         + "\nconst b = globalThis.AppBrand;"
@@ -267,7 +267,7 @@ def test_branding_js_defines_frozen_app_brand():
     )
     result = subprocess.run(
         ["node", "-e", check],
-        capture_output=True, text=True, check=False, timeout=10
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=10
     )
     assert result.returncode == 0, result.stderr
     assert "ok" in result.stdout
@@ -275,7 +275,7 @@ def test_branding_js_defines_frozen_app_brand():
 
 def test_branding_js_no_external_references():
     """branding.js must not contain network calls or eval."""
-    src = ASSETS.joinpath("branding.js").read_text()
+    src = ASSETS.joinpath("branding.js").read_text(encoding="utf-8")
     assert "fetch(" not in src
     assert "XMLHttpRequest" not in src
     assert "eval(" not in src
@@ -288,7 +288,7 @@ def test_branding_js_graceful_fallback_without_app_brand():
     """navigation.js must run without error when AppBrand is not defined."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(None, nav_src, has_header=False)
     # Just reaching here means it didn't crash.
     assert result is not None
@@ -298,7 +298,7 @@ def test_fallback_uses_generic_label_not_old_brand():
     """Fallback product label (no AppBrand) must not be the old 'Agent Dev' name."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(None, nav_src, has_header=True)
     strongs = result.get("allStrongs", [])
     for text in strongs:
@@ -311,8 +311,8 @@ def test_navigation_js_uses_product_name_from_app_brand():
     """With AppBrand loaded, a <strong> in the menu heading must contain AppBrand.name."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    branding_src = ASSETS.joinpath("branding.js").read_text()
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    branding_src = ASSETS.joinpath("branding.js").read_text(encoding="utf-8")
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(branding_src, nav_src, has_header=True)
     assert PRODUCT_NAME in result["allStrongs"], (
         f"menu heading strong must be '{PRODUCT_NAME}', got strongs: {result['allStrongs']}"
@@ -323,8 +323,8 @@ def test_navigation_js_sets_document_title_with_brand():
     """navigation.js must set document.title = pageTitle + ' · ' + AppBrand.name when brand present."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    branding_src = ASSETS.joinpath("branding.js").read_text()
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    branding_src = ASSETS.joinpath("branding.js").read_text(encoding="utf-8")
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     page_title = "테스트화면"
     result = _nav_harness(branding_src, nav_src, page_title=page_title, has_header=True)
     expected = page_title + " · " + PRODUCT_NAME
@@ -337,7 +337,7 @@ def test_navigation_js_title_not_set_without_brand():
     """Without AppBrand, navigation.js must not set document.title (generic HTML title stays)."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(None, nav_src, page_title="화면", has_header=True)
     assert result["title"] == "", (
         f"Without AppBrand, document.title must remain unset (empty), got: {result['title']!r}"
@@ -348,8 +348,8 @@ def test_navigation_js_populates_brand_name_slots():
     """navigation.js must fill all [data-brand-name] elements with productName via textContent."""
     if not shutil.which("node"):
         pytest.skip("Node required.")
-    branding_src = ASSETS.joinpath("branding.js").read_text()
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    branding_src = ASSETS.joinpath("branding.js").read_text(encoding="utf-8")
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(branding_src, nav_src, has_header=True, brand_slots=2)
     slots = result.get("brandSlots", [])
     assert len(slots) == 2, f"Expected 2 brand-name slots filled, got {slots}"
@@ -370,7 +370,7 @@ globalThis.AppBrand = Object.freeze({
   logo: '/brand-mark.svg'
 });
 """
-    nav_src = ASSETS.joinpath("navigation.js").read_text()
+    nav_src = ASSETS.joinpath("navigation.js").read_text(encoding="utf-8")
     result = _nav_harness(alt_brand_src, nav_src, page_title="화면명", has_header=True, brand_slots=1)
     assert "AltBrand" in result["allStrongs"], (
         f"menu heading strong must reflect alternate brand, got strongs: {result['allStrongs']}"
@@ -541,7 +541,7 @@ def test_page_still_loads_shared_styles_first(page):
             if tag == "link" and d.get("rel") == "stylesheet":
                 self.paths.append(d["href"])
 
-    paths = Links(ASSETS.joinpath(page + ".html").read_text()).paths
+    paths = Links(ASSETS.joinpath(page + ".html").read_text(encoding="utf-8")).paths
     SHARED = ["/ui-tokens.css", "/ui-base.css", "/ui-components.css"]
     for i, shared in enumerate(SHARED):
         assert paths[i] == shared, f"{page}: shared CSS[{i}] must be {shared}, got {paths[i]}"
@@ -582,7 +582,7 @@ def test_wheel_build_contains_brand_mark_svg(tmp_path):
          "--no-build-isolation", "-q",
          str(repo_root),
          "-w", str(tmp_path)],
-        capture_output=True, text=True, check=False, timeout=60,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=60,
         cwd=str(tmp_path),
     )
     wheels = list(tmp_path.glob("*.whl"))

@@ -34,7 +34,7 @@ def verify(wheel: Path):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=90,
             )
             if result.returncode:
@@ -112,8 +112,8 @@ def verify(wheel: Path):
         for name in ("Alpha", "Beta"):
             project = root / name
             (project / "src").mkdir(parents=True)
-            (project / "src/source.txt").write_text("baseline")
-            (project / ".gitignore").write_text("/.agent-dev/\n/output/\n")
+            (project / "src/source.txt").write_text("baseline", encoding="utf-8")
+            (project / ".gitignore").write_text("/.agent-dev/\n/output/\n", encoding="utf-8")
             run(["git", "init", "-q"], project)
             run(["git", "config", "user.name", "Wheel Fixture"], project)
             run(["git", "config", "user.email", "fixture@example.test"], project)
@@ -260,7 +260,7 @@ print('Installed phase/verification fixture passed')
         marker_path = projects[0] / ".agent-dev/workspace.json"
         marker = json.loads(marker_path.read_text(encoding='utf-8'))
         marker.pop("engine_version", None)
-        marker_path.write_text(json.dumps(marker))
+        marker_path.write_text(json.dumps(marker), encoding="utf-8")
         assert (
             json.loads(run([cli, "upgrade", "--json"], projects[0]))["result"]["from_version"]
             == "0.2.0"
@@ -294,7 +294,7 @@ print('Installed phase/verification fixture passed')
             cwd=projects[1],
             env=env,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=30,
             check=False,
         )

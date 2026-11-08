@@ -116,7 +116,7 @@ def _process_command_line(pid: int) -> str | None:
         result = subprocess.run(
             ["ps", "-o", "command=", "-p", str(pid)],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=3,
             check=False,
         )

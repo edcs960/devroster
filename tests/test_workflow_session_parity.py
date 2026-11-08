@@ -50,7 +50,7 @@ def js_sessions(roster):
         f"{function}"
         "process.stdout.write(JSON.stringify(roleSessions()));"
     )
-    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, encoding="utf-8", errors="replace", check=True)
     return json.loads(result.stdout)
 
 
@@ -90,7 +90,7 @@ def test_execution_screen_session_card_text():
         f"process.stdout.write(JSON.stringify(sessionCard({json.dumps(rows)})));"
     )
     result = json.loads(
-        subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+        subprocess.run(["node", "-e", script], capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
     )
     assert result == {
         "title": "세션",

@@ -10,7 +10,7 @@ devroster studio --root /path/to/my-project
 
 브라우저: `http://127.0.0.1:8767/studio`. 포트 변경: `devroster studio --port 8870`.
 다른 프로젝트: 패키지 설치 후 `devroster studio --root /path/to/project`. 이미 `devroster init`한 프로젝트 안에서는 `devroster studio`만 실행한다.
-독립 Studio의 **개발 현황** 링크는 서버에서 제공하는 기존 읽기 전용 대시보드로 연결된다.
+작업 상태와 실행은 **작업실**(`/agent`) 한 화면에서 본다. 이전 **개발 현황** 주소(`/dashboard`)는 작업실로 이동한다. 읽기 전용 대시보드는 `devroster dashboard` 명령으로 따로 연다.
 
 도구·모델·실행파일은 상단 **AI·환경 설정** 또는 `devroster setup --web --root PROJECT`에서 저장한다. 저장 후 Studio를 새로 열거나 새로고침하면 기본값을 사용한다. 프로젝트·개발환경 준비는 [설정 사용 가이드](setup-user-guide.md)를 참고한다.
 

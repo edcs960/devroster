@@ -17,7 +17,7 @@ def legacy(root):
     (root / "data/backlog.json").write_text(
         json.dumps(
             {"tasks": [{"id": "T1", "title": "Task", "status": "review_ready", "depends_on": []}]}
-        )
+        ), encoding="utf-8"
     )
     run = root / "output" / "Topic" / "T1"
     run.mkdir(parents=True)
@@ -28,17 +28,17 @@ def legacy(root):
                 "phases": {"developer": {"status": "pass"}},
                 "findings": [{"id": "finding", "status": "open"}],
             }
-        )
+        ), encoding="utf-8"
     )
-    (run / "events.jsonl").write_text('{"task_id":"T1","kind":"started"}\n')
-    (run / "latest-checkpoint.md").write_text("checkpoint")
+    (run / "events.jsonl").write_text('{"task_id":"T1","kind":"started"}\n', encoding="utf-8")
+    (run / "latest-checkpoint.md").write_text("checkpoint", encoding="utf-8")
     return root
 
 
 def cli(*args):
     return subprocess.run(
         [sys.executable, "-m", "agent_dev.fa", *map(str, args)],
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         check=False,
     )

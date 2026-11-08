@@ -41,7 +41,7 @@ def config(root):
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8", errors="replace"
     ).stdout.strip()
 
 
@@ -101,17 +101,17 @@ def test_initialize_secret_roundtrip_revision_and_events(tmp_path):
     ]
     if os.name != "nt":
         assert environment_file(root).stat().st_mode & 0o777 == 0o600
-    assert (root / ".agent-dev/.gitignore").read_text() == "*\n"
+    assert (root / ".agent-dev/.gitignore").read_text(encoding="utf-8") == "*\n"
 
 
 def test_existing_init_and_studio_adoption(tmp_path):
     root = tmp_path / "initialized"
     initialize(root)
     service = ProjectSetup(root)
-    before = json.loads((root / ".agent-dev/config/runtime.json").read_text())
+    before = json.loads((root / ".agent-dev/config/runtime.json").read_text(encoding="utf-8"))
     value = service.read()
     service.save(value)
-    assert json.loads((root / ".agent-dev/config/runtime.json").read_text()) == before
+    assert json.loads((root / ".agent-dev/config/runtime.json").read_text(encoding="utf-8")) == before
     assert service.read()["profile_version"] == 2
     other = tmp_path / "studio-first"
     store = StudioStore(other)
@@ -183,7 +183,7 @@ def test_monorepo_binding_prefix_and_separate_repositories(tmp_path):
     root = tmp_path / "mono"
     for module in ["frontend", "backend"]:
         (root / module / "src").mkdir(parents=True)
-        (root / module / "src/base.txt").write_text("baseline")
+        (root / module / "src/base.txt").write_text("baseline", encoding="utf-8")
     commit(root)
     settings = config(root)
     settings["modules"] = [
@@ -213,7 +213,7 @@ def test_monorepo_binding_prefix_and_separate_repositories(tmp_path):
     assert [g["cwd"] for g in profile["verification"]["commands"]] == ["frontend", "backend"]
     separate = tmp_path / "separate"
     (separate / "src").mkdir(parents=True)
-    (separate / "src/base.txt").write_text("base")
+    (separate / "src/base.txt").write_text("base", encoding="utf-8")
     commit(separate)
     settings["modules"][1]["path"] = str(separate)
     _, profile, _ = ProjectSetup(root).prepare(settings)
@@ -230,7 +230,7 @@ def test_process_environment_actual_child_without_global_changes(tmp_path):
         env=process_environment(tmp_path, ["APP_SETUP_FIXTURE"]),
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
     assert result.stdout.strip() == "child-value"
     assert "APP_SETUP_FIXTURE" not in os.environ
@@ -284,7 +284,7 @@ def request(base, path, payload=None, token="", headers=None):
 
 def test_web_save_masking_csrf_conflict_and_directory_only_browser(tmp_path):
     (tmp_path / "visible").mkdir()
-    (tmp_path / "private.txt").write_text("private content")
+    (tmp_path / "private.txt").write_text("private content", encoding="utf-8")
     with server(tmp_path) as base:
         status, data = request(base, "/api/setup/bootstrap")
         bootstrap = json.loads(data)
@@ -346,7 +346,7 @@ def test_saved_defaults_reach_studio_job_config(tmp_path):
 def test_approved_workflow_uses_module_cwd_and_env_and_keeps_snapshot(tmp_path):
     root = tmp_path / "project"
     (root / "frontend/src").mkdir(parents=True)
-    (root / "frontend/src/base.txt").write_text("base")
+    (root / "frontend/src/base.txt").write_text("base", encoding="utf-8")
     commit(root)
     settings = config(root)
     settings["modules"] = [
@@ -381,9 +381,9 @@ def test_approved_workflow_uses_module_cwd_and_env_and_keeps_snapshot(tmp_path):
     service = ProjectSetup(root)
     service.save(settings)
     runtime_path = root / ".agent-dev/config/runtime.json"
-    runtime_config = json.loads(runtime_path.read_text())
+    runtime_config = json.loads(runtime_path.read_text(encoding="utf-8"))
     runtime_config["orchestrator_v2"]["execute"] = True
-    runtime_path.write_text(json.dumps(runtime_config))
+    runtime_path.write_text(json.dumps(runtime_config), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     project = service.read()["project_id"]
     runtime.store.design(
@@ -572,7 +572,7 @@ def test_new_project_runs_on_the_approval_engine_and_closes_locally(tmp_path):
     project = tmp_path / "fresh"
     project.mkdir()
     git(project, "init", "-q")
-    (project / "README.md").write_text("fresh")
+    (project / "README.md").write_text("fresh", encoding="utf-8")
     git(project, "add", ".")
     git(project, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
     service = ProjectSetup(project)
@@ -602,7 +602,7 @@ def test_preset_gates_leave_out_missing_npm_scripts(tmp_path):
     web, api = tmp_path / "web", tmp_path / "api"
     web.mkdir()
     api.mkdir()
-    (web / "package.json").write_text(json.dumps({"scripts": {"test": "vitest", "build": "vite build"}}))
+    (web / "package.json").write_text(json.dumps({"scripts": {"test": "vitest", "build": "vite build"}}), encoding="utf-8")
     result = ProjectSetup(tmp_path).preset_gates(
         [
             {"id": "frontend", "preset": "react", "path": "web"},
@@ -628,7 +628,7 @@ def test_new_project_starts_from_the_preset_its_build_files_suggest(tmp_path):
     root = tmp_path / "web"
     root.mkdir()
     (root / "package.json").write_text(
-        json.dumps({"scripts": {"test": "vitest run", "build": "vite build"}})
+        json.dumps({"scripts": {"test": "vitest run", "build": "vite build"}}), encoding="utf-8"
     )
     value = ProjectSetup(root).read()
     (module,) = value["modules"]
@@ -636,7 +636,7 @@ def test_new_project_starts_from_the_preset_its_build_files_suggest(tmp_path):
     gates = [gate["name"] for gate in value["verification"]]
     assert gates == ["unit", "build"]  # no lint script, so no `npm run lint` gate
     # Several build files leave the choice to the user.
-    (root / "pyproject.toml").write_text("[project]\nname='x'\n")
+    (root / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     assert ProjectSetup(root).read()["modules"][0]["preset"] == "generic"
 
 

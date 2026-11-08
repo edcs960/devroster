@@ -120,7 +120,7 @@ def test_claude_runner_passes_resume_and_reads_session_id(tmp_path, monkeypatch)
     from agent_dev.runners import claude_cli
 
     monkeypatch.setattr(claude_cli, "PROJECT_ROOT", tmp_path)
-    (tmp_path / ".mcp.json").write_text('{"mcpServers": {}}')
+    (tmp_path / ".mcp.json").write_text('{"mcpServers": {}}', encoding="utf-8")
     calls = []
 
     class Process:

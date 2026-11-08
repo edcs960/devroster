@@ -8,7 +8,9 @@ ALIASES = {"run": "run", "verify": "verify", "resume": "resume", "complete": "co
 
 def main(argv=None):
     from agent_dev.core.cli_home import apply_to_process
+    from agent_dev.core.stdio import use_utf8_stdio
 
+    use_utf8_stdio()
     apply_to_process()
     from agent_dev.adapters.command_line import handles, parser
     from agent_dev.adapters.command_line import main as workflow_main

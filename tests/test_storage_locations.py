@@ -158,7 +158,7 @@ def test_external_marker_resolves_without_registry(tmp_path, monkeypatch):
         "source_root": str(source),
         "runtime_root": str(source / ".agent-dev"),
     }
-    (config / "workspace.json").write_text(json.dumps(marker))
+    (config / "workspace.json").write_text(json.dumps(marker), encoding="utf-8")
     locations = workspace_locations(config)
     assert locations.layout == EXTERNAL
     # A marker alone is not an identity: no workspace ID, no shared credential folder.
@@ -177,7 +177,7 @@ def test_marker_and_registry_disagreement_is_an_error(tmp_path):
     source, config = folders(tmp_path, "source", "managed")
     storage_registry.register(source, config, source / ".agent-dev")
     (config / "workspace.json").write_text(
-        json.dumps({"format_version": 1, "project_id": "X", "name": "X", "workspace_id": "other"})
+        json.dumps({"format_version": 1, "project_id": "X", "name": "X", "workspace_id": "other"}), encoding="utf-8"
     )
     with pytest.raises(DomainError):
         workspace_locations(source)
@@ -187,10 +187,10 @@ def test_registry_preserves_project_list_and_unrelated_keys(tmp_path):
     source, config, plain = folders(tmp_path, "source", "managed", "plain")
     state = storage_registry.state_file()
     state.parent.mkdir(parents=True, exist_ok=True)
-    state.write_text(json.dumps({"unrelated": "kept"}))
+    state.write_text(json.dumps({"unrelated": "kept"}), encoding="utf-8")
     storage_registry.register(source, config, source / ".agent-dev")
     register_root(plain)
-    value = json.loads(state.read_text())
+    value = json.loads(state.read_text(encoding="utf-8"))
     assert value["unrelated"] == "kept"
     assert str(plain) in value["roots"]
     assert value["workspace_registry"]["revision"] == 1
@@ -200,7 +200,7 @@ def test_registry_preserves_project_list_and_unrelated_keys(tmp_path):
 def test_damaged_registry_is_an_explicit_error(tmp_path):
     state = storage_registry.state_file()
     state.parent.mkdir(parents=True, exist_ok=True)
-    state.write_text(json.dumps({"workspace_registry": {"revision": 1, "workspaces": []}}))
+    state.write_text(json.dumps({"workspace_registry": {"revision": 1, "workspaces": []}}), encoding="utf-8")
     with pytest.raises(DomainError):
         workspace_locations(tmp_path)
 
@@ -210,7 +210,7 @@ def test_management_root_order_and_invalid_pointers(tmp_path, monkeypatch):
     assert management_root({"DEVROSTER_HOME": str(explicit)}) == explicit
     with pytest.raises(DomainError):
         management_root({"DEVROSTER_HOME": "relative/home"})
-    (tmp_path / "file").write_text("")
+    (tmp_path / "file").write_text("", encoding="utf-8")
     with pytest.raises(DomainError):
         management_root({"DEVROSTER_HOME": str(tmp_path / "file")})
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "user")
@@ -220,7 +220,7 @@ def test_management_root_order_and_invalid_pointers(tmp_path, monkeypatch):
     pointer = bootstrap_file({})
     pointer.parent.mkdir(parents=True)
     selected = tmp_path / "selected"
-    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(selected)}))
+    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(selected)}), encoding="utf-8")
     with pytest.raises(DomainError):
         management_root({})  # A missing selected folder never falls back to the default.
     selected.mkdir()
@@ -228,6 +228,6 @@ def test_management_root_order_and_invalid_pointers(tmp_path, monkeypatch):
     monkeypatch.delenv("DEVROSTER_HOME")
     assert cli_home.app_home() == selected
     assert cli_home.cli_homes()["CODEX_HOME"] == selected / "cli/codex"
-    pointer.write_text("{broken")
+    pointer.write_text("{broken", encoding="utf-8")
     with pytest.raises(DomainError):
         management_root({})

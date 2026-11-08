@@ -98,11 +98,11 @@ def test_registry_legacy_atomic_dedup_missing_and_invalid(tmp_path, monkeypatch)
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir()
     b.mkdir()
-    (home / "app.json").write_text(json.dumps({"root": str(a), "unrelated": "preserved"}))
+    (home / "app.json").write_text(json.dumps({"root": str(a), "unrelated": "preserved"}), encoding="utf-8")
     register_root(b)
     register_root(b / ".." / "b")
     assert set(roots()) == {str(a), str(b)}
-    assert json.loads((home / "app.json").read_text())["unrelated"] == "preserved"
+    assert json.loads((home / "app.json").read_text(encoding="utf-8"))["unrelated"] == "preserved"
     b.rmdir()
     listing = project_list(a)
     assert next(row for row in listing["projects"] if row["root"] == str(b))["available"] is False
@@ -165,7 +165,7 @@ def test_workspace_picker_browser(tmp_path, monkeypatch):
             ],
             capture_output=True,
             check=False,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=100,
         )
         assert result.returncode == 0, result.stdout + result.stderr
@@ -198,7 +198,7 @@ def test_legacy_configuration_root_is_preserved(tmp_path, monkeypatch):
     root = tmp_path / "legacy"
     engine = root / "engine"
     (engine / "config").mkdir(parents=True)
-    (engine / "config/runtime.json").write_text(json.dumps({"system_name": "Legacy"}))
+    (engine / "config/runtime.json").write_text(json.dumps({"system_name": "Legacy"}), encoding="utf-8")
     monkeypatch.setattr(paths, "AGENT_DEV_ROOT", engine)
     monkeypatch.setattr(paths, "PROJECT_ROOT", root)
     monkeypatch.setenv("DEVROSTER_HOME", str(tmp_path / "app"))

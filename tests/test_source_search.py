@@ -22,15 +22,15 @@ def root(tmp_path, monkeypatch):
     monkeypatch.setenv("DEVROSTER_TEST_API_TOKEN", SECRET)
     src = tmp_path / "src"
     (src / "b").mkdir(parents=True)
-    (src / "a.py").write_text("def a():\n    return 1\n")
-    (src / "kor.md").write_text("한글 검색 테스트\nHello World\n")
-    (src / "b/z.txt").write_text("hello from b\n")
-    (src / "conf.py").write_text(f"token = '{SECRET}'  # hello\n")
+    (src / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+    (src / "kor.md").write_text("한글 검색 테스트\nHello World\n", encoding="utf-8")
+    (src / "b/z.txt").write_text("hello from b\n", encoding="utf-8")
+    (src / "conf.py").write_text(f"token = '{SECRET}'  # hello\n", encoding="utf-8")
     (src / "binary.bin").write_bytes(b"hello\x00\xff")
     (src / "large.txt").write_bytes(b"hello " * 200_000)
-    (tmp_path / "outside.txt").write_text("hello outside\n")
+    (tmp_path / "outside.txt").write_text("hello outside\n", encoding="utf-8")
     (src / "link.txt").symlink_to(tmp_path / "outside.txt")
-    (src / ".env.local").write_text("hello private\n")
+    (src / ".env.local").write_text("hello private\n", encoding="utf-8")
     return tmp_path
 
 
@@ -70,7 +70,7 @@ def test_exclusions_secret_and_skip_reasons(root):
 
 
 def test_many_matches_in_one_file_resume_same_file_and_line(root):
-    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(1, 251)))
+    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(1, 251)), encoding="utf-8")
     search = service(root)
     seen, cursor, pages = [], "", 0
     while True:
@@ -85,7 +85,7 @@ def test_many_matches_in_one_file_resume_same_file_and_line(root):
 
 
 def test_line_budget_and_deadline_are_resumable(root):
-    (root / "src/long.txt").write_text("x\n" * 2400 + "needle\n")
+    (root / "src/long.txt").write_text("x\n" * 2400 + "needle\n", encoding="utf-8")
     search = service(root)
     page = search.search("source", "needle", mode="content", path="src/long.txt")
     assert page["results"] == [] and page["reason"] == "lines" and page["next_cursor"]
@@ -102,7 +102,7 @@ def test_line_budget_and_deadline_are_resumable(root):
 
 
 def test_tampered_cross_query_stale_file_and_config_cursors(root):
-    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(150)))
+    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(150)), encoding="utf-8")
     search = service(root)
     cursor = search.search("source", "needle", mode="content")["next_cursor"]
     with pytest.raises(DomainError) as tampered:
@@ -112,11 +112,11 @@ def test_tampered_cross_query_stale_file_and_config_cursors(root):
         search.search("source", "other", mode="content", cursor=cursor)
     with pytest.raises(DomainError):
         service(root, b"z" * 32).search("source", "needle", mode="content", cursor=cursor)
-    (root / "src/many.txt").write_text("changed\n")
+    (root / "src/many.txt").write_text("changed\n", encoding="utf-8")
     with pytest.raises(DomainError) as stale:
         search.search("source", "needle", mode="content", cursor=cursor)
     assert stale.value.code == ErrorCode.STALE_VERSION
-    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(150)))
+    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(150)), encoding="utf-8")
     cursor = search.search("source", "needle", mode="content")["next_cursor"]
     from agent_dev.adapters.project_setup import ProjectSetup
 
@@ -137,14 +137,14 @@ def test_invalid_queries_are_rejected(root):
 def cli(root, *args):
     result = subprocess.run(
         [sys.executable, "-m", "agent_dev.fa", "source", *args, "--root", str(root), "--json"],
-        text=True, capture_output=True, check=False,
+        text=True, encoding="utf-8", errors="replace", capture_output=True, check=False,
     )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)["result"]
 
 
 def test_cli_continuation_across_processes_matches_api(root):
-    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(1, 131)))
+    (root / "src/many.txt").write_text("".join(f"needle {i}\n" for i in range(1, 131)), encoding="utf-8")
     key_path = root / ".agent-dev/source-search.key"
     assert not key_path.exists()
     first = cli(root, "search", "needle", "--mode", "content")
@@ -161,7 +161,7 @@ def test_web_get_does_not_create_signer_and_impact_candidates(root):
     web = SourceWeb(root)
     page = web.get("search", {"module": "source", "query": "hello", "mode": "content"})
     assert page["results"] and not (root / ".agent-dev/source-search.key").exists()
-    (root / "src/test_a.py").write_text("from a import a\n")
+    (root / "src/test_a.py").write_text("from a import a\n", encoding="utf-8")
     explorer = SourceExplorer(root)
     graph = {
         "nodes": [
@@ -225,7 +225,7 @@ def test_large_folder_lists_every_page_once(root, count):
     folder = root / "src/wide"
     folder.mkdir()
     for index in range(count):
-        (folder / f"f{index:04}.txt").write_text("needle\n" if index >= count - 3 else "x\n")
+        (folder / f"f{index:04}.txt").write_text("needle\n" if index >= count - 3 else "x\n", encoding="utf-8")
     explorer = SourceExplorer(root)
     calls = []
     original = explorer.listing
@@ -244,7 +244,7 @@ def test_large_folder_lists_every_page_once(root, count):
 def test_empty_folders_under_deadline_still_progress(root):
     for index in range(120):
         (root / f"src/empty-{index:03}").mkdir()
-    (root / "src/zz.txt").write_text("needle\n")
+    (root / "src/zz.txt").write_text("needle\n", encoding="utf-8")
     search = service(root)
     found, pages = bounded(lambda: all_pages(search, "source", "needle", mode="content", deadline=0))
     assert found == [("src/zz.txt", 1)]
@@ -253,6 +253,7 @@ def test_empty_folders_under_deadline_still_progress(root):
 
 PLATFORM_PROBE = r"""
 import json, os, sys, threading, urllib.request, urllib.error
+sys.stdout.reconfigure(encoding="utf-8")
 from pathlib import Path
 for name in ("O_DIRECTORY", "O_NOFOLLOW"):
     if hasattr(os, name):
@@ -289,7 +290,7 @@ print(json.dumps(report, ensure_ascii=False))
 def test_platform_without_safe_reads_keeps_web_servers_up(root):
     result = subprocess.run(
         [sys.executable, "-c", PLATFORM_PROBE, str(root)],
-        text=True, capture_output=True, check=False, timeout=120,
+        text=True, encoding="utf-8", errors="replace", capture_output=True, check=False, timeout=120,
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(result.stdout.strip().splitlines()[-1])
@@ -320,8 +321,8 @@ def test_folder_near_the_scan_cap_pages_within_budget(root):
     folder = root / "src/huge"
     folder.mkdir()
     for index in range(9000):
-        (folder / f"n{index:05}.txt").write_text("x\n")
-    (folder / "n09000.txt").write_text("needle\n")
+        (folder / f"n{index:05}.txt").write_text("x\n", encoding="utf-8")
+    (folder / "n09000.txt").write_text("needle\n", encoding="utf-8")
     explorer = SourceExplorer(root)
     scans = []
     original = explorer.listing
@@ -366,10 +367,10 @@ def test_nested_pinned_profile_keeps_outer_pin_and_threads_isolated(root):
 def locked(root):
     blocked = root / "src/b/locked"
     blocked.mkdir()
-    (blocked / "inside.txt").write_text("hello hidden\n")
-    (root / "src/b/z2.txt").write_text("hello after\n")
+    (blocked / "inside.txt").write_text("hello hidden\n", encoding="utf-8")
+    (root / "src/b/z2.txt").write_text("hello after\n", encoding="utf-8")
     unreadable = root / "src/b/unreadable.txt"
-    unreadable.write_text("hello unreadable\n")
+    unreadable.write_text("hello unreadable\n", encoding="utf-8")
     blocked.chmod(0)
     unreadable.chmod(0)
     yield root
@@ -401,10 +402,10 @@ def test_unreadable_folder_and_file_are_skipped_and_siblings_continue(locked):
 def test_special_and_racing_entries_are_skipped_not_fatal(root):
     (root / "src/b/sub").mkdir()
     os.mkfifo(root / "src/b/sub/pipe")
-    (root / "src/b/sub/after.txt").write_text("hello sub\n")
+    (root / "src/b/sub/after.txt").write_text("hello sub\n", encoding="utf-8")
     (root / "src/b/odd").mkdir()
-    (root / "src/b/odd/back\\slash.txt").write_text("hello odd\n")
-    (root / "src/b/odd/ok.txt").write_text("hello ok\n")
+    (root / "src/b/odd/back\\slash.txt").write_text("hello odd\n", encoding="utf-8")
+    (root / "src/b/odd/ok.txt").write_text("hello ok\n", encoding="utf-8")
     explorer = SourceExplorer(root)
     original = explorer.text
 

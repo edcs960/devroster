@@ -165,7 +165,7 @@ def authentic_v2(path):
 
     with contextlib.closing(sqlite3.connect(path)) as conn:
         conn.executescript(
-            Path(__file__).with_name("fixtures").joinpath("canonical-v2.sql").read_text()
+            Path(__file__).with_name("fixtures").joinpath("canonical-v2.sql").read_text(encoding="utf-8")
         )
         conn.executemany("INSERT INTO schema_versions VALUES(?,?)", [(1, 1.0), (2, 2.0)])
         conn.execute("INSERT INTO projects VALUES('OLD','old','old','draft',0,1.0)")
@@ -546,7 +546,7 @@ def test_module_scope_freezes_profile_and_blocks_same_relative_path(tmp_path, mo
     for module in ("frontend", "backend"):
         path = tmp_path / module
         path.mkdir()
-        (path / "shared.py").write_text("base")
+        (path / "shared.py").write_text("base", encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(path)], check=True)
         subprocess.run(["git", "-C", str(path), "add", "."], check=True)
         subprocess.run(
@@ -568,7 +568,7 @@ def test_module_scope_freezes_profile_and_blocks_same_relative_path(tmp_path, mo
     app = tmp_path / "app"
     runtime = WorkflowRuntime(app)
     (app / "config").mkdir()
-    (app / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}))
+    (app / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}), encoding="utf-8")
     runtime.store.register_project(
         "P1",
         "project",
@@ -627,7 +627,7 @@ def test_module_scope_freezes_profile_and_blocks_same_relative_path(tmp_path, mo
         def execute(self, request):
             context = json.loads(request.context)
             Path(context["repositories"]["frontend"]["worktree"]).joinpath("shared.py").write_text(
-                "authorized"
+                "authorized", encoding="utf-8"
             )
             return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
@@ -649,7 +649,7 @@ def test_module_scope_freezes_profile_and_blocks_same_relative_path(tmp_path, mo
     assert runtime.execute(task_id, "other-module", runner=OtherModuleReader())["state"] == (
         "verifying"
     )
-    assert Path(roots["backend"]["path"]).joinpath("shared.py").read_text() == "base"
+    assert Path(roots["backend"]["path"]).joinpath("shared.py").read_text(encoding="utf-8") == "base"
 
 
 def test_verification_mapping_requires_registered_target(canonical_db, studio_root):
@@ -707,7 +707,7 @@ def test_concurrent_initializers_repeat_threads_and_processes(tmp_path):
     path = folder / "state.db"
     authentic_v2(path)
     code = "import sys; from agent_dev.adapters.state.sqlite.database import Database; Database(sys.argv[1])"
-    workers = [subprocess.Popen([sys.executable, "-c", code, str(path)], stderr=subprocess.PIPE, text=True) for _ in range(3)]
+    workers = [subprocess.Popen([sys.executable, "-c", code, str(path)], stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace") for _ in range(3)]
     for worker in workers:
         _, error = worker.communicate(timeout=60)
         assert worker.returncode == 0, error
@@ -787,8 +787,8 @@ def test_default_tasks_split_ui_and_server_modules(tmp_path):
     web, api = tmp_path / "web", tmp_path / "api"
     web.mkdir()
     api.mkdir()
-    (web / "package.json").write_text('{"dependencies": {"react": "19"}}')
-    (api / "build.gradle").write_text("plugins { id 'org.springframework.boot' }")
+    (web / "package.json").write_text('{"dependencies": {"react": "19"}}', encoding="utf-8")
+    (api / "build.gradle").write_text("plugins { id 'org.springframework.boot' }", encoding="utf-8")
     bundle = {
         "requirements": [
             {"id": "REQ-001", "title": "add"},

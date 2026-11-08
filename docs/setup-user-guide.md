@@ -9,7 +9,7 @@ python -m pip install /path/to/devroster
 devroster setup --web --root /path/to/my-project
 ```
 
-`http://127.0.0.1:8768/setup`을 연다. Studio·개발 현황에는 설정 링크가 있다. 터미널에서 질문에 답하려면 `devroster setup --root /path/to/my-project`를 사용한다. 프로젝트 안에서는 `devroster setup`만 실행해도 된다. 하위 폴더에서 실행하면 초기화한 상위 프로젝트를 찾는다.
+`http://127.0.0.1:8768/setup`을 연다. Studio·작업실에는 설정 링크가 있다. 터미널에서 질문에 답하려면 `devroster setup --root /path/to/my-project`를 사용한다. 프로젝트 안에서는 `devroster setup`만 실행해도 된다. 하위 폴더에서 실행하면 초기화한 상위 프로젝트를 찾는다.
 
 ## 2. 웹에서 준비하기
 

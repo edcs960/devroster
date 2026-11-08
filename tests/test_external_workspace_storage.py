@@ -27,14 +27,14 @@ from agent_dev.domain.contracts import PhaseResult
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8", errors="replace"
     ).stdout.strip()
 
 
 def repository(root):
     (root / "src").mkdir(parents=True)
-    (root / "src/source.txt").write_text("baseline")
-    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n")
+    (root / "src/source.txt").write_text("baseline", encoding="utf-8")
+    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n", encoding="utf-8")
     git(root, "init", "-q")
     git(root, "config", "user.name", "Fixture")
     git(root, "config", "user.email", "fixture@example.test")
@@ -116,7 +116,7 @@ def test_role_override_comes_from_the_config_folder(external):
     source, managed = external
     locations = workspace_locations(source)
     locations.role_dir.mkdir()
-    (locations.role_dir / "qa.md").write_text("# Managed QA\n")
+    (locations.role_dir / "qa.md").write_text("# Managed QA\n", encoding="utf-8")
     text, origin = role_override(managed, "qa")
     assert text == "# Managed QA\n"
     assert origin["path"] == "roles/qa.md"
@@ -124,7 +124,7 @@ def test_role_override_comes_from_the_config_folder(external):
     assert origin["workspace_id"] == locations.workspace_id
     # The source repository's own .agent-dev folder is never an instruction source here.
     (source / ".agent-dev/roles").mkdir(parents=True)
-    (source / ".agent-dev/roles/developer.md").write_text("# Repository developer\n")
+    (source / ".agent-dev/roles/developer.md").write_text("# Repository developer\n", encoding="utf-8")
     assert role_override(managed, "developer") is None
 
 
@@ -132,7 +132,7 @@ def test_legacy_role_override_keeps_its_recorded_path(tmp_path):
     root = tmp_path / "project"
     initialize(root, name="Example", project_id="EXAMPLE", paths=["src"])
     (root / ".agent-dev/roles").mkdir()
-    (root / ".agent-dev/roles/qa.md").write_text("# Local QA\n")
+    (root / ".agent-dev/roles/qa.md").write_text("# Local QA\n", encoding="utf-8")
     _, origin = role_override(root / ".agent-dev", "qa")
     assert origin == {
         "source": "override",
@@ -145,13 +145,13 @@ class Runner:
     def execute(self, request):
         if request.phase_id == "developer":
             binding = json.loads(request.context)["repositories"]["source"]
-            (Path(binding["worktree"]) / "src/source.txt").write_text("implemented")
+            (Path(binding["worktree"]) / "src/source.txt").write_text("implemented", encoding="utf-8")
         return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
 
 def approved(source, managed):
     runtime = WorkflowRuntime(source)
-    profile = json.loads((managed / "config/profile.json").read_text())
+    profile = json.loads((managed / "config/profile.json").read_text(encoding="utf-8"))
     # The preserved legacy-linear three-phase contract, as in test_reusable_workspace.
     profile.pop("workflow", None)
     profile["role_context"] = {
@@ -174,9 +174,9 @@ def approved(source, managed):
     runtime.store.approve("plan", "PLAN", 1, "user")
     runtime.store.create_snapshot("T", runtime.resolve_snapshot("T"))
     path = managed / "config/runtime.json"
-    value = json.loads(path.read_text())
+    value = json.loads(path.read_text(encoding="utf-8"))
     value["orchestrator_v2"]["execute"] = True
-    path.write_text(json.dumps(value))
+    path.write_text(json.dumps(value), encoding="utf-8")
     return runtime
 
 
@@ -194,5 +194,5 @@ def test_external_task_runs_in_source_worktree_and_keeps_evidence(external):
         assert (locations.output_root / row["path"]).is_file()
     report = TaskQueries(source).explain("T")
     assert report["approvals"] == {"design": True, "plan": True, "snapshot": True}
-    assert (source / "src/source.txt").read_text() == "baseline"
+    assert (source / "src/source.txt").read_text(encoding="utf-8") == "baseline"
     assert not (source / ".agent-dev/state.db").exists()

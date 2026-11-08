@@ -35,10 +35,10 @@ def git(*args, cwd):
 
 def skill_folder(path: Path, name: str, description="Does a thing.", extra=None):
     path.mkdir(parents=True)
-    (path / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {description}\n---\n\n# {name}\n")
+    (path / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {description}\n---\n\n# {name}\n", encoding="utf-8")
     for relative, text in (extra or {}).items():
         (path / relative).parent.mkdir(parents=True, exist_ok=True)
-        (path / relative).write_text(text)
+        (path / relative).write_text(text, encoding="utf-8")
     return path
 
 
@@ -51,7 +51,7 @@ def source_repo(tmp_path):
     git("init", "-q", cwd=repo)
     git("add", ".", cwd=repo)
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init", cwd=repo)
-    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True, encoding="utf-8", errors="replace").strip()
     return repo, commit
 
 
@@ -97,9 +97,9 @@ def test_bundled_catalog_is_pinned_and_uses_known_roles():
 
 
 def test_bundled_local_skills_are_generic_and_do_not_fetch():
-    pipeline = (defaults.DEFAULTS_DIR / "skills/dev-pipeline/SKILL.md").read_text()
+    pipeline = (defaults.DEFAULTS_DIR / "skills/dev-pipeline/SKILL.md").read_text(encoding="utf-8")
     assert "AIAG" not in pipeline and "FMEA 산출물" not in pipeline
-    guidelines = (defaults.DEFAULTS_DIR / "skill_catalog/web-design-guidelines/SKILL.md").read_text()
+    guidelines = (defaults.DEFAULTS_DIR / "skill_catalog/web-design-guidelines/SKILL.md").read_text(encoding="utf-8")
     assert "raw.githubusercontent" not in guidelines and "WebFetch" not in guidelines
     assert (defaults.DEFAULTS_DIR / "skill_catalog/web-design-guidelines/LICENSE").is_file()
 
@@ -150,9 +150,9 @@ def test_apply_limits_caps_count_and_description_size():
 def test_detect_and_suggest_bundles(tmp_path):
     repo = tmp_path / "app"
     (repo / "web").mkdir(parents=True)
-    (repo / "web" / "package.json").write_text('{"dependencies": {"react": "19"}}')
-    (repo / "build.gradle").write_text("id 'org.springframework.boot'\nruntimeOnly 'org.postgresql:postgresql'")
-    (repo / "Dockerfile").write_text("FROM x")
+    (repo / "web" / "package.json").write_text('{"dependencies": {"react": "19"}}', encoding="utf-8")
+    (repo / "build.gradle").write_text("id 'org.springframework.boot'\nruntimeOnly 'org.postgresql:postgresql'", encoding="utf-8")
+    (repo / "Dockerfile").write_text("FROM x", encoding="utf-8")
     markers = detect(repo)
     assert markers == ["docker", "postgres", "react", "spring-boot"]
     assert suggest(markers) == ["core", "container", "postgres", "web-react", "spring"]
@@ -166,7 +166,7 @@ def test_ensure_fetches_pinned_commit_verifies_and_stores_read_only(tmp_path, so
     result = store.ensure(["alpha", "beta"])
     assert result["failed"] == {}
     path = result["ready"]["alpha"]
-    assert (path / "references" / "a.md").read_text() == "A"
+    assert (path / "references" / "a.md").read_text(encoding="utf-8") == "A"
     assert not (path / "SKILL.md").stat().st_mode & 0o222
     assert store.cached("alpha") == path
     assert store.description("beta") == "Beta skill."
@@ -182,7 +182,7 @@ def test_ensure_refuses_digest_mismatch_and_tampered_cache(tmp_path, source_repo
     path = result["ready"]["alpha"]
     path.chmod(0o755)
     (path / "SKILL.md").chmod(0o644)
-    (path / "SKILL.md").write_text("tampered")
+    (path / "SKILL.md").write_text("tampered", encoding="utf-8")
     assert store.cached("alpha") is None
 
 
@@ -212,18 +212,18 @@ def test_sync_installs_links_excludes_and_prunes(tmp_path, source_repo, target_r
     report = store.sync_repository(target_repo, ["alpha", "beta"])
     assert report["installed"] == ["alpha", "beta"] and report["conflicts"] == []
     agents = target_repo / ".agents" / "skills"
-    assert json.loads((agents / "alpha" / MARKER).read_text())["managed_by"] == "devroster"
+    assert json.loads((agents / "alpha" / MARKER).read_text(encoding="utf-8"))["managed_by"] == "devroster"
     link = target_repo / ".claude" / "skills" / "alpha"
     assert link.is_symlink() and (link / "SKILL.md").is_file()
     status = subprocess.run(
-        ["git", "status", "--porcelain"], cwd=target_repo, capture_output=True, text=True, check=True
+        ["git", "status", "--porcelain"], cwd=target_repo, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True
     )
     assert status.stdout == ""
     assert store.status(target_repo, ["alpha", "beta"]) == {"alpha": "installed", "beta": "installed"}
     again = store.sync_repository(target_repo, ["alpha"])
     assert again["unchanged"] == ["alpha"] and again["removed"] == ["beta"]
     assert not (agents / "beta").exists() and not (target_repo / ".claude/skills/beta").exists()
-    exclude = (target_repo / ".git" / "info" / "exclude").read_text()
+    exclude = (target_repo / ".git" / "info" / "exclude").read_text(encoding="utf-8")
     assert "/.agents/skills/alpha/" in exclude and "beta" not in exclude
 
 
@@ -232,7 +232,7 @@ def test_sync_never_replaces_a_skill_it_does_not_manage(tmp_path, source_repo, t
     store = SkillStore(tmp_path / "cache", fixture_catalog(*source_repo))
     report = store.sync_repository(target_repo, ["alpha"])
     assert report["conflicts"] == ["alpha"]
-    assert "mine" in (own / "SKILL.md").read_text()
+    assert "mine" in (own / "SKILL.md").read_text(encoding="utf-8")
     assert store.status(target_repo, ["alpha"]) == {"alpha": "conflict"}
 
 
@@ -283,7 +283,7 @@ def test_prompt_skills_drops_altered_cache(patched_store):
     resolved["approved_skills"] = approved_skills(resolved)
     path = Path(resolved["approved_skills"]["items"]["alpha"]["path"])
     path.chmod(0o755)
-    (path / "extra.md").write_text("injected")
+    (path / "extra.md").write_text("injected", encoding="utf-8")
     assert prompt_skills(resolved, "plan") == []
 
 
@@ -309,8 +309,8 @@ def test_setup_keeps_module_choices_and_stores_them_per_repository(tmp_path, mon
     project = tmp_path / "mono"
     (project / "web").mkdir(parents=True)
     (project / "api").mkdir()
-    (project / "web" / "package.json").write_text('{"dependencies": {"react": "19"}}')
-    (project / "api" / "build.gradle").write_text("id 'org.springframework.boot'")
+    (project / "web" / "package.json").write_text('{"dependencies": {"react": "19"}}', encoding="utf-8")
+    (project / "api" / "build.gradle").write_text("id 'org.springframework.boot'", encoding="utf-8")
     git("init", "-q", cwd=project)
     git("add", ".", cwd=project)
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init", cwd=project)

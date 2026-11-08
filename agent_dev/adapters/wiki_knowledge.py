@@ -70,7 +70,7 @@ def _repository(path):
     process = subprocess.run(
         ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         timeout=30,
         check=False,
     )
@@ -585,6 +585,12 @@ class WikiKnowledge:
     # -- reads -----------------------------------------------------------------
 
     def items(self, project_id, *, states=None):
+        # Databases created before the wiki table joined schema v3 lack it until their next
+        # write-mode open migrates them; a read-only listing must not fail for that.
+        if not self.repository.db.rows(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='knowledge_revisions'"
+        ):
+            return []
         rows = self.repository.db.rows(
             "SELECT * FROM knowledge_revisions WHERE project_id=? ORDER BY item_id,revision",
             (project_id,),

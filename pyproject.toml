@@ -1,6 +1,6 @@
 [project]
 name = "devroster"
-version = "0.3.0"
+version = "0.3.1"
 description = "Local AI development workbench: plan documents to specs, mockups and approved, verified tasks run by your AI CLIs"
 requires-python = ">=3.11"
 readme = "README.md"
@@ -25,7 +25,7 @@ agent-dev = "agent_dev.entrypoints:main"
 include = ["agent_dev*"]
 
 [tool.setuptools.package-data]
-"agent_dev.ui" = ["assets/*.html", "assets/*.js", "assets/*.css", "assets/*.svg"]
+"agent_dev.ui" = ["assets/*.html", "assets/*.js", "assets/*.css", "assets/*.svg", "assets/*.woff2", "assets/*.txt"]
 "agent_dev.adapters.state.sqlite" = ["schema.sql"]
 "agent_dev.templates" = ["*.json", "*.md"]
 "agent_dev.adapters" = ["preview_worker.cjs", "global_schema.sql"]

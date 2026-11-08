@@ -98,7 +98,7 @@ for line in sys.stdin:
     if 'id' not in q: continue
     r={'protocolVersion':'2025-06-18'} if q['method']=='initialize' else {'tools':[{'name':'read','inputSchema':{'type':'object'}}]} if q['method']=='tools/list' else {'content':[{'type':'text','text':os.environ.get('UNREGISTERED_SECRET','absent')}]}
     print(json.dumps({'jsonrpc':'2.0','id':q['id'],'result':r}),flush=True)
-""")
+""", encoding="utf-8")
     with McpClient(
         {"transport": "stdio", "command": [sys.executable, str(program)]}, cwd=tmp_path
     ) as client:

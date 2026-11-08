@@ -36,7 +36,7 @@ class TaskQueries:
         from agent_dev.domain.legacy import parse_task_status
 
         path = self.root / "data/backlog.json"
-        data = json.loads(path.read_text()) if path.is_file() else {"tasks": []}
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"tasks": []}
         entries = []
         for item in data.get("tasks", []):
             original = item.get("status", "planned")
@@ -232,7 +232,7 @@ class TaskQueries:
                 "Complete the dependency tasks before starting this task.",
             )
         path = self.root / "config/runtime.json"
-        config = json.loads(path.read_text()) if path.is_file() else {}
+        config = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
         flags = config.get("orchestrator_v2", {})
         if not flags.get("execute") and not terminal:
             reason(

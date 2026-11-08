@@ -10,8 +10,10 @@ class Element {
   setAttribute(name, value) { this.attributes[name] = value; }
   addEventListener() {}
 }
-const pages = ['home', 'traceability', 'changes', 'studio', 'ai', 'setup', 'agent', 'dashboard', 'review', 'workflows', 'integrations', 'references', 'source', 'wiki', 'messengers'];
-for (const pathname of [...pages.flatMap(page => ['/' + page, '/' + page + '/']), '/', '/studio//', '/studio/unknown', '/unknown/']) {
+const pages = ['home', 'traceability', 'changes', 'studio', 'ai', 'setup', 'agent', 'review', 'workflows', 'integrations', 'references', 'source', 'wiki', 'messengers'];
+// Merged or secondary routes highlight their menu owner (개발 현황 → 작업실, 공통 설정 → 프로젝트 설정).
+const aliases = {dashboard: 'agent', settings: 'setup'};
+for (const pathname of [...[...pages, ...Object.keys(aliases)].flatMap(page => ['/' + page, '/' + page + '/']), '/', '/studio//', '/studio/unknown', '/unknown/']) {
   const body = new Element('body');
   const ctx = {
     location: {pathname},
@@ -22,7 +24,8 @@ for (const pathname of [...pages.flatMap(page => ['/' + page, '/' + page + '/'])
   const descendants = node => node.children.flatMap(child => [child, ...descendants(child)]);
   const links = descendants(body).filter(node => node.tag === 'a');
   const selected = links.filter(node => node.attributes['aria-current'] === 'page');
-  const expected = pages.find(page => pathname === '/' + page || pathname === '/' + page + '/');
+  const route = [...pages, ...Object.keys(aliases)].find(page => pathname === '/' + page || pathname === '/' + page + '/');
+  const expected = aliases[route] || route;
   assert.equal(selected.length, expected ? 1 : 0, pathname + ' has exactly the expected current link');
   if (expected) assert.equal(selected[0].href, '/' + expected, pathname + ' points to its canonical route');
   assert.deepEqual(links.map(link => link.href).sort(), pages.map(page => '/' + page).sort(), 'menu destinations remain allowlisted');

@@ -704,17 +704,34 @@ def test_http_spec_history_selects_requested_revision(http_studio):
     assert code == 200 and history["readonly"] and history["spec"]["revision"] == 1
 
 
-def test_standalone_development_status_link_is_readonly_and_returns_to_studio(http_studio):
-    code, body, _ = request(http_studio, "/dashboard")
-    assert code == 200 and "/studio" in body.decode()
-    assert request(http_studio, "/dashboard.js")[0] == 200
+def test_development_status_is_merged_into_the_agent_workroom(http_studio):
+    # The app shows status and execution on one screen; the old address keeps working.
+    import http.client
+
+    def location(path):
+        connection = http.client.HTTPConnection("127.0.0.1", http_studio.server_port, timeout=5)
+        try:
+            connection.request("GET", path)
+            response = connection.getresponse()
+            return response.status, response.getheader("Location")
+        finally:
+            connection.close()
+
+    assert location("/dashboard?task=T-1") == (302, "/agent?task=T-1")
+    assert location("/dashboard/") == (302, "/agent")
+    assert request(http_studio, "/dashboard.js")[0] == 200  # the standalone dashboard command
     assert request(http_studio, "/api/tasks")[0] == 200
+    assert request(http_studio, "/api/task?id=missing")[0] in {200, 400, 404}
     assert request(
         http_studio,
         "/api/tasks",
         {},
         {"X-Studio-Token": http_studio.studio.token, "Content-Type": "application/json"},
     )[0] in {400, 404}
+    # The workroom keeps the code review entry the status page had.
+    workroom = files("agent_dev.ui").joinpath("assets/agent.js").read_text(encoding="utf-8")
+    assert "'/review?'+new URLSearchParams({task:data.task.task_id})" in workroom
+    assert "변경 검토 열기" in workroom
 
 
 def test_detail_reads_job_and_revision_from_one_snapshot(studio, monkeypatch):

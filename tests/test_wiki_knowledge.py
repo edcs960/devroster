@@ -10,12 +10,12 @@ from agent_dev.domain.errors import DomainError, ErrorCode
 def runtime(tmp_path):
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project("P", "Project", {})
     (root / "issues").mkdir()
-    (root / "issues/issue-001.md").write_text(RESOLVED_ISSUE.format("migration updated rows"))
-    (root / "issues/issue-002.md").write_text(RESOLVED_ISSUE.format("empty list passed"))
+    (root / "issues/issue-001.md").write_text(RESOLVED_ISSUE.format("migration updated rows"), encoding="utf-8")
+    (root / "issues/issue-002.md").write_text(RESOLVED_ISSUE.format("empty list passed"), encoding="utf-8")
     # docs/wiki belongs to the workspace project.
     with runtime.store.db.transaction() as sql:
         sql.execute(
@@ -82,16 +82,16 @@ def test_changed_source_blocks_approval_and_stops_serving(runtime):
     wiki = runtime.wiki
     source = runtime.project_root / "issues/issue-001.md"
     wiki.propose("P", [entry(), entry("L02", sources=["issues/issue-002.md"])])
-    source.write_text("edited after proposal")
+    source.write_text("edited after proposal", encoding="utf-8")
     with pytest.raises(DomainError) as error:
         wiki.approve("P", "L01", 1, "u")
     assert error.value.code == ErrorCode.STALE_VERSION
     wiki.approve("P", "L02", 1, "u")
-    (runtime.project_root / "issues/issue-002.md").write_text("edited after approval")
+    (runtime.project_root / "issues/issue-002.md").write_text("edited after approval", encoding="utf-8")
     assert wiki.active("P") == []
     result = wiki.render("P")
     assert result["stale"] == ["L02"] and result["active"] == 0
-    index = (runtime.project_root / "docs/wiki/index.md").read_text()
+    index = (runtime.project_root / "docs/wiki/index.md").read_text(encoding="utf-8")
     assert "재검증 필요" in index and "L02 r1" in index
 
 
@@ -138,7 +138,7 @@ def test_projects_are_isolated(runtime):
     ],
 )
 def test_invalid_entries_are_rejected(runtime, overrides):
-    (runtime.project_root.parent / "outside.md").write_text("outside")
+    (runtime.project_root.parent / "outside.md").write_text("outside", encoding="utf-8")
     with pytest.raises(DomainError) as error:
         runtime.wiki.propose("P", entry(**overrides))
     assert error.value.code == ErrorCode.INVALID_INPUT
@@ -160,8 +160,8 @@ def test_symlinked_source_and_duplicate_batch_are_rejected(runtime):
 def test_registered_secrets_are_redacted(tmp_path):
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text("{}")
-    (root / "issue.md").write_text(RESOLVED_ISSUE.format("evidence"))
+    (root / "config/runtime.json").write_text("{}", encoding="utf-8")
+    (root / "issue.md").write_text(RESOLVED_ISSUE.format("evidence"), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.secrets = ("hunter2-secret-value",)
     runtime.store.register_project("P", "Project", {})
@@ -198,12 +198,12 @@ def test_render_writes_generated_pages(runtime):
         "stale": [],
     }
     folder = runtime.project_root / "docs/wiki"
-    lessons = (folder / "lessons.md").read_text()
-    testing = (folder / "testing.md").read_text()
+    lessons = (folder / "lessons.md").read_text(encoding="utf-8")
+    testing = (folder / "testing.md").read_text(encoding="utf-8")
     assert "직접 수정하지 않는다" in lessons
     assert "| L01 r1 | Architect, DBA |" in lessons and "`issues/issue-001.md`" in lessons
     assert "전체, QA" in testing and "\\| 표 구분자" in testing
-    assert "[lessons.md](lessons.md) | 재발 방지 목록 | 1" in (folder / "index.md").read_text()
+    assert "[lessons.md](lessons.md) | 재발 방지 목록 | 1" in (folder / "index.md").read_text(encoding="utf-8")
 
 
 def test_render_refuses_a_symlinked_wiki_directory(runtime, tmp_path):
@@ -320,7 +320,7 @@ def test_bundle_skips_whole_items_over_budgets(runtime, monkeypatch):
 def test_bundle_serves_only_current_active_items(runtime):
     approve_all(runtime.wiki, [entry(), entry("L02", sources=["issues/issue-002.md"])])
     runtime.wiki.propose("P", entry("L03"))
-    (runtime.project_root / "issues/issue-002.md").write_text("changed")
+    (runtime.project_root / "issues/issue-002.md").write_text("changed", encoding="utf-8")
     result = runtime.wiki.bundle("P", graph({"id": "dba", "role_id": "dba"}))
     assert result["selection"] == {"dba": ["L01 r1"]}
 
@@ -364,7 +364,7 @@ def git(root, *arguments, input_text=None):
         ["git", "-C", str(root), *arguments],
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         input=input_text,
     ).stdout.strip()
 
@@ -378,7 +378,7 @@ def git(root, *arguments, input_text=None):
     ],
 )
 def test_approval_requires_a_final_resolution(runtime, text):
-    (runtime.project_root / "issues/open.md").write_text(text)
+    (runtime.project_root / "issues/open.md").write_text(text, encoding="utf-8")
     runtime.wiki.propose("P", entry(sources=["issues/open.md"]))
     with pytest.raises(DomainError) as error:
         runtime.wiki.approve("P", "L01", 1, "u")
@@ -390,9 +390,9 @@ def test_approval_requires_a_final_resolution(runtime, text):
 
 def test_passing_phase_output_is_resolution_evidence(runtime):
     root = runtime.project_root
-    (root / "issues/open.md").write_text("## Root Cause\nx\n")
-    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n')
-    (root / "out-issue.md").write_text('```json\n{"handoff_status": "issue"}\n```\n')
+    (root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
+    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n', encoding="utf-8")
+    (root / "out-issue.md").write_text('```json\n{"handoff_status": "issue"}\n```\n', encoding="utf-8")
     runtime.wiki.propose(
         "P",
         [
@@ -427,8 +427,8 @@ def test_passing_phase_output_is_resolution_evidence(runtime):
 )
 def test_phase_output_needs_one_parseable_pass_block(runtime, text):
     root = runtime.project_root
-    (root / "issues/open.md").write_text("## Root Cause\nx\n")
-    (root / "out.md").write_text(text)
+    (root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
+    (root / "out.md").write_text(text, encoding="utf-8")
     runtime.wiki.propose(
         "P",
         entry(sources=["issues/open.md"], evidence=[{"kind": "phase_output", "path": "out.md"}]),
@@ -445,12 +445,12 @@ def test_file_evidence_is_pinned_to_its_commit(runtime):
     git(repo, "init", "-q")
     git(repo, "config", "user.name", "T")
     git(repo, "config", "user.email", "t@example.test")
-    (repo / "Dto.java").write_text("@Size(min = 1)")
+    (repo / "Dto.java").write_text("@Size(min = 1)", encoding="utf-8")
     git(repo, "add", "Dto.java")
     git(repo, "commit", "-qm", "fix")
     commit = git(repo, "rev-parse", "HEAD")
-    (root / "issues/open.md").write_text("## Root Cause\nx\n")
-    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n')
+    (root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
+    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n', encoding="utf-8")
     code = [{"kind": "file", "path": "module/Dto.java"}]
     # A committed file alone is where a fix lives, not proof that it works (W-17).
     runtime.wiki.propose("P", entry("L09", sources=["issues/open.md"], evidence=code))
@@ -462,13 +462,13 @@ def test_file_evidence_is_pinned_to_its_commit(runtime):
     (item,) = runtime.wiki.active("P")
     assert [s.get("commit") for s in item["sources"]] == [None, commit, None]
     # Later code changes do not invalidate evidence pinned to the fixing commit.
-    (repo / "Dto.java").write_text("refactored")
+    (repo / "Dto.java").write_text("refactored", encoding="utf-8")
     git(repo, "commit", "-qam", "later")
     assert [i["item_id"] for i in runtime.wiki.active("P")] == ["L01"]
     runtime.wiki.render("P")
-    assert f"`module/Dto.java`@{commit[:12]}" in (root / "docs/wiki/lessons.md").read_text()
+    assert f"`module/Dto.java`@{commit[:12]}" in (root / "docs/wiki/lessons.md").read_text(encoding="utf-8")
     # Uncommitted bytes cannot be pinned.
-    (repo / "Dto.java").write_text("dirty")
+    (repo / "Dto.java").write_text("dirty", encoding="utf-8")
     with pytest.raises(DomainError) as error:
         runtime.wiki.propose("P", entry("L02", sources=["issues/open.md"], evidence=evidence))
     assert error.value.code == ErrorCode.INVALID_INPUT
@@ -477,7 +477,7 @@ def test_file_evidence_is_pinned_to_its_commit(runtime):
 def test_bundle_records_why_items_are_not_served(runtime):
     root = runtime.project_root
     for name in ("a", "b", "c", "d"):
-        (root / f"issues/{name}.md").write_text(RESOLVED_ISSUE.format(name))
+        (root / f"issues/{name}.md").write_text(RESOLVED_ISSUE.format(name), encoding="utf-8")
     wiki = runtime.wiki
     wiki.propose(
         "P",
@@ -488,7 +488,7 @@ def test_bundle_records_why_items_are_not_served(runtime):
     wiki.approve("P", "L03", 1, "u")
     wiki.retire("P", "L03", "obsolete", "u")
     wiki.approve("P", "L04", 1, "u")
-    (root / "issues/d.md").write_text("edited")
+    (root / "issues/d.md").write_text("edited", encoding="utf-8")
     wiki.revise("P", "L01", entry("L01", check="개정안.", sources=["issues/a.md"]))
     result = wiki.bundle("P", graph({"id": "dba", "role_id": "dba"}))
     assert result["selection"] == {"dba": ["L01 r1"]}
@@ -502,7 +502,7 @@ def test_bundle_records_why_items_are_not_served(runtime):
 
 def test_items_approved_without_resolution_stop_being_served(runtime):
     """Revisions approved before the resolution check are re-verified on every read."""
-    (runtime.project_root / "issues/open.md").write_text("## Root Cause\nx\n")
+    (runtime.project_root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
     runtime.wiki.propose("P", entry(sources=["issues/open.md"]))
     with runtime.store.db.transaction() as sql:
         sql.execute(
@@ -512,7 +512,7 @@ def test_items_approved_without_resolution_stop_being_served(runtime):
     assert runtime.wiki.active("P") == []
     result = runtime.wiki.render("P")
     assert result["stale"] == ["L01"]
-    assert "최종 해결 증거 없음" in (runtime.project_root / "docs/wiki/index.md").read_text()
+    assert "최종 해결 증거 없음" in (runtime.project_root / "docs/wiki/index.md").read_text(encoding="utf-8")
 
 
 def test_render_belongs_to_the_workspace_project(runtime, tmp_path):
@@ -523,17 +523,17 @@ def test_render_belongs_to_the_workspace_project(runtime, tmp_path):
     with pytest.raises(DomainError) as error:
         runtime.wiki.render("OTHER")
     assert error.value.code == ErrorCode.POLICY_VIOLATION
-    assert "L01 r1" in (runtime.project_root / "docs/wiki/lessons.md").read_text()
+    assert "L01 r1" in (runtime.project_root / "docs/wiki/lessons.md").read_text(encoding="utf-8")
     # Without settings or a marker the folder name decides, as in project setup.
     root = tmp_path / "My Project"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text("{}")
+    (root / "config/runtime.json").write_text("{}", encoding="utf-8")
     assert WorkflowRuntime(root).wiki.workspace_project() == "My-Project"
 
 
 @pytest.mark.parametrize("name", ["a`b.md", "a|b.md"])
 def test_paths_that_break_markdown_are_rejected(runtime, name):
-    (runtime.project_root / name).write_text(RESOLVED_ISSUE.format("x"))
+    (runtime.project_root / name).write_text(RESOLVED_ISSUE.format("x"), encoding="utf-8")
     with pytest.raises(DomainError):
         runtime.wiki.propose("P", entry(sources=[name]))
 
@@ -593,7 +593,7 @@ def test_secrets_never_reach_bundle_prompt_or_pages(runtime):
     from agent_dev.adapters.wiki_knowledge import prompt_items
 
     runtime.wiki.render("P")
-    pages = "".join(p.read_text() for p in (runtime.project_root / "docs/wiki").glob("*.md"))
+    pages = "".join(p.read_text(encoding="utf-8") for p in (runtime.project_root / "docs/wiki").glob("*.md"))
     dumped = json.dumps([bundle, prompt_items({"wiki": bundle}, "dba")], ensure_ascii=False)
     assert secret not in dumped and secret not in pages
 
@@ -604,7 +604,7 @@ def test_pipes_in_text_cells_are_escaped(runtime):
     runtime.wiki.render("P")
     row = next(
         line
-        for line in (runtime.project_root / "docs/wiki/lessons.md").read_text().splitlines()
+        for line in (runtime.project_root / "docs/wiki/lessons.md").read_text(encoding="utf-8").splitlines()
         if line.startswith("| L01")
     )
     assert "a\\|b" in row and "c\\|d" in row
@@ -617,7 +617,7 @@ def committed_repo(root, name="module", text="@Size(min = 1)"):
     git(repo, "init", "-q")
     git(repo, "config", "user.name", "T")
     git(repo, "config", "user.email", "t@example.test")
-    (repo / "Dto.java").write_text(text)
+    (repo / "Dto.java").write_text(text, encoding="utf-8")
     git(repo, "add", "Dto.java")
     git(repo, "commit", "-qm", "fix")
     return repo
@@ -626,8 +626,8 @@ def committed_repo(root, name="module", text="@Size(min = 1)"):
 def approved_code_item(runtime):
     root = runtime.project_root
     committed_repo(root)
-    (root / "issues/open.md").write_text("## Root Cause\nx\n")
-    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n')
+    (root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
+    (root / "out-pass.md").write_text('```json\n{"handoff_status": "pass"}\n```\n', encoding="utf-8")
     evidence = [
         {"kind": "file", "path": "module/Dto.java"},
         {"kind": "phase_output", "path": "out-pass.md"},
@@ -703,7 +703,7 @@ def test_pinned_file_digest_is_checked_and_replace_refs_ignored(runtime):
 def test_resolution_values_must_match_exactly(runtime, resolution):
     """W-16: look-alike values and examples in code blocks are not resolutions."""
     (runtime.project_root / "issues/x.md").write_text(
-        f"## Root Cause\nx\n\n## Resolution\n{resolution}"
+        f"## Root Cause\nx\n\n## Resolution\n{resolution}", encoding="utf-8"
     )
     runtime.wiki.propose("P", entry(sources=["issues/x.md"]))
     with pytest.raises(DomainError):
@@ -713,9 +713,9 @@ def test_resolution_values_must_match_exactly(runtime, resolution):
 def test_superseded_issue_resolves_only_through_a_resolved_successor(runtime):
     root = runtime.project_root
     (root / "issues/issue-001.md").write_text(
-        "## Root Cause\nx\n\n## Resolution\n- Resolved: true\n- 최신 `issue-003.md`로 대체되었습니다.\n"
+        "## Root Cause\nx\n\n## Resolution\n- Resolved: true\n- 최신 `issue-003.md`로 대체되었습니다.\n", encoding="utf-8"
     )
-    (root / "issues/issue-003.md").write_text("## Root Cause\nx\n")
+    (root / "issues/issue-003.md").write_text("## Root Cause\nx\n", encoding="utf-8")
     wiki = runtime.wiki
     wiki.propose(
         "P",
@@ -727,7 +727,7 @@ def test_superseded_issue_resolves_only_through_a_resolved_successor(runtime):
     for item_id in ("L01", "L02"):
         with pytest.raises(DomainError):
             wiki.approve("P", item_id, 1, "u")
-    (root / "issues/issue-003.md").write_text(RESOLVED_ISSUE.format("fixed"))
+    (root / "issues/issue-003.md").write_text(RESOLVED_ISSUE.format("fixed"), encoding="utf-8")
     wiki.revise("P", "L02", entry("L02", sources=["issues/issue-001.md", "issues/issue-003.md"]))
     wiki.approve("P", "L02", 2, "u")
     (item,) = wiki.active("P")
@@ -745,7 +745,7 @@ def test_secrets_registered_after_approval_are_masked_on_output(runtime):
     runtime.store.secrets = (value,)
     bundle = runtime.wiki.bundle("P", graph({"id": "dba", "role_id": "dba"}))
     runtime.wiki.render("P")
-    pages = "".join(p.read_text() for p in (runtime.project_root / "docs/wiki").glob("*.md"))
+    pages = "".join(p.read_text(encoding="utf-8") for p in (runtime.project_root / "docs/wiki").glob("*.md"))
     assert value not in json.dumps(bundle, ensure_ascii=False) and value not in pages
 
 
@@ -801,8 +801,8 @@ def test_session_budget_excludes_new_items_when_the_union_is_full(runtime, monke
 def test_junit_report_is_test_evidence(runtime, report, passes):
     root = runtime.project_root
     committed_repo(root)
-    (root / "issues/open.md").write_text("## Root Cause\nx\n")
-    (root / "TEST-report.xml").write_text(report)
+    (root / "issues/open.md").write_text("## Root Cause\nx\n", encoding="utf-8")
+    (root / "TEST-report.xml").write_text(report, encoding="utf-8")
     evidence = [
         {"kind": "file", "path": "module/Dto.java"},
         {"kind": "test_report", "path": "TEST-report.xml"},

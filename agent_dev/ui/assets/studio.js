@@ -5,14 +5,23 @@
   const state = {preparationMode:false,data:null, token:'', template:'', documents:[], step:'brief', screen:'', element:'', document:'', specDraft:null, specDirty:false, briefDirty:false, commenting:true, preview:false, pending:false, history:false, timer:null};
   const make = (tag, text, cls) => {const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
   const button = (title, action, cls='secondary') => {const b=make('button',title,cls);b.type='button';b.addEventListener('click',action);return b;};
-  const notice = (message, error=false) => {$('notice').hidden=!message;$('notice').textContent=message;$('notice').classList.toggle('error',error);};
+  // Feedback rules: blocking errors stay in a dismissible banner until handled; successes are toasts.
+  const UI = globalThis.DevRosterUI;
+  const notice = (message, error=false) => {
+    const box=$('notice');
+    if(!message || !error){box.hidden=true;box.replaceChildren();box.classList.remove('error');if(message){if(UI)UI.toast(message);else{box.textContent=message;box.hidden=false;}}return;}
+    const text=make('p',UI?UI.errorMessage(message):message),dismiss=make('button','닫기','ghost sm');dismiss.type='button';dismiss.addEventListener('click',()=>{box.hidden=true;box.replaceChildren();});
+    box.replaceChildren(text,dismiss);box.classList.add('error');box.hidden=false;
+  };
   const live = () => state.data?.jobs.find(j=>['queued','running'].includes(j.state));
   const current = () => !!state.data?.mock && !state.history && state.data.mock.revision===state.data.project.mock_revision;
   const approved = screen => state.data?.approvals.some(a=>a.screen_id===screen);
   const writable = () => current() && !approved(state.screen) && !live() && !state.pending;
   async function api(path, payload) {
-    const response=await fetch('/api/studio/'+path,{method:payload ? 'POST':'GET',headers:payload ? {'Content-Type':'application/json','X-Studio-Token':state.token}:undefined,body:payload ? JSON.stringify(payload):undefined});
-    const value=await response.json();if(!response.ok)throw new Error(value.error || '요청을 처리하지 못했습니다.');return value;
+    let response,value;
+    try {response=await fetch('/api/studio/'+path,{method:payload ? 'POST':'GET',headers:payload ? {'Content-Type':'application/json','X-Studio-Token':state.token}:undefined,body:payload ? JSON.stringify(payload):undefined});value=await response.json();}
+    catch(error){throw new Error(UI?UI.errorMessage(error):error.message);}
+    if(!response.ok)throw new Error(value.error || '요청을 처리하지 못했습니다.');return value;
   }
   function base() {return {id:state.data.project.id,version:state.data.project.version,revision:state.data.mock?.revision};}
   function apply(data, {brief=false}={}) {
@@ -57,7 +66,39 @@
     $('download-handoff').disabled=busy || !ready;
     $('prepare-development').disabled=busy || !ready;
     renderJob();
+    renderSteps(busy);
   }
+  // Step completion and gate reasons: say what is done and why a step's main action is unavailable.
+  const STEP_ICON={done:'check',locked:'lock'};
+  function stepStates() {
+    const data=state.data, spec=data?.spec, mock=current() ? data.mock : null;
+    const unanswered=(state.specDraft?.questions||[]).filter(q=>!q.answer?.trim()).length;
+    const screens=mock?.payload.screens||[], done=screens.filter(s=>approved(s.id)).length;
+    const open=(data?.comments||[]).filter(c=>c.state==='open').length;
+    const ready=!!mock && !!spec?.approved && screens.length>0 && done===screens.length && !open;
+    return {
+      brief: state.briefDirty ? ['attention','변경됨 · 저장 필요'] : data ? ['done','저장됨'] : ['active','작성 중'],
+      spec: !spec ? ['locked','기획서 저장 후 생성'] : state.specDirty ? ['attention','수정됨 · 저장 필요'] : spec.approved ? ['done','버전 '+spec.revision+' 확정'] : unanswered ? ['attention','확인 질문 '+unanswered+'개 남음'] : ['active','버전 '+spec.revision+' 검토 중'],
+      mock: !spec?.approved ? ['locked','명세서 확정 후'] : !mock ? ['active','목업 생성 전'] : ready ? ['done',screens.length+'개 화면 확정'] : ['attention',done+'/'+screens.length+' 확정'+(open?' · 의견 '+open+'개':'')],
+      handoff: ready ? ['active','인계 준비 완료'] : ['locked','모든 화면 확정 후']
+    };
+  }
+  function renderSteps(busy) {
+    const states=stepStates(), tones={done:'success',attention:'warning',active:'accent',locked:''};
+    $('steps').querySelectorAll('button[data-step]').forEach((b,i)=>{
+      const [st,text]=states[b.dataset.step];b.dataset.state=st;
+      b.querySelector('.s-status').textContent=text;
+      const ico=b.querySelector('.s-ico');
+      if(STEP_ICON[st])ico.innerHTML='<svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-'+STEP_ICON[st]+'"/></svg>';else ico.textContent=String(i+1);
+      b.setAttribute('aria-label',(i+1)+'단계 '+b.querySelector('.s-label').textContent+', '+text);
+    });
+    const [st,text]=states[state.step]||['',''];const badge=$('studio-step-badge');
+    if(badge){badge.className=st&&tones[st]!==undefined?'badge '+tones[st]:'badge';badge.textContent=text;badge.hidden=!text;}
+    const unanswered=(state.specDraft?.questions||[]).filter(q=>!q.answer?.trim()).length, spec=state.data?.spec;
+    gate('brief-gate', $('generate-spec').disabled && !busy && (state.preparationMode ? '준비 모드에서는 생성할 수 없습니다.' : !state.data ? '기획서를 저장하면 생성할 수 있습니다.' : state.briefDirty ? '저장한 뒤 생성할 수 있습니다.' : ''));
+    gate('spec-gate', spec && !spec.approved && $('approve-spec').disabled && !busy && !state.history && (state.specDirty ? '수정 내용을 저장한 뒤 확정할 수 있습니다.' : unanswered ? '확인 질문 '+unanswered+'개에 답변해야 확정할 수 있습니다.' : ''));
+  }
+  function gate(id,text){const el=$(id);if(!el)return;el.textContent=text||'';el.hidden=!text;}
   // AI tools report no progress: compare elapsed time with recent runs of the same kind.
   const JOB_DEFAULT_SECONDS={specs:210,mock:60};
   let jobTicker=null,jobBar=null;
@@ -120,9 +161,8 @@
       card.append(field('수용 기준 (한 줄에 하나)',r.acceptance.join('\n'),v=>{r.acceptance=v.split('\n').filter(x=>x.trim());markSpec();},true));
       card.querySelectorAll('input,textarea').forEach(e=>e.disabled=state.history || !!live() || state.pending);requirements.append(card);
     });
-    const nav=$('documents');nav.replaceChildren();
     if(!draft.documents[state.document])state.document=state.documents[0];
-    state.documents.forEach(name=>{const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');nav.append(b);});
+    renderDocList();
     renderDocument();
   }
   function markdown(container, text) {
@@ -145,6 +185,21 @@
       if(heading)container.append(make('h'+Math.min(heading[1].length+1,6),heading[2]));
       else if(line.trim())container.append(make('p',line));
     }
+  }
+  // 22 specification documents in reading order, grouped; unknown names fall into 기타.
+  const DOC_GROUPS=[['기획·요구',['개발기획서','요구사항명세서','기능명세서','비기능요구사항정의서','프로세스정의서','용어사전']],['화면·인터페이스',['화면정의서','API명세서','프로그램목록']],['데이터·정책',['데이터정의서','테이블정의서','권한정의서','정책정의서','코드공통코드정의서']],['설계',['기술설계서','시스템다이어그램정의서','시퀀스다이어그램','클래스다이어그램']],['검증·추적',['테스트시나리오','요구사항추적성매트릭스','갭분석및보완사항','산출물목록']]];
+  function renderDocList() {
+    const draft=state.specDraft, nav=$('documents');if(!draft)return;nav.replaceChildren();
+    const needle=($('document-filter')?.value||'').trim();
+    const known=new Set(DOC_GROUPS.flatMap(g=>g[1]));
+    const groups=[...DOC_GROUPS,['기타',state.documents.filter(name=>!known.has(name))]];
+    let shown=0;
+    for(const [label,names] of groups){
+      const list=names.filter(name=>state.documents.includes(name)&&(!needle||name.includes(needle)));if(!list.length)continue;
+      nav.append(make('p',label,'doc-group'));
+      for(const name of list){const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');if(name===state.document)b.setAttribute('aria-current','true');nav.append(b);shown++;}
+    }
+    if(!shown)nav.append(make('p','‘'+needle+'’와 일치하는 문서가 없습니다.','hint'));
   }
   function renderDocument() {
     if(!state.specDraft)return;
@@ -343,7 +398,13 @@
     },1800);
   }
   function unsaved() {return state.briefDirty || state.specDirty;}
-  function confirmDiscard() {return !unsaved() || window.confirm('저장하지 않은 변경이 있습니다. 변경을 버리고 이동할까요?');}
+  async function confirmDiscard() {
+    if(!unsaved())return true;
+    const what=[state.briefDirty&&'기획서',state.specDirty&&'명세서'].filter(Boolean).join('와 ');
+    return !!(await ask('저장하지 않은 변경이 있습니다',what+' 수정 내용이 아직 저장되지 않았습니다. 이동하면 변경 내용이 사라집니다.','변경 버리고 이동','계속 편집'));
+  }
+  // Shared confirmation dialog; falls back to the browser dialog if the shared module is missing.
+  function ask(title, body, confirm, cancel='취소') {return UI?UI.confirmAction(title,body,confirm,{cancel}):Promise.resolve(window.confirm(title+'\n'+body));}
   function reset() {studioLoadGeneration++;invalidateJourney();$('journey-editor').hidden=true;$('journey-result').replaceChildren();journeySelection=null;clearTimeout(state.timer);state.data=null;state.specDraft=null;state.specDirty=false;state.briefDirty=false;state.history=false;state.screen='';state.element='';$('title').value='';$('brief').value='';$('projects').value='';notice('');setStep('brief');}
   async function load(id, revision, specRevision) {
     const generation=++studioLoadGeneration;invalidateJourney();$('journey-editor').hidden=true;$('journey-result').replaceChildren();journeySelection=null;
@@ -356,16 +417,16 @@
   }
   function saveFile(blob,name){const url=URL.createObjectURL(blob), a=make('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   $('steps').addEventListener('click',e=>{const b=e.target.closest('button[data-step]');if(b)setStep(b.dataset.step);});
-  $('new-project').addEventListener('click',()=>{if(confirmDiscard())reset();});
-  $('projects').addEventListener('change',async()=>{const id=$('projects').value;if(!confirmDiscard()){$('projects').value=state.data?.project.id || '';return;}if(id)await load(id);else reset();});
+  $('new-project').addEventListener('click',async()=>{if(await confirmDiscard()){reset();$('title').focus();}});
+  $('projects').addEventListener('change',async()=>{const id=$('projects').value;if(!(await confirmDiscard())){$('projects').value=state.data?.project.id || '';return;}if(id)await load(id);else reset();});
   ['title','brief'].forEach(id=>$(id).addEventListener('input',()=>{state.briefDirty=true;syncButtons();}));
   $('template').addEventListener('click',()=>saveFile(new Blob([state.template],{type:'text/markdown;charset=utf-8'}),'프로젝트_기획서_템플릿.md'));
-  $('use-template').addEventListener('click',()=>{if($('brief').value.trim() && !window.confirm('현재 편집 내용을 템플릿으로 바꿀까요?'))return;$('brief').value=state.template;state.briefDirty=true;syncButtons();});
+  $('use-template').addEventListener('click',async()=>{if($('brief').value.trim() && !(await ask('작성 중인 내용을 템플릿으로 바꿀까요?','현재 기획서 내용이 템플릿으로 대체됩니다. 저장하기 전까지는 마지막 저장본이 그대로 남아 있습니다.','템플릿으로 바꾸기')))return;$('brief').value=state.template;state.briefDirty=true;syncButtons();});
   $('upload').addEventListener('change',async()=>{
     const file=$('upload').files[0];if(!file)return;
     try {if(!/\.(md|markdown|txt)$/i.test(file.name) || file.size>500000)throw new Error('500KB 이하의 Markdown·텍스트 파일을 선택해주세요.');
       const value=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());if(value.length>120000)throw new Error('기획서 내용을 120,000자 이하로 줄여주세요.');
-      if($('brief').value.trim() && !window.confirm('현재 편집 내용을 업로드한 파일로 바꿀까요?'))return;
+      if($('brief').value.trim() && !(await ask('작성 중인 내용을 파일 내용으로 바꿀까요?','‘'+file.name+'’의 내용이 현재 기획서를 대체합니다.','파일 내용으로 바꾸기')))return;
       $('brief').value=value;if(!$('title').value)$('title').value=file.name.replace(/\.[^.]+$/,'');state.briefDirty=true;syncButtons();notice('파일을 가져왔습니다. 기획서를 저장한 뒤 명세서를 생성해주세요.');
     }catch(e){notice(e.message,true);}finally{$('upload').value='';}
   });
@@ -391,13 +452,14 @@
   $('carry-mock').addEventListener('click',()=>mutate('mock-carry',{}, {message:'이전 목업을 현재 명세서에 이어 붙였습니다. 화면을 확인하고 확정해주세요.'}));
   $('new-review').addEventListener('click',()=>mutate('mock-save',{}, {message:'새 검토 버전을 만들었습니다. 미해결 의견을 이어서 검토해주세요.'}));
   $('document-body').addEventListener('input',()=>{state.specDraft.documents[state.document]=$('document-body').value;markSpec();});
+  $('document-filter')?.addEventListener('input',renderDocList);
   $('document-toggle').addEventListener('click',()=>{state.preview=!state.preview;renderDocument();});
   $('download-spec').addEventListener('click',()=>download(false));$('download-handoff').addEventListener('click',()=>download(true));
   $('comment-mode').addEventListener('click',()=>{state.commenting=true;$('comment-mode').setAttribute('aria-pressed','true');$('preview-mode').setAttribute('aria-pressed','false');drawCanvas();});
   $('preview-mode').addEventListener('click',()=>{state.commenting=false;$('comment-mode').setAttribute('aria-pressed','false');$('preview-mode').setAttribute('aria-pressed','true');drawCanvas();});
   $('viewport').addEventListener('change',drawCanvas);
-  $('spec-revisions').addEventListener('change',()=>{if(confirmDiscard())load(state.data.project.id,null,$('spec-revisions').value);else $('spec-revisions').value=state.data.spec.revision;});
-  $('revisions').addEventListener('change',()=>{if(confirmDiscard())load(state.data.project.id,$('revisions').value);else $('revisions').value=state.data.mock.revision;});
+  $('spec-revisions').addEventListener('change',async()=>{if(await confirmDiscard())load(state.data.project.id,null,$('spec-revisions').value);else $('spec-revisions').value=state.data.spec.revision;});
+  $('revisions').addEventListener('change',async()=>{if(await confirmDiscard())load(state.data.project.id,$('revisions').value);else $('revisions').value=state.data.mock.revision;});
   $('approve-screen').addEventListener('click',()=>mutate('screen-approve',{screen:state.screen,note:$('approval-note').value},{message:'이 화면을 확정했습니다. 모든 화면이 확정되면 개발 인계를 받을 수 있습니다.'}));
   window.addEventListener('beforeunload',e=>{if(unsaved()){e.preventDefault();e.returnValue='';}});
   refreshProjects().then(async projects=>{const id=new URLSearchParams(location.search).get('project_id')||lastProject(projects||[]);if(id)await load(id);syncButtons();}).catch(e=>notice('Studio를 불러오지 못했습니다. '+e.message,true));

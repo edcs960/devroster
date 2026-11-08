@@ -43,7 +43,7 @@ def test_f2_unregistered_marker_cannot_reach_registered_credentials(source, tmp_
     plan, _ = move(source, tmp_path / "victim-config")
     victim = r.workspace_locations(source)
     victim.environment_file.parent.mkdir(parents=True, exist_ok=True)
-    victim.environment_file.write_text(json.dumps({"VICTIM_TOKEN": "victim-secret-sentinel"}))
+    victim.environment_file.write_text(json.dumps({"VICTIM_TOKEN": "victim-secret-sentinel"}), encoding="utf-8")
     attacker = tmp_path / "attacker-config"
     attacker.mkdir()
     (attacker / "workspace.json").write_text(
@@ -55,7 +55,7 @@ def test_f2_unregistered_marker_cannot_reach_registered_credentials(source, tmp_
                 "workspace_id": plan["workspace_id"],
                 "source_root": str(tmp_path / "attacker-source"),
             }
-        )
+        ), encoding="utf-8"
     )
     assert r.find(attacker) is None
     locations = r.workspace_locations(attacker)
@@ -72,7 +72,7 @@ def test_f2b_workspace_id_never_escapes_the_credentials_root(tmp_path):
     config, outside = tmp_path / "untrusted", tmp_path / "outside"
     config.mkdir()
     outside.mkdir()
-    (outside / "environment.json").write_text(json.dumps({"OUTSIDE_TOKEN": "escape-sentinel"}))
+    (outside / "environment.json").write_text(json.dumps({"OUTSIDE_TOKEN": "escape-sentinel"}), encoding="utf-8")
     (config / "workspace.json").write_text(
         json.dumps(
             {
@@ -82,7 +82,7 @@ def test_f2b_workspace_id_never_escapes_the_credentials_root(tmp_path):
                 "workspace_id": str(outside),
                 "source_root": str(tmp_path / "source"),
             }
-        )
+        ), encoding="utf-8"
     )
     assert not r.workspace_locations(config).environment_file.is_relative_to(outside)
     assert "OUTSIDE_TOKEN" not in read_environment(config)
@@ -97,7 +97,7 @@ def test_f2b_workspace_id_never_escapes_the_credentials_root(tmp_path):
         "runtime_root": str(source / ".agent-dev"),
     }
     state.write_text(
-        json.dumps({"workspace_registry": {"revision": 1, "workspaces": {str(outside): row}}})
+        json.dumps({"workspace_registry": {"revision": 1, "workspaces": {str(outside): row}}}), encoding="utf-8"
     )
     with pytest.raises(DomainError):
         r.workspace_locations(source)
@@ -282,7 +282,7 @@ def management_pointer(tmp_path, monkeypatch, old):
     monkeypatch.setattr(cli_home.sys, "platform", "darwin")
     pointer = bootstrap_file({})
     pointer.parent.mkdir(parents=True, exist_ok=True)
-    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}))
+    pointer.write_text(json.dumps({"schema_version": 1, "management_root": str(old)}), encoding="utf-8")
     monkeypatch.delenv("DEVROSTER_HOME")
 
 

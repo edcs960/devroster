@@ -26,7 +26,7 @@ class ProcessOperation:
                 self.command,
                 cwd=self.cwd,
                 env=self.env,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

@@ -169,7 +169,7 @@ def test_preparation_browser(workspace, tmp_path, monkeypatch):
     try:
         result = subprocess.run(['node', str(Path(__file__).with_name('preparation_mode_browser.cjs')),
                                  module, executable, f'http://127.0.0.1:{server.server_port}',
-                                 item['project']['id'], str(tmp_path)], capture_output=True, text=True, timeout=90, check=False)
+                                 item['project']['id'], str(tmp_path)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90, check=False)
         assert result.returncode == 0, result.stdout + result.stderr
         print(result.stdout)
     finally:

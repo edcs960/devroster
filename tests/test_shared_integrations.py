@@ -53,7 +53,7 @@ def projects(tmp_path, monkeypatch):
     a, b = tmp_path / "a", tmp_path / "b"
     initialize(a, name="Alpha", project_id="ALPHA")
     initialize(b, name="Beta", project_id="BETA")
-    (b / ".agent-dev/environment.json").write_text(json.dumps({"B_TOKEN": PROJECT_TOKEN}))
+    (b / ".agent-dev/environment.json").write_text(json.dumps({"B_TOKEN": PROJECT_TOKEN}), encoding="utf-8")
     shared = SharedIntegrations(a)
     registered = shared.register("github-personal", DEFINITION, expected_version=0)
     CredentialStore.save_shared("github-personal", "GITHUB_TOKEN", SHARED_TOKEN)

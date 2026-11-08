@@ -17,11 +17,11 @@ RESOLVED_ISSUE = "## Root Cause\nmigration updated rows\n\n## Resolution\n- Reso
 def root(tmp_path):
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project("P", "Project", {})
     (root / "issues").mkdir()
-    (root / "issues/issue-001.md").write_text(RESOLVED_ISSUE)
+    (root / "issues/issue-001.md").write_text(RESOLVED_ISSUE, encoding="utf-8")
     with runtime.store.db.transaction() as sql:
         sql.execute(
             "INSERT INTO workspace_settings VALUES(1,?,?)", (1, json.dumps({"project_id": "P"}))
@@ -120,6 +120,75 @@ def test_app_serves_the_page_and_rejects_untokened_writes(root):
         with pytest.raises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(request, timeout=5)
         assert error.value.code == 403
+    finally:
+        server.shutdown()
+        server.studio.close()
+        server.server_close()
+
+
+def _as_pre_wiki_v3_database(root):
+    """Recreate a workspace made before 2026-10-18: schema v3 without the wiki table."""
+    import sqlite3
+
+    from agent_dev.adapters.storage_registry import state_db_path
+    from agent_dev.adapters.workspace import configuration_root
+
+    path = state_db_path(configuration_root(root))
+    with sqlite3.connect(path) as sql:
+        sql.execute("DROP TABLE knowledge_revisions")
+        sql.execute("DELETE FROM schema_versions WHERE version > 3")
+    return path
+
+
+def _schema(path):
+    import sqlite3
+
+    with sqlite3.connect(path) as sql:
+        version = sql.execute("SELECT MAX(version) FROM schema_versions").fetchone()[0]
+        wiki = sql.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name='knowledge_revisions'"
+        ).fetchone()[0]
+    return version, bool(wiki)
+
+
+def test_items_on_a_database_without_the_wiki_table_are_an_empty_list(root):
+    path = _as_pre_wiki_v3_database(root)
+    assert WikiWeb(root).get("items", {"project_id": "P"}) == {"items": []}
+    assert _schema(path) == (3, False)  # a read never migrates
+
+
+def test_app_start_upgrades_an_older_workspace_database(root):
+    from agent_dev import app
+
+    path = _as_pre_wiki_v3_database(root)
+    server = app.make_server(root, 0)
+    try:
+        assert _schema(path) == (4, True)
+        assert list(path.parent.glob("state.db.pre-v4-backup*")), "upgrade keeps a backup"
+    finally:
+        server.studio.close()
+        server.server_close()
+
+
+def test_database_errors_answer_with_json_instead_of_dropping_the_connection(root, monkeypatch):
+    import sqlite3
+
+    from agent_dev import app
+
+    def broken(self, action, query):
+        raise sqlite3.OperationalError("no such table: knowledge_revisions")
+
+    monkeypatch.setattr(WikiWeb, "get", broken)
+    server = app.make_server(root, 0)
+    try:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(base + "/api/wiki/items?project_id=P", timeout=5)
+        assert error.value.code == 503
+        body = json.loads(error.value.read())
+        assert "knowledge_revisions" not in body["error"]  # internals stay in the log
+        assert body["error"]
     finally:
         server.shutdown()
         server.studio.close()

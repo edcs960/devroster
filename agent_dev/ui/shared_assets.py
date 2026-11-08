@@ -13,6 +13,8 @@ NAVIGATION_ASSETS = {
     "/navigation.css": ("navigation.css", "text/css"),
     "/navigation.js": ("navigation.js", "text/javascript"),
     "/ui-progress.js": ("ui-progress.js", "text/javascript"),
+    "/ui-feedback.js": ("ui-feedback.js", "text/javascript"),
+    "/PretendardStdVariable.woff2": ("PretendardStdVariable.woff2", "font/woff2"),
     "/branding.js": ("branding.js", "text/javascript"),
     "/brand-mark.svg": ("brand-mark.svg", "image/svg+xml"),
 }

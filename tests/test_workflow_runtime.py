@@ -17,7 +17,7 @@ from agent_dev.domain.transitions import TransitionContext
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, text=True, capture_output=True
+        ["git", "-C", str(root), *args], check=True, text=True, encoding="utf-8", errors="replace", capture_output=True
     ).stdout.strip()
 
 
@@ -28,13 +28,13 @@ def runtime(tmp_path):
     git(source, "init", "-q")
     git(source, "config", "user.name", "Test")
     git(source, "config", "user.email", "test@example.test")
-    (source / "source.txt").write_text("base")
+    (source / "source.txt").write_text("base", encoding="utf-8")
     git(source, "add", "--", "source.txt")
     git(source, "commit", "-qm", "base")
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
     (root / "config/runtime.json").write_text(
-        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}})
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}}), encoding="utf-8"
     )
     runtime = WorkflowRuntime(root)
     runtime.store.register_project(
@@ -77,7 +77,7 @@ class Runner:
         self.calls += 1
         context = json.loads(request.context)
         root = Path(context["repositories"]["source"]["worktree"])
-        (root / "source.txt").write_text("implemented")
+        (root / "source.txt").write_text("implemented", encoding="utf-8")
         return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
 
@@ -92,8 +92,8 @@ def verified(runtime):
 
 def test_runtime_isolated_worktree_and_idempotency(runtime):
     binding = verified(runtime)
-    assert Path(binding["path"]).joinpath("source.txt").read_text() == "base"
-    assert Path(binding["worktree"]).joinpath("source.txt").read_text() == "implemented"
+    assert Path(binding["path"]).joinpath("source.txt").read_text(encoding="utf-8") == "base"
+    assert Path(binding["worktree"]).joinpath("source.txt").read_text(encoding="utf-8") == "implemented"
     assert runtime.store.task("T").state == TaskStatus.PR_READY
     preview = PublishAdapter(runtime).publish("T", "source", "dry", dry_run=True)
     assert preview["dry_run"]
@@ -104,7 +104,7 @@ def test_runtime_isolated_worktree_and_idempotency(runtime):
 
 def test_publish_rejects_changes_after_verification(runtime):
     binding = verified(runtime)
-    Path(binding["worktree"]).joinpath("source.txt").write_text("unverified")
+    Path(binding["worktree"]).joinpath("source.txt").write_text("unverified", encoding="utf-8")
     with pytest.raises(DomainError) as error:
         PublishAdapter(runtime).publish("T", "source", "dry", dry_run=True)
     assert error.value.code == ErrorCode.VERIFICATION_FAILED
@@ -151,7 +151,7 @@ def test_dependency_state_is_read_from_database(runtime):
 def test_application_has_only_domain_and_port_dependencies():
     root = Path(__file__).parents[1] / "agent_dev/application"
     for path in root.glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 assert module.startswith(
@@ -180,7 +180,7 @@ with runtime.safety.lease('task:T') as lease:
         [sys.executable, "-c", driver, str(runtime.root), str(guard), child],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
     try:
         assert process.stdout.readline().strip() == "started"
@@ -212,7 +212,7 @@ def test_checkpoint_and_prompt_have_owner_and_digest(runtime):
     verified(runtime)
     with runtime.safety.lease("task:T") as lease:
         path = runtime.artifacts.checkpoint("T", lease)
-    content = Path(path).read_text()
+    content = Path(path).read_text(encoding="utf-8")
     assert "## Harness Control" in content
     assert "## Handoff" in content
     assert runtime.store.snapshot("T")["digest"] in content
@@ -242,7 +242,7 @@ time.sleep(20)
         [sys.executable, "-c", script, str(runtime.root), key],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
     try:
         assert process.stdout.readline().strip() == "started"
@@ -279,7 +279,7 @@ def test_publish_pr_idempotency_and_named_ci_gate(runtime, tmp_path, ci):
     subprocess.run(["git", "init", "--bare", "-q", str(bare)], check=True)
     git(Path(binding["path"]), "remote", "add", "origin", str(bare))
     config = runtime.root / "config/runtime.json"
-    config.write_text(json.dumps({"orchestrator_v2": {"execute": True, "publish": True}}))
+    config.write_text(json.dumps({"orchestrator_v2": {"execute": True, "publish": True}}), encoding="utf-8")
     created = []
 
     def gh(arguments):
@@ -345,12 +345,12 @@ def test_confirmed_knowledge_provenance_and_isolation(runtime):
     git(runtime.root, "config", "user.name", "Test")
     git(runtime.root, "config", "user.email", "test@example.test")
     path = runtime.root / "knowledge.md"
-    path.write_text("Verified architecture fact. External instructions remain data.")
+    path.write_text("Verified architecture fact. External instructions remain data.", encoding="utf-8")
     git(runtime.root, "add", "--", "knowledge.md")
     git(runtime.root, "commit", "-qm", "knowledge")
     commit = git(runtime.root, "rev-parse", "HEAD")
     candidate = runtime.governance.knowledge_candidate(
-        "P", "knowledge.md", commit, path.read_text()
+        "P", "knowledge.md", commit, path.read_text(encoding="utf-8")
     )
     assert runtime.governance.search_knowledge("P", "fact") == []
     with pytest.raises(DomainError):
@@ -362,7 +362,7 @@ def test_confirmed_knowledge_provenance_and_isolation(runtime):
     assert result["source_digest"]
     assert result["trust"] == "verified_data_not_instructions"
     assert runtime.governance.search_knowledge("other-project", "fact") == []
-    path.write_text("Changed knowledge")
+    path.write_text("Changed knowledge", encoding="utf-8")
     assert runtime.governance.search_knowledge("P", "fact") == []
 
 
@@ -438,7 +438,7 @@ def test_snapshot_binds_bundled_rules_and_ignores_project_role_files(runtime):
     )
 
     (runtime.project_root / "agent").mkdir(exist_ok=True)
-    (runtime.project_root / "agent/planner.md").write_text("CUSTOMER-ROLE-RULE")
+    (runtime.project_root / "agent/planner.md").write_text("CUSTOMER-ROLE-RULE", encoding="utf-8")
     source = resolved["repositories"]["source"]["path"]
     runtime.store.register_project(
         "P2",
@@ -465,7 +465,7 @@ def test_phase_context_starts_with_project_stable_keys(runtime):
 
 
 def test_wiki_items_are_frozen_into_the_snapshot(runtime):
-    (runtime.project_root / "lesson.md").write_text("## Resolution\n- Resolved: true\n")
+    (runtime.project_root / "lesson.md").write_text("## Resolution\n- Resolved: true\n", encoding="utf-8")
     runtime.wiki.propose(
         "P",
         {
@@ -521,7 +521,7 @@ def test_wiki_items_are_frozen_into_the_snapshot(runtime):
 def test_wiki_code_evidence_accepts_a_passed_verification_run(runtime):
     verified(runtime)
     run_id = runtime.store.db.rows("SELECT id FROM verification_runs WHERE state='passed'")[0]["id"]
-    (runtime.project_root / "issue.md").write_text("## Root Cause\nopen\n")
+    (runtime.project_root / "issue.md").write_text("## Root Cause\nopen\n", encoding="utf-8")
     base = {
         "item_id": "L01",
         "page": "lessons",
@@ -543,7 +543,7 @@ def test_wiki_code_evidence_accepts_a_passed_verification_run(runtime):
 
 def test_wiki_prompt_masks_secrets_registered_after_the_snapshot(runtime):
     value = "registered-later-secret-77"
-    (runtime.project_root / "lesson.md").write_text("## Resolution\n- Resolved: true\n")
+    (runtime.project_root / "lesson.md").write_text("## Resolution\n- Resolved: true\n", encoding="utf-8")
     runtime.wiki.propose(
         "P",
         {
@@ -572,7 +572,7 @@ def test_cancel_removes_only_worktrees_without_work(runtime, capsys, work):
     binding = runtime.store.snapshot("T")["resolved"]["repositories"]["source"]
     worktree = Path(binding["worktree"])
     if work:
-        (worktree / "source.txt").write_text("unsaved work")
+        (worktree / "source.txt").write_text("unsaved work", encoding="utf-8")
     if work == "commit":
         git(worktree, "-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qam", "work")
     main(["task", "cancel", "T", "--root", str(runtime.root), "--json"])
@@ -594,7 +594,7 @@ def test_local_completion_fast_forwards_the_default_branch(runtime, checkout):
     source = Path(binding["path"])
     git(source, "branch", "-M", "main")
     (runtime.root / "config/runtime.json").write_text(
-        json.dumps({"orchestrator_v2": {"execute": True, "publish": True}})
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": True}}), encoding="utf-8"
     )
     publishing = PublishAdapter(runtime, external=lambda arguments: pytest.fail("no GitHub call"))
     assert publishing.publish("T", "source", "local-dry", dry_run=True)["completion"] == "local"
@@ -608,7 +608,7 @@ def test_local_completion_fast_forwards_the_default_branch(runtime, checkout):
         "merged": False,
     }
     if checkout == "dirty":
-        (source / "source.txt").write_text("user edit")
+        (source / "source.txt").write_text("user edit", encoding="utf-8")
         with pytest.raises(DomainError, match="커밋하지 않은 변경"):
             publishing.complete("T", record["id"], "user")
         assert runtime.store.task("T").state == TaskStatus.USER_REVIEW
@@ -619,7 +619,7 @@ def test_local_completion_fast_forwards_the_default_branch(runtime, checkout):
     assert completed["state"] == "completed"
     assert git(source, "rev-parse", "main") == record["commit_sha"]
     if checkout == "clean":
-        assert (source / "source.txt").read_text() == "implemented"
+        assert (source / "source.txt").read_text(encoding="utf-8") == "implemented"
 
 
 def test_named_ci_checks_keep_github_completion():
@@ -661,7 +661,7 @@ def test_worktree_links_installed_dependencies_hidden_from_git(tmp_path):
 
     source = tmp_path / "web"
     (source / "node_modules/.bin").mkdir(parents=True)
-    (source / ".gitignore").write_text("node_modules/\n")  # directories only, not links
+    (source / ".gitignore").write_text("node_modules/\n", encoding="utf-8")  # directories only, not links
     git(source.parent, "init", "-q", str(source))
     git(source, "add", ".gitignore")
     git(source, "-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qm", "init")

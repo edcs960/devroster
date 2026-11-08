@@ -128,7 +128,7 @@ def ensure_git_repository(path: Path) -> None:
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=path,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         check=False,
     )
@@ -230,7 +230,7 @@ def git_output(path: Path, args: list[str]) -> str:
     result = subprocess.run(
         ["git", *args],
         cwd=path,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         check=False,
     )
@@ -255,7 +255,7 @@ def run_git(
     result = subprocess.run(
         ["git", *args],
         cwd=path,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         check=False,
     )
@@ -273,7 +273,7 @@ def run_git(
         fallback_result = subprocess.run(
             ["git", *fallback],
             cwd=path,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             capture_output=True,
             check=False,
         )

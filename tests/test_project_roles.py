@@ -138,12 +138,12 @@ def test_snapshot_injects_custom_role_instruction(tmp_path):
         ["config", "user.email", "t@example.test"],
     ):
         subprocess.run(["git", "-C", str(source), *args], check=True)
-    (source / "a.txt").write_text("a")
+    (source / "a.txt").write_text("a", encoding="utf-8")
     subprocess.run(["git", "-C", str(source), "add", "a.txt"], check=True)
     subprocess.run(["git", "-C", str(source), "commit", "-qm", "a"], check=True)
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     value = roles(extra=[CUSTOM["id"]])
     value["custom"].append(CUSTOM)

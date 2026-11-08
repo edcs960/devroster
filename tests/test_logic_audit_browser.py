@@ -27,7 +27,7 @@ def test_logic_audit_browser(workspace, tmp_path, monkeypatch):
     try:
         result = subprocess.run(['node', str(Path(__file__).with_name('logic_audit_browser.cjs')), module, executable,
                                  f'http://127.0.0.1:{server.server_port}', studio['project']['id']],
-                                capture_output=True,text=True,timeout=90)
+                                capture_output=True,text=True, encoding="utf-8", errors="replace",timeout=90)
         assert result.returncode == 0, result.stdout + result.stderr
         print(result.stdout)
     finally:

@@ -15,7 +15,7 @@ def collect_sources(project_root: Path, data_dir: Path, secrets: tuple[str, ...]
         path = data_dir / name
         if path.exists():
             try:
-                sources[f"data/{name}"] = redact(json.loads(path.read_text()), secrets)
+                sources[f"data/{name}"] = redact(json.loads(path.read_text(encoding="utf-8")), secrets)
             except (ValueError, OSError):
                 raise DomainError(
                     ErrorCode.INVALID_INPUT, "Invalid legacy metadata file."
@@ -31,7 +31,7 @@ def collect_sources(project_root: Path, data_dir: Path, secrets: tuple[str, ...]
                 continue
             if path.name in {"pipeline-state.json", "events.jsonl"}:
                 try:
-                    raw = path.read_text()
+                    raw = path.read_text(encoding="utf-8")
                     value = (
                         [json.loads(line) for line in raw.splitlines() if line.strip()]
                         if path.suffix == ".jsonl"

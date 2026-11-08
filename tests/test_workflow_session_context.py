@@ -47,10 +47,10 @@ def test_built_in_roles_without_override_record_no_source(runtime):
 
 
 def test_workspace_override_replaces_built_in_and_is_recorded(runtime):
-    (roles_dir(runtime) / "planner.md").write_text("# Team Planner\n\nOVERRIDE-RULE")
+    (roles_dir(runtime) / "planner.md").write_text("# Team Planner\n\nOVERRIDE-RULE", encoding="utf-8")
     # Repository rule folders stay ignored even when present.
     (runtime.project_root / "agent").mkdir()
-    (runtime.project_root / "agent/architect.md").write_text("REPO-RULE")
+    (runtime.project_root / "agent/architect.md").write_text("REPO-RULE", encoding="utf-8")
     prepare(runtime, graph())
     value = resolved(runtime)
     assert value["role_context"]["planner"].startswith("# Team Planner\n\nOVERRIDE-RULE")
@@ -64,10 +64,10 @@ def test_workspace_override_replaces_built_in_and_is_recorded(runtime):
 
 def test_override_change_changes_resolved_snapshot(runtime):
     override = roles_dir(runtime) / "planner.md"
-    override.write_text("FIRST")
+    override.write_text("FIRST", encoding="utf-8")
     prepare(runtime, graph())
     first = runtime.resolve_snapshot("DAG")
-    override.write_text("SECOND")
+    override.write_text("SECOND", encoding="utf-8")
     second = runtime.resolve_snapshot("DAG")
     assert first["role_sources"]["planner"]["digest"] != second["role_sources"]["planner"]["digest"]
     assert "SECOND" in second["role_context"]["planner"]
@@ -87,7 +87,7 @@ def test_override_change_changes_resolved_snapshot(runtime):
 )
 def test_unsafe_overrides_are_rejected(runtime, setup, code):
     directory = roles_dir(runtime)
-    (directory.parent / "elsewhere.md").write_text("OUTSIDE")
+    (directory.parent / "elsewhere.md").write_text("OUTSIDE", encoding="utf-8")
     setup(directory)
     with pytest.raises(DomainError) as error:
         prepare(runtime, graph())
@@ -132,7 +132,7 @@ def test_split_reads_sections_in_order():
 
 def test_session_context_serializes_shared_wiki_items_once(runtime):
     root = runtime.project_root
-    (root / "lesson.md").write_text("## Resolution\n- Resolved: true\n")
+    (root / "lesson.md").write_text("## Resolution\n- Resolved: true\n", encoding="utf-8")
 
     def item(item_id, roles, check):
         return {

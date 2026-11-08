@@ -9,7 +9,7 @@ from agent_dev.domain.errors import DomainError, ErrorCode
 def git(root, *arguments):
     process = subprocess.run(
         ["git", "-C", str(root), *arguments],
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         timeout=60,
         check=False,
@@ -146,7 +146,7 @@ def commit_fingerprint(bindings):
         name: subprocess.run(
             ["git", "-C", str(binding["worktree"]), "rev-parse", "--verify", "HEAD"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             check=True,
             timeout=5,
         ).stdout.strip()

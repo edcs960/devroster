@@ -68,7 +68,7 @@ class Writing(SessionRunner):
         context = json.loads(request.context)
         if context.get("session_id") == self.session:
             worktree = context["repositories"]["source"]["worktree"]
-            Path(worktree, "source.txt").write_text("changed by " + self.session)
+            Path(worktree, "source.txt").write_text("changed by " + self.session, encoding="utf-8")
         return super().execute(request)
 
 
@@ -208,7 +208,7 @@ def test_cli_adapter_enforces_session_policy(
     worktree = tmp_path / "worktree"
     worktree.mkdir()
     subprocess.run(["git", "init", "-q", str(worktree)], check=True)
-    (worktree / "source.txt").write_text("base")
+    (worktree / "source.txt").write_text("base", encoding="utf-8")
     union = session_policy([policy(m, project_paths=["source.txt"]) for m in members])
     context = {
         "repositories": {"source": {"worktree": str(worktree), "allowed_paths": ["source.txt"]}},
@@ -220,7 +220,7 @@ def test_cli_adapter_enforces_session_policy(
 
     def run(*args):
         seen.append(adapter.runner.sandbox)
-        (worktree / written).write_text("changed")
+        (worktree / written).write_text("changed", encoding="utf-8")
         return '```json\n{"handoff_status":"pass"}\n```'
 
     monkeypatch.setattr(adapter.runner, "run", run)

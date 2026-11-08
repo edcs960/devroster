@@ -22,17 +22,35 @@ const {chromium}=require(process.argv[2]);
   assert.equal(await page.locator('#task-operation').inputValue(),'task.show');
   assert.equal(await task('T2').locator('.task-status').textContent(),'완료');
   await page.unroute('**/api/agent/tasks');
-  await page.evaluate(()=>selectTask(taskRows.find(t=>t.id==='T')));await page.locator('#task-operation').selectOption('task.show');
+  await page.evaluate(()=>selectTask(taskRows.find(t=>t.id==='T')));
+  assert.equal(await page.locator('#primary-action').textContent(),'실행','a ready task offers 실행 as its one primary action');
+  assert.equal(await page.locator('#operation-editor').isHidden(),true,'no input form for a task-only action');
   let release,seen;
   const gate=new Promise(r=>release=r),started=new Promise(r=>seen=r);
   const delay=async route=>{const response=await route.fetch();seen();await gate;await route.fulfill({response});};
   await page.route('**/api/agent/preview',delay);
-  await page.locator('#preview-button').click();await started;await task('T2').click();release();
+  await page.locator('#primary-action').click();await started;await task('T2').click();release();
   await page.waitForFunction(()=>!document.getElementById('preview-button').disabled);
   assert.equal(await page.evaluate(()=>checked),null,'old task preview is discarded');
   assert.equal(await page.locator('#preview').isHidden(),true);
   assert.equal(await page.locator('#execute').isDisabled(),true);
   await page.unroute('**/api/agent/preview',delay);
+  // ⋯ menu: unavailable actions stay listed, greyed out, with the reason in view; Escape returns focus.
+  await page.evaluate(()=>selectTask(taskRows.find(t=>t.id==='T')));
+  await page.locator('#more-actions').click();await page.waitForSelector('.ui-menu');
+  const finish=page.locator('.ui-menu [role=menuitem]',{hasText:'완료'});
+  assert.equal(await finish.getAttribute('aria-disabled'),'true');
+  assert.match(await finish.textContent(),/사용자 검토 단계에서만/);
+  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement.id),'more-actions');
+  // Read-only items show their result at once, with no confirmation step.
+  await page.locator('#more-actions').click();await page.locator('.ui-menu [role=menuitem]',{hasText:'상세'}).click();
+  await page.waitForFunction(()=>document.getElementById('action-result-body').textContent.includes('작업 ID'),null,{timeout:20000});
+  assert.equal(await page.locator('#preview').isHidden(),true);
+  // The primary action opens the confirmation directly; 취소 closes it and nothing is submitted.
+  await page.locator('#primary-action').click();await page.locator('#preview').waitFor();
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'preview');
+  await page.locator('#preview-cancel').click();assert.equal(await page.locator('#preview').isHidden(),true);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'primary-action');
   // Same input value after an edit is still a newer input generation.
   await page.evaluate(()=>choose(catalog.find(o=>o.id==='preset.show')));
   await page.locator('#field-preset').fill('python');

@@ -83,7 +83,7 @@ def git_root(path):
         result = subprocess.run(
             ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=5,
             check=False,
         )
@@ -674,6 +674,12 @@ class ProjectSetup:
         value, profile, secrets = self.prepare(payload)
         check_limits(value["limits"], GlobalSettings().read()["values"])
         _, _, previous = self.current_profile()
+        if check_auth:
+            from agent_dev.adapters.global_ai import selected_tools
+
+            # Shared tools replace the project's own runners, so those never run: probing their
+            # logins would launch CLIs for nothing. Shared logins are checked on the AI page.
+            check_auth = selected_tools({"ai_tools": value.get("ai_tools")}) is None
         for runner in profile["runners"]:
             provider, config = runner["provider"], runner["config"]
             if provider in API_PROVIDERS:
@@ -1257,7 +1263,7 @@ def auth_probe(provider, command):
         result = subprocess.run(
             args,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=10,
             check=False,
             env=isolated_environment(),

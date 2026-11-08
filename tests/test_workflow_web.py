@@ -115,7 +115,7 @@ def test_unsaved_workflow_draft_cannot_apply_previous_version():
         ],
         check=True,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
 
 

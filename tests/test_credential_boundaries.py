@@ -27,8 +27,8 @@ def workspaces(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     initialize(a, name="Alpha", project_id="ALPHA")
     initialize(b, name="Beta", project_id="BETA")
-    (a / ".agent-dev/environment.json").write_text(json.dumps({"A_TOKEN": "alpha-secret"}))
-    (b / ".agent-dev/environment.json").write_text(json.dumps({"B_TOKEN": "beta-secret"}))
+    (a / ".agent-dev/environment.json").write_text(json.dumps({"A_TOKEN": "alpha-secret"}), encoding="utf-8")
+    (b / ".agent-dev/environment.json").write_text(json.dumps({"B_TOKEN": "beta-secret"}), encoding="utf-8")
     return a, b
 
 

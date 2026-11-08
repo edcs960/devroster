@@ -27,7 +27,7 @@ def test_product_screen_behavior_with_installed_browser(tmp_path):
                 ["node", str(Path(__file__).with_name("task3c_ui_behavior.cjs")),
                  f"http://127.0.0.1:{server.server_port}", module, executable,
                  str(tmp_path / "browser-evidence")],
-                capture_output=True, text=True, timeout=90, check=False,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90, check=False,
             )
             assert result.returncode == 0, result.stdout + result.stderr
     finally:

@@ -162,7 +162,7 @@ def validate_database(path, secrets=(), *, kind="canonical", progress=lambda: No
             schema = (
                 SCHEMA
                 if kind == "studio"
-                else Path(__file__).with_name("state").joinpath("sqlite/schema.sql").read_text()
+                else Path(__file__).with_name("state").joinpath("sqlite/schema.sql").read_text(encoding="utf-8")
             )
             with contextlib.closing(sqlite3.connect(":memory:")) as reference:
                 reference.executescript(schema)

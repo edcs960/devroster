@@ -71,7 +71,7 @@ class GlobalStore:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 if self._version(conn) < SCHEMA_VERSION:
-                    schema = Path(__file__).with_name("global_schema.sql").read_text()
+                    schema = Path(__file__).with_name("global_schema.sql").read_text(encoding="utf-8")
                     Database._run_statements(conn, schema)
                     conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
                 yield conn

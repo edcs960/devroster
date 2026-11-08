@@ -93,7 +93,7 @@ def main(argv=None):
             [str(python), "-c", "import sys;print(sys.version.split()[0])"],
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         ).stdout.strip()
         dist = workdir / "dist"
         plan = {

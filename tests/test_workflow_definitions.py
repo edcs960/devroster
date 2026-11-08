@@ -79,7 +79,7 @@ def test_v1_database_migrates_preserving_existing_projects(tmp_path):
         Path(__file__)
         .parents[1]
         .joinpath("agent_dev/adapters/state/sqlite/schema.sql")
-        .read_text()
+        .read_text(encoding="utf-8")
         .split("CREATE TABLE IF NOT EXISTS workflow_definitions")[0]
     )
     sql = sqlite3.connect(path)

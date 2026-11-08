@@ -16,7 +16,7 @@ def alive(pid):
     if sys.platform == 'darwin':
         return len(ownership._mac_info(ownership._mac_library(), pid, 3, 136)) == 136
     try:
-        return Path(f'/proc/{pid}/stat').read_text().split(') ')[1][0] != 'Z'
+        return Path(f'/proc/{pid}/stat').read_text(encoding="utf-8").split(') ')[1][0] != 'Z'
     except FileNotFoundError:
         return False
 
@@ -24,7 +24,7 @@ def alive(pid):
 def cleanup_record(record):
     if not record.exists():
         return
-    value = json.loads(record.read_text())
+    value = json.loads(record.read_text(encoding="utf-8"))
     if not alive(value['pid']):
         return
     if sys.platform == 'darwin':
@@ -35,7 +35,7 @@ def cleanup_record(record):
         # Fixture records its own process start time; pin PID before validating it.
         fd = os.pidfd_open(value['pid'])
         try:
-            start = Path(f"/proc/{value['pid']}/stat").read_text().split(') ')[1].split()[19]
+            start = Path(f"/proc/{value['pid']}/stat").read_text(encoding="utf-8").split(') ')[1].split()[19]
             if start == value['version']:
                 signal.pidfd_send_signal(fd, signal.SIGKILL)
         finally:
@@ -71,7 +71,7 @@ def test_owned_detached_writer_dies_and_unrelated_survives(tmp_path, double, mod
             with pytest.raises(subprocess.TimeoutExpired):
                 run_bounded([sys.executable, '-c', launcher],cwd=tmp_path,env=None,timeout=2,limit=1000)
         assert time.monotonic()-started < 3
-        value = json.loads(record.read_text())
+        value = json.loads(record.read_text(encoding="utf-8"))
         end = time.monotonic()+.5
         while alive(value['pid']) and time.monotonic() < end:
             time.sleep(.01)
@@ -91,7 +91,7 @@ def test_closed_pipe_daemon_is_outside_selected_scope(tmp_path):
     try:
         result = run_bounded([sys.executable, '-c', command],cwd=tmp_path,env=None,timeout=2,limit=1000)
         assert result.returncode == 0
-        assert alive(json.loads(record.read_text())['pid'])
+        assert alive(json.loads(record.read_text(encoding="utf-8"))['pid'])
     finally:
         cleanup_record(record)
 
@@ -114,7 +114,7 @@ def test_windows_job_kills_detached_writer(tmp_path):
     with pytest.raises(subprocess.TimeoutExpired):
         run_bounded([sys.executable,'-c',launcher],cwd=tmp_path,env=None,timeout=2,limit=1000)
     from agent_dev.adapters.process_guard import parent_alive
-    assert not parent_alive(int(record.read_text()))
+    assert not parent_alive(int(record.read_text(encoding="utf-8")))
 
 
 @pytest.mark.parametrize('foreign,changed', [(True, False), (False, True)])
@@ -181,7 +181,7 @@ def test_same_group_closed_pipe_child_terminated_on_all_paths(tmp_path, mode):
                 assert result.returncode == 7 and result.output == b'preserved-output'
             else:
                 assert result.overflow and result.truncated and len(result.output) == 1000
-        wait_until(lambda: not alive(json.loads(record.read_text())['pid']), seconds=.8)
+        wait_until(lambda: not alive(json.loads(record.read_text(encoding="utf-8"))['pid']), seconds=.8)
         assert unrelated.poll() is None
     finally:
         cleanup_record(record)
@@ -218,7 +218,7 @@ def test_stdio_closes_group_after_leader_exit_even_if_child_ignores_term(tmp_pat
             transport.close()
         assert signals == [signal.SIGTERM, signal.SIGKILL]
         assert transport.process.returncode == (7 if leader_exited else -signal.SIGTERM)
-        wait_until(lambda: not alive(json.loads(record.read_text())['pid']), seconds=.8)
+        wait_until(lambda: not alive(json.loads(record.read_text(encoding="utf-8"))['pid']), seconds=.8)
         assert unrelated.poll() is None
     finally:
         transport.close()

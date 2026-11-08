@@ -8,7 +8,7 @@ from agent_dev.domain.errors import DomainError
 def source(tmp_path):
     initialize(tmp_path)
     (tmp_path/'src').mkdir()
-    (tmp_path/'src/a.py').write_text('def a():\n    return 1\n')
+    (tmp_path/'src/a.py').write_text('def a():\n    return 1\n', encoding="utf-8")
     return SourceExplorer(tmp_path)
 
 
@@ -26,7 +26,7 @@ def test_private_and_traversal_rejected(source,path):
 
 
 def test_symlink_and_outside_scope_rejected(source,tmp_path):
-    (tmp_path/'secret.txt').write_text('private')
+    (tmp_path/'secret.txt').write_text('private', encoding="utf-8")
     (tmp_path/'src/link').symlink_to(tmp_path/'secret.txt')
     assert all(row['name']!='link' for row in source.tree('source','src')['entries'])
     for path in ['src/link','secret.txt']:
@@ -42,15 +42,15 @@ def test_graph_normalization_stale_and_digest(source,tmp_path):
     assert read['edges'][0]['evidence']=='INFERRED'
     assert read['edges'][0]['directed'] is False
     assert source.graph('source','a',include_inferred=False)['edges']==[]
-    (tmp_path/'src/a.py').write_text('def a():\n    return 2\n')
+    (tmp_path/'src/a.py').write_text('def a():\n    return 2\n', encoding="utf-8")
     assert source.graph('source')['state']=='stale'
     with pytest.raises(DomainError):source.read('source','src/a.py',expected_digest=read['nodes'][0]['source']['digest'])
-    source.graph_path('source').write_text('broken')
+    source.graph_path('source').write_text('broken', encoding="utf-8")
     assert source.graph('source')['state']=='error'
 
 
 def test_pagination_and_binary_metadata(source,tmp_path):
-    for index in range(205):(tmp_path/f'src/file-{index}.txt').write_text(str(index))
+    for index in range(205):(tmp_path/f'src/file-{index}.txt').write_text(str(index), encoding="utf-8")
     page=source.tree('source','src')
     assert len(page['entries'])==200 and page['next_cursor']==200
     assert len(source.tree('source','src',200)['entries'])==6

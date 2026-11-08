@@ -31,7 +31,7 @@ def call(base, path, payload=None, token=""):
 
 
 def test_global_override_inheritance_and_origins(workspace):  # noqa: F811
-    (workspace / ".agent-dev/environment.json").write_text(json.dumps({"APP_TOKEN": SECRET}))
+    (workspace / ".agent-dev/environment.json").write_text(json.dumps({"APP_TOKEN": SECRET}), encoding="utf-8")
     root = str(workspace)
     with setup_server(workspace) as (base, token):
         status, shared = call(base, "/api/settings/global")
@@ -286,7 +286,7 @@ def test_settings_browser(workspace, tmp_path, monkeypatch):  # noqa: F811
             ],
             capture_output=True,
             check=False,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=120,
         )
         assert result.returncode == 0, result.stdout + result.stderr

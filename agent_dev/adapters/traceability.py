@@ -336,7 +336,7 @@ def _mapped_digest(link, binding):
         process = subprocess.run(
             ["git", "-C", binding.get("worktree", binding.get("path", "")), "rev-parse", "HEAD"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=10,
             check=True,
         )
@@ -561,13 +561,13 @@ def _changed_tests(db, task, definition):
     changed = subprocess.run(
         ["git", "-C", worktree, "diff", "--name-only", base],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         timeout=30,
         check=False,
     ).stdout.split() + subprocess.run(
         ["git", "-C", worktree, "ls-files", "--others", "--exclude-standard"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         timeout=30,
         check=False,
     ).stdout.split()
@@ -995,7 +995,7 @@ def detail(db, link_id):
                     relative,
                 ],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=10,
                 check=True,
             ).stdout[:30000]
@@ -1013,7 +1013,7 @@ def detail(db, link_id):
                     link["target_ref"],
                 ],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=10,
                 check=True,
             ).stdout[:30000]

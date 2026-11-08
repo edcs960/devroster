@@ -90,3 +90,27 @@ body.app-shell.page-workflows #nodes>li>button:first-child{flex:1 1 100%;justify
 body.app-shell.page-workflows #nodes>li>button:first-child::before{counter-increment:step;content:counter(step,decimal-leading-zero);color:var(--ui-muted);font-weight:500;margin-right:8px}
 body.app-shell.page-workflows #nodes>li.selected>button:first-child{border-color:var(--ui-accent);background:var(--ui-accent-soft);color:var(--ui-accent)}
 @media(min-width:1200px){body.app-shell.page-workflows #node-fields{gap:8px}body.app-shell.page-workflows #node-fields .field>label{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;gap:8px;font-size:12px}body.app-shell.page-workflows #node-fields .field .field-error{margin-left:84px}}
+
+/* Redesign (editor type): panes fit the viewport and scroll on their own; long lists stay inside. */
+body.app-shell.page-workflows main { max-width: var(--content-max); padding: 20px var(--gutter) 40px; }
+.page-workflows .layout > section { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: 16px; }
+@media (min-width: 1024px) {
+  .page-workflows .layout { grid-template-columns: 260px minmax(0, 1fr) 320px; align-items: start; }
+  .page-workflows .layout > section { position: sticky; top: calc(var(--app-header-height, 56px) + 16px); max-height: calc(100dvh - var(--app-header-height, 56px) - 96px); overflow: auto; overscroll-behavior: contain; }
+}
+body.app-shell.page-workflows #nodes > li { padding: 2px 0; border-bottom: 1px solid var(--c-border); }
+body.app-shell.page-workflows #nodes > li > button:first-child { min-height: 36px; padding: 0 8px; border-radius: var(--r-md); box-shadow: none; font-size: var(--fs-sm); }
+body.app-shell.page-workflows #nodes > li > button:first-child::before { flex: none; min-width: 1.6em; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; }
+body.app-shell.page-workflows #nodes > li:not(.selected):not(:focus-within) > button:not(:first-child) { display: none; }
+body.app-shell.page-workflows #nodes > li > button:not(:first-child) { --_h: 26px; min-height: 26px; padding: 0 8px; font-size: 11px; box-shadow: none; }
+body.app-shell.page-workflows #nodes > li.selected { padding-bottom: 8px; }
+.page-workflows #edges { max-height: 260px; overflow: auto; margin: 8px 0 0; padding: 4px 12px; list-style: none; border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface-2); }
+.page-workflows #edges li { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--c-border); font: 12.5px/1.5 var(--font-mono); letter-spacing: 0; }
+.page-workflows #edges li:last-child { border-bottom: 0; }
+.page-workflows #edges li button { --_h: 26px; min-height: 26px; padding: 0 8px; font: var(--fw-semibold) 11px/1 var(--font-sans); box-shadow: none; flex: none; }
+.page-workflows .graph-scroll { border-radius: var(--r-md); background: var(--c-canvas); }
+.page-workflows svg rect { fill: var(--c-surface); stroke: var(--c-border-strong); rx: 8px; }
+.page-workflows svg g.node:focus rect, .page-workflows svg g.selected rect { stroke: var(--c-accent); stroke-width: 2; }
+.page-workflows svg line { stroke: var(--c-text-disabled); stroke-width: 1.5; }
+body.app-shell.page-workflows .workflow-actions { border-radius: 0 0 var(--r-lg) var(--r-lg); background: color-mix(in srgb, var(--c-surface) 95%, transparent); backdrop-filter: blur(6px); }
+@media (max-width: 1023px) { .page-workflows .layout { grid-template-columns: minmax(0, 1fr); } }

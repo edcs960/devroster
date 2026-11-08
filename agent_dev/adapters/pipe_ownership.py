@@ -160,7 +160,7 @@ def _linux_cleanup(fd):
             for entry in (candidate / 'fd').iterdir():
                 if os.readlink(entry) != wanted:
                     continue
-                flags = next(line.split()[1] for line in (candidate / 'fdinfo' / entry.name).read_text().splitlines()
+                flags = next(line.split()[1] for line in (candidate / 'fdinfo' / entry.name).read_text(encoding="utf-8").splitlines()
                              if line.startswith('flags:'))
                 if int(flags, 8) & os.O_ACCMODE == os.O_RDONLY:
                     continue

@@ -41,7 +41,7 @@ def legacy(tmp_path):
             "depends_on": ["missing"],
         },
     ]
-    (tmp_path / "data/backlog.json").write_text(json.dumps({"tasks": tasks}))
+    (tmp_path / "data/backlog.json").write_text(json.dumps({"tasks": tasks}), encoding="utf-8")
     return tmp_path
 
 

@@ -143,7 +143,7 @@ def test_recognized_modern_errors_never_initialize(tmp_path, code):
         pass
     assert error.value.code == ErrorCode.CAPABILITY_UNAVAILABLE
     assert "secret diagnostics" not in str(error.value)
-    assert log.read_text().splitlines() == ["server/discover"]
+    assert log.read_text(encoding="utf-8").splitlines() == ["server/discover"]
 
 
 def test_http_modern_metadata_headers_and_no_session_contract():
@@ -153,7 +153,7 @@ def test_http_modern_metadata_headers_and_no_session_contract():
         assert "Mcp-Session-Id" not in headers
         assert q["params"]["_meta"] == {
             "io.modelcontextprotocol/protocolVersion": MODERN,
-            "io.modelcontextprotocol/clientInfo": {"name": "devroster", "version": "0.3.0"},
+            "io.modelcontextprotocol/clientInfo": {"name": "devroster", "version": "0.3.1"},
             "io.modelcontextprotocol/clientCapabilities": {},
         }
         assert "_meta" not in q
@@ -366,12 +366,12 @@ def test_child_grandchild_cleanup_even_after_root_exit(tmp_path, early_root_exit
     child = tmp_path / "child.py"
     grand = tmp_path / "grand.py"
     grand.write_text(
-        "import time,os,sys\nopen(sys.argv[1],'w').write(str(os.getpid()))\ntime.sleep(30)\n"
+        "import time,os,sys\nopen(sys.argv[1],'w').write(str(os.getpid()))\ntime.sleep(30)\n", encoding="utf-8"
     )
     grand_pid = tmp_path / "grand.pid"
     child_pid = tmp_path / "child.pid"
     child.write_text(
-        f"import subprocess,sys,time,os\nopen({str(child_pid)!r},'w').write(str(os.getpid()))\nsubprocess.Popen([sys.executable,{str(grand)!r},{str(grand_pid)!r}])\ntime.sleep(30)\n"
+        f"import subprocess,sys,time,os\nopen({str(child_pid)!r},'w').write(str(os.getpid()))\nsubprocess.Popen([sys.executable,{str(grand)!r},{str(grand_pid)!r}])\ntime.sleep(30)\n", encoding="utf-8"
     )
     program = f"""q=json.loads(sys.stdin.readline())
 subprocess.Popen([sys.executable,{str(child)!r}])
@@ -385,7 +385,7 @@ print(json.dumps({{'jsonrpc':'2.0','id':q['id'],'result':{DISCOVER!r}}}),flush=T
     from agent_dev.adapters.process_guard import parent_alive
 
     for path in (child_pid, grand_pid):
-        pid = int(path.read_text())
+        pid = int(path.read_text(encoding="utf-8"))
         limit = time.monotonic() + 2
         while parent_alive(pid) and time.monotonic() < limit:
             time.sleep(0.02)
@@ -436,7 +436,7 @@ def test_windows_bootstrap_does_not_prefetch_provider_input(tmp_path):
 
     provider = tmp_path / "echo.py"
     provider.write_text(
-        "import os,sys\nos.write(sys.stdout.fileno(),os.read(sys.stdin.fileno(),1024))\n"
+        "import os,sys\nos.write(sys.stdout.fileno(),os.read(sys.stdin.fileno(),1024))\n", encoding="utf-8"
     )
     completed = subprocess.run(
         [sys.executable, stdio_transport.__file__, sys.executable, str(provider)],
@@ -946,7 +946,7 @@ for line in sys.stdin:
  q=json.loads(line)
  print(json.dumps({{'jsonrpc':'2.0','id':q['id'],'result':{DISCOVER!r}}}),flush=True)
  time.sleep(30)
-""")
+""", encoding="utf-8")
     from agent_dev.adapters import mcp_client
 
     package_root = str(__import__("pathlib").Path(mcp_client.__file__).parents[2])
@@ -961,7 +961,7 @@ os._exit(0)
     assert completed.returncode == 0
     from agent_dev.adapters.process_guard import parent_alive
 
-    pid = int(pid_file.read_text())
+    pid = int(pid_file.read_text(encoding="utf-8"))
     deadline = time.monotonic() + 2
     while parent_alive(pid) and time.monotonic() < deadline:
         time.sleep(0.02)
@@ -1282,7 +1282,7 @@ def test_stdio_malformed_envelopes_and_unknown_ids_never_fall_back(tmp_path, mes
     with pytest.raises(DomainError) as error, stdio(tmp_path, program, timeout=5):
         pass
     assert error.value.code == ErrorCode.INVALID_INPUT
-    assert log.read_text().splitlines() == ["server/discover"]
+    assert log.read_text(encoding="utf-8").splitlines() == ["server/discover"]
 
 
 def test_stdio_valid_notifications_remain_allowed_before_result(tmp_path):
@@ -1317,7 +1317,7 @@ def test_stdio_late_known_abandoned_probe_response_requires_exact_id_type(tmp_pa
     else:
         with pytest.raises(DomainError, match="ID"), stdio(tmp_path, program, timeout=2):
             pass
-        assert "tools/list" not in log.read_text()
+        assert "tools/list" not in log.read_text(encoding="utf-8")
 
 
 def test_stdio_completed_response_replay_is_not_abandoned(tmp_path):

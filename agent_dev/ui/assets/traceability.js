@@ -1,5 +1,7 @@
 (() => {
   'use strict';
+  // Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
   const taskStates={planned:'계획됨',approval_pending:'승인 대기',ready:'실행 준비',running:'진행 중',blocked:'조치 필요',waiting_for_capacity:'실행 자리 대기',verifying:'검증 중',pr_ready:'변경 검토 준비',user_review:'사용자 검토',feedback_required:'피드백 반영 필요',completed:'완료',cancelled:'취소'};
   const $=id=>document.getElementById(id),make=(tag,text)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;};
   let selectedRequirementKey='', requirementsCursor=null,knownRequirements=[],editorTasks=[],editorRuns=[],tasksCursor=null,runsCursor=null,editorGeneration=0;
@@ -7,7 +9,7 @@
   const kinds={screen:'목업 화면',plan_task:'계획 초안 작업',task:'개발 작업',file:'소스 파일',test:'테스트',commit:'커밋'};
   const labels={mapped:'연결됨',verified:'실제 검증 근거',stale:'변경됨',missing:'누락',historical:'이전 개정 근거 · 이력',retired:'삭제된 요구사항 · 이력',unchanged_reference:'동일 요구사항 · 원본 근거 참조'};
   async function api(path,payload){const response=await fetch(path,payload?{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':journeyToken},body:JSON.stringify(payload)}:undefined);const value=await response.json();if(!response.ok)throw new Error(value.error||'불러오기 실패');return value;}
-  function error(e){$('trace-error').hidden=false;$('trace-error').textContent=e.message;}
+  function error(e){$('trace-error').hidden=false;$('trace-error').textContent=errText(e);}
   function options(select,rows,placeholder,value){select.replaceChildren();if(placeholder!==null){const option=make('option',placeholder);option.value='';select.append(option);}for(const row of rows){const option=make('option',row.label);option.value=row.id;select.append(option);}if(value&&[...select.options].some(option=>option.value===value))select.value=value;}
   async function bootstrap(projectId,importId){const data=await api('/api/home/bootstrap'+(projectId?'?project_id='+encodeURIComponent(projectId):''));journeyToken=data.token;options($('filter-project'),data.projects.map(p=>({id:p.id,label:p.name+' · '+p.id})),data.projects.length?null:'등록된 프로젝트 없음',data.selected?.id);options($('filter-import'),data.imports.map(i=>({id:i.id,label:i.source_studio_id+' · '+i.plan_id})),'전체 인계',importId);}
   function renderEditor(preserve=false){

@@ -1,45 +1,109 @@
-/* Product chrome tokens. Mock documents own their independent scoped theme. */
+/* Product design tokens ("precision workbench"). Mock documents own their independent scoped theme.
+   New names (--c-*, --sp-*, --r-*, --h-*, --fs-*) are canonical; the --ui-* and short names are
+   kept as aliases so every existing page keeps working while it moves to the new names. */
+@font-face {
+  font-family: "Pretendard Std Variable";
+  src: url("/PretendardStdVariable.woff2") format("woff2-variations"), url("/PretendardStdVariable.woff2") format("woff2");
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   color-scheme: light;
-  --ui-font: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ui-mono: ui-monospace, SFMono-Regular, monospace;
-  --ui-font-size: 14px;
-  --ui-line-height: 1.6;
-  --ui-bg: #f5f7fb;
-  --ui-surface: #fff;
-  --ui-surface-subtle: #f8f9fd;
-  --ui-text: #1c2741;
-  --ui-muted: #64748b;
-  --ui-border: #dce3ee;
-  --ui-accent: #4f46e5;
-  --ui-accent-hover: #4338ca;
-  --ui-accent-soft: #eef2ff;
-  --ui-focus: #6366f1;
-  --ui-success: #17634c;
-  --ui-success-bg: #e7f5ef;
-  --ui-warning: #805a0e;
-  --ui-warning-bg: #fff3d9;
-  --ui-danger: #9f1239;
-  --ui-danger-bg: #fff1f2;
-  --ui-danger-border: #fecdd3;
-  --ui-space-1: 4px;
-  --ui-space-2: 8px;
-  --ui-space-3: 12px;
-  --ui-space-4: 16px;
-  --ui-space-5: 20px;
-  --ui-space-6: 24px;
+  /* Korean-first stack: the bundled Pretendard Std (KS X 1001), then system Korean faces. */
+  --font-sans: "Pretendard Std Variable", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "D2Coding", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px; --fs-2xl: 22px; --fs-3xl: 26px;
+  --lh-tight: 1.35; --lh-normal: 1.6; --lh-relaxed: 1.75;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --tracking-tight: -0.01em; --tracking-title: -0.02em;
+
+  --c-bg: #f5f6f8;
+  --c-surface: #ffffff;
+  --c-surface-2: #f9fafb;
+  --c-sunken: #f0f2f5;
+  --c-canvas: #eceff3;
+  --c-overlay: rgba(16, 24, 40, .48);
+  --c-border: #e4e7ec;
+  --c-border-strong: #d0d5dd;
+  --c-text: #101828;
+  --c-text-2: #475467;
+  --c-text-3: #5f6b7d;
+  --c-text-disabled: #98a2b3;
+
+  --c-brand: #4f46e5;
+  --c-accent: #4338ca;
+  --c-accent-hover: #3730a3;
+  --c-accent-press: #312e81;
+  --c-accent-soft: #eef0ff;
+  --c-accent-soft-2: #e0e4ff;
+  --c-accent-border: #c3c8fa;
+  --c-on-accent: #ffffff;
+  --c-focus: #4f46e5;
+
+  --c-success: #067647; --c-success-bg: #ecfdf3; --c-success-border: #abefc6; --c-success-dot: #17b26a;
+  --c-warning: #a04d05; --c-warning-bg: #fffaeb; --c-warning-border: #fedf89; --c-warning-dot: #f79009;
+  --c-danger: #b42318;  --c-danger-bg: #fef3f2;  --c-danger-border: #fecdca;
+  --c-danger-solid: #d92d20; --c-danger-solid-hover: #b42318;
+  --c-info: #175cd3;    --c-info-bg: #eff8ff;    --c-info-border: #b2ddff;
+  --c-toast: #1d2939;   --c-toast-text: #f2f4f7;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-full: 999px;
+  --sh-1: 0 1px 2px rgba(16, 24, 40, .05);
+  --sh-2: 0 4px 8px -2px rgba(16, 24, 40, .08), 0 2px 4px -2px rgba(16, 24, 40, .04);
+  --sh-3: 0 20px 24px -4px rgba(16, 24, 40, .14), 0 8px 8px -4px rgba(16, 24, 40, .05);
+
+  --h-sm: 32px; --h-md: 36px; --h-lg: 40px;
+  --icon-sm: 16px; --icon-md: 18px;
+  --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --sidebar-w: 232px; --rail-w: 64px; --topbar-h: 56px;
+  --content-max: 1680px; --gutter: 28px;
+
+  /* Aliases kept for existing page styles. */
+  --ui-font: var(--font-sans);
+  --ui-mono: var(--font-mono);
+  --ui-font-size: var(--fs-md);
+  --ui-line-height: var(--lh-normal);
+  --ui-bg: var(--c-bg);
+  --ui-surface: var(--c-surface);
+  --ui-surface-subtle: var(--c-surface-2);
+  --ui-text: var(--c-text);
+  --ui-muted: var(--c-text-3);
+  --ui-border: var(--c-border);
+  --ui-accent: var(--c-accent);
+  --ui-accent-hover: var(--c-accent-hover);
+  --ui-accent-soft: var(--c-accent-soft);
+  --ui-focus: var(--c-focus);
+  --ui-success: var(--c-success);
+  --ui-success-bg: var(--c-success-bg);
+  --ui-warning: var(--c-warning);
+  --ui-warning-bg: var(--c-warning-bg);
+  --ui-danger: var(--c-danger);
+  --ui-danger-bg: var(--c-danger-bg);
+  --ui-danger-border: var(--c-danger-border);
+  --ui-space-1: var(--sp-1);
+  --ui-space-2: var(--sp-2);
+  --ui-space-3: var(--sp-3);
+  --ui-space-4: var(--sp-4);
+  --ui-space-5: var(--sp-5);
+  --ui-space-6: var(--sp-6);
   --ui-space-7: 28px;
-  --ui-space-8: 32px;
-  --ui-radius: 8px;
-  --ui-card-radius: 16px;
-  --ui-target: 44px;
-  --ui-max-width: 1440px;
-  --ui-shadow: 0 4px 24px #20325008;
-  --accent: var(--ui-accent);
-  --border: var(--ui-border);
-  --line: var(--ui-border);
-  --muted: var(--ui-muted);
-  --text: var(--ui-text);
-  --bg: var(--ui-bg);
-  --card: var(--ui-surface);
+  --ui-space-8: var(--sp-8);
+  --ui-radius: var(--r-md);
+  --ui-card-radius: var(--r-lg);
+  --ui-target: var(--h-md);
+  --ui-max-width: var(--content-max);
+  --ui-shadow: var(--sh-2);
+  --accent: var(--c-accent);
+  --border: var(--c-border);
+  --line: var(--c-border);
+  --muted: var(--c-text-3);
+  --text: var(--c-text);
+  --bg: var(--c-bg);
+  --card: var(--c-surface);
 }
+/* Touch input keeps 44px targets. */
+@media (pointer: coarse) { :root { --h-sm: 40px; --h-md: 44px; --h-lg: 48px; } }

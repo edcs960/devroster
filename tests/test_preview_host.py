@@ -49,7 +49,7 @@ def alive(pid):
     except OSError:
         return False
     try:  # zombie children of a still-running parent are not alive
-        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, check=False).stdout.strip()
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False).stdout.strip()
         return bool(state) and not state.startswith("Z")
     except OSError:
         return True
@@ -70,12 +70,12 @@ def git(root, *args):
 def preview(tmp_path):
     source = tmp_path / "source"
     (source / "src").mkdir(parents=True)
-    (source / "src/app.py").write_text("x = 1\n")
+    (source / "src/app.py").write_text("x = 1\n", encoding="utf-8")
     git(source, "init", "-q")
     git(source, "add", "-A")
     git(source, "-c", "user.name=T", "-c", "user.email=t@example.test", "commit", "-qm", "base")
     app = tmp_path / "fixture_app.py"
-    app.write_text(APP)
+    app.write_text(APP, encoding="utf-8")
     port, pidfile = free_port(), tmp_path / "pids.txt"
     services = [
         {"id": "web", "module": "source", "argv": [sys.executable, str(app), str(port), str(pidfile)], "port": port, "readiness_path": "/health", "startup_timeout": 20},
@@ -83,7 +83,7 @@ def preview(tmp_path):
     ]
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project(
         "P",
@@ -134,7 +134,7 @@ def prepare_and_start(p, mode, service="web"):
 
 
 def pids(p):
-    return [int(x) for x in p["pidfile"].read_text().split()]
+    return [int(x) for x in p["pidfile"].read_text(encoding="utf-8").split()]
 
 
 def test_profile_validation_rejects_unsafe_services():
@@ -311,7 +311,7 @@ def test_capture_from_older_source_is_not_current_and_cannot_be_approved(preview
     }
     manifest["capture_digest"] = digest(manifest)
     (capture_dir / f"{manifest['id']}.png").write_bytes(image)
-    (capture_dir / f"{manifest['id']}.json").write_text(json.dumps(manifest))
+    (capture_dir / f"{manifest['id']}.json").write_text(json.dumps(manifest), encoding="utf-8")
     _, data = call(p["server"], "/api/review/preview?task=T")
     assert data["captures"][0]["current"] is False
     status, _ = call(p["server"], "/api/review/preview-decision", {"task": "T", "capture_id": manifest["id"], "decision": "approved"}, p["web"].token)

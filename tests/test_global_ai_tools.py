@@ -107,12 +107,12 @@ def runtime(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
     git(source, "init", "-q")
-    (source / "a.txt").write_text("a")
+    (source / "a.txt").write_text("a", encoding="utf-8")
     git(source, "add", ".")
     git(source, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project(
         "P",
@@ -209,7 +209,7 @@ def test_project_switch_keeps_what_it_runs(tmp_path):
     project = tmp_path / "proj"
     project.mkdir()
     git(project, "init", "-q")
-    (project / "f").write_text("x")
+    (project / "f").write_text("x", encoding="utf-8")
     git(project, "add", ".")
     git(project, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
     setup = ProjectSetup(project)
@@ -242,7 +242,7 @@ def test_cli_show_and_set(tmp_path, capsys):
     from agent_dev.adapters.command_line import main
 
     source = tmp_path / "ai.json"
-    source.write_text(json.dumps(tools(codex_cli={"enabled": True})))
+    source.write_text(json.dumps(tools(codex_cli={"enabled": True})), encoding="utf-8")
     assert main(["ai", "set", str(source), "--root", str(tmp_path), "--json"]) in (0, None)
     out = json.loads(capsys.readouterr().out)
     assert out["result"]["revision"] == 1
@@ -294,7 +294,7 @@ def test_setup_check_follows_the_shared_tools(tmp_path, monkeypatch):
     project = tmp_path / "proj"
     project.mkdir()
     git(project, "init", "-q")
-    (project / "f").write_text("x")
+    (project / "f").write_text("x", encoding="utf-8")
     git(project, "add", ".")
     git(project, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
     GlobalAi().save(tools(claude_cli={"enabled": True}), 0)
@@ -324,7 +324,7 @@ def test_root_opens_setup_until_the_project_is_saved(tmp_path):
     project = tmp_path / "proj"
     project.mkdir()
     git(project, "init", "-q")
-    (project / "f").write_text("x")
+    (project / "f").write_text("x", encoding="utf-8")
     git(project, "add", ".")
     git(project, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
     server = make_server(project, 0)
@@ -368,3 +368,31 @@ def test_new_project_starts_on_the_shared_tools_and_pickers_show_their_state(tmp
     assert notes["notes"]["claude_cli"] == "로그인 필요"
     assert "codex_cli" not in notes["notes"]
     assert notes["notes"]["gemini_cli"] == "이 프로젝트에서 사용 안 함"
+
+
+def test_setup_save_does_not_probe_runners_replaced_by_shared_tools(tmp_path, monkeypatch):
+    # The setup page hides the login-check option once shared tools are selected; saving must not
+    # launch logins for the project's own runners, which no longer run.
+    from agent_dev.adapters import project_setup
+    from agent_dev.adapters.project_setup import ProjectSetup
+
+    calls = []
+    monkeypatch.setattr(
+        project_setup, "auth_probe", lambda provider, command: calls.append(provider) or True
+    )
+    project = tmp_path / "proj"
+    project.mkdir()
+    git(project, "init", "-q")
+    (project / "f").write_text("x", encoding="utf-8")
+    git(project, "add", ".")
+    git(project, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
+    GlobalAi().save(tools(claude_cli={"enabled": True}), 0)
+    setup = ProjectSetup(project)
+    value = setup.read()
+    value["ai_tools"] = {"selected": ["claude_cli"]}
+    setup.save(value, check_auth=True)
+    assert calls == []
+    own = setup.read()
+    own.pop("ai_tools", None)
+    setup.save(own, check_auth=True)  # The project's own runners: the check still runs.
+    assert calls

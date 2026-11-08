@@ -125,4 +125,4 @@ def test_restore_strips_location_fields_from_a_crafted_marker(populated, tmp_pat
     destination = tmp_path / "restored"
     restore_bundle(crafted, destination)
     assert workspace_locations(destination).source_root == destination
-    assert "source_root" not in json.loads((destination / ".agent-dev/workspace.json").read_text())
+    assert "source_root" not in json.loads((destination / ".agent-dev/workspace.json").read_text(encoding="utf-8"))

@@ -758,7 +758,7 @@ def test_cli_preview_propose_apply_use_service_selection_contract(tmp_path):
 
     preview = command("preview", "P1", old["import_id"], "CLI actual selection")
     selection = tmp_path / "selection.json"
-    selection.write_text(json.dumps(preview["selection"]))
+    selection.write_text(json.dumps(preview["selection"]), encoding="utf-8")
     proposal = command(
         "propose",
         "P1",
@@ -938,7 +938,7 @@ def test_followup_only_becomes_current_proof_after_actual_three_phase_host_and_p
     repo.revise_profile("P1", config, 0)
     (root / "config").mkdir()
     (root / "config/runtime.json").write_text(
-        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}})
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}}), encoding="utf-8"
     )
     _, old = prepared(ws)
     studio = StudioStore(root)
@@ -1055,7 +1055,7 @@ def test_apply_binds_actual_linked_source_evidence_even_when_old_link_already_st
     # commit identity must still be bound independently, not only its state label.
     if mutation == "bytes":
         (source / "tests/test_acceptance.py").write_text(
-            "def test_acceptance():\n    assert False\n"
+            "def test_acceptance():\n    assert False\n", encoding="utf-8"
         )
     else:
         subprocess.run(

@@ -1,5 +1,9 @@
 (() => {
   'use strict';
+  // Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
+  // Shared confirmation dialog (ui-feedback.js); falls back to the browser dialog if it is missing.
+  const ask = (title, body, confirm, opts = {}) => globalThis.DevRosterUI ? globalThis.DevRosterUI.confirmAction(title, body, confirm, opts) : Promise.resolve(window.confirm(title + '\n' + body));
   // Shared AI tools screen. Rules live in the services; this page only edits and calls the API.
   const $ = id => document.getElementById(id);
   const state = {token: '', data: null, dirty: false};
@@ -36,13 +40,13 @@
       out.hidden = !data.output; out.textContent = data.output || ''; cancel.hidden = data.done; start.disabled = !data.done;
       if (data.done) { status.textContent = loginLabel({authenticated: data.logged_in}); notice(data.logged_in ? '로그인을 완료했습니다.' : '로그인이 완료되지 않았습니다. 출력 내용을 확인해주세요.', !data.logged_in); }
     };
-    const poll = async () => { try { const data = await api('/login-status', {job_id: job}); show(data); if (!data.done) setTimeout(poll, 2000); } catch (e) { notice(e.message, true); start.disabled = false; } };
+    const poll = async () => { try { const data = await api('/login-status', {job_id: job}); show(data); if (!data.done) setTimeout(poll, 2000); } catch (e) { notice(errText(e), true); start.disabled = false; } };
     start.addEventListener('click', async () => {
       if (state.dirty) { notice('실행파일을 바꿨다면 먼저 저장한 뒤 로그인해주세요.', true); return; }
       try { start.disabled = true; status.textContent = '로그인 진행 중: 안내에 따라 브라우저에서 로그인하세요.'; const data = await api('/login', {provider}); job = data.job_id; show(data); if (!data.done) setTimeout(poll, 1000); }
-      catch (e) { notice(e.message, true); start.disabled = false; }
+      catch (e) { notice(errText(e), true); start.disabled = false; }
     });
-    cancel.addEventListener('click', async () => { try { show(await api('/login-cancel', {job_id: job})); } catch (e) { notice(e.message, true); } });
+    cancel.addEventListener('click', async () => { try { show(await api('/login-cancel', {job_id: job})); } catch (e) { notice(errText(e), true); } });
     box.append(status, start, cancel, out);
     return box;
   }
@@ -110,8 +114,8 @@
       const row = make('div', undefined, 'path-row'), label = make('label', `${name} · ${set ? '저장됨' : '없음'}`), input = make('input'), save = make('button', set ? '교체' : '저장', 'secondary'), remove = make('button', '삭제', 'secondary');
       const id = 'key-' + name; label.htmlFor = id; input.id = id; input.type = 'password'; input.autocomplete = 'off'; input.placeholder = set ? '새 값으로 교체할 때만 입력' : '키 값 입력';
       save.type = remove.type = 'button'; remove.disabled = !set;
-      save.addEventListener('click', async () => { if (!input.value) { $('key-status').textContent = '키 값을 입력해주세요.'; return; } try { state.data.keys = (await api('/key', {name, value: input.value})).keys; input.value = ''; renderKeys(); $('key-status').textContent = name + ' 키를 저장했습니다.'; } catch (e) { $('key-status').textContent = e.message; } });
-      remove.addEventListener('click', async () => { if (!confirm(name + ' 키를 삭제할까요? 이 키를 쓰는 모든 프로젝트의 API 실행이 막힙니다.')) return; try { state.data.keys = (await api('/key', {name, delete: true})).keys; renderKeys(); $('key-status').textContent = name + ' 키를 삭제했습니다.'; } catch (e) { $('key-status').textContent = e.message; } });
+      save.addEventListener('click', async () => { if (!input.value) { $('key-status').textContent = '키 값을 입력해주세요.'; return; } try { state.data.keys = (await api('/key', {name, value: input.value})).keys; input.value = ''; renderKeys(); $('key-status').textContent = name + ' 키를 저장했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
+      remove.addEventListener('click', async () => { if (!(await ask(name + ' 키를 삭제할까요?', '이 키를 쓰는 모든 프로젝트의 API 실행이 다음 실행부터 인증에 실패합니다. 되돌릴 수 없습니다.', '키 삭제'))) return; try { state.data.keys = (await api('/key', {name, delete: true})).keys; renderKeys(); $('key-status').textContent = name + ' 키를 삭제했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
       const wrap = make('div'); wrap.append(label, row); row.append(input, save, remove); $('key-rows').append(wrap);
     }
   }
@@ -126,7 +130,7 @@
 
   async function load() {
     try { const data = await api(''); state.token = data.token; render(data); notice(data.revision ? '도구를 켜고 모델·강도를 확인한 뒤 저장해주세요.' : '공통 AI 도구가 아직 없습니다. 사용할 도구를 켜고 저장하거나, 프로젝트 설정에서 기존 설정을 가져오세요.'); }
-    catch (e) { notice(e.message, true); }
+    catch (e) { notice(errText(e), true); }
   }
 
   $('ai-form').addEventListener('submit', async event => {
@@ -136,11 +140,11 @@
       const data = await api('', {values: {tools: collectTools(), order: state.order}, expected_revision: state.data.revision});
       render(data);
       notice(`저장했습니다 (r${data.revision}). 다음에 승인하는 작업부터 적용됩니다` + (data.projects.length ? ` · 사용 중인 프로젝트 ${data.projects.length}개.` : '.'));
-    } catch (e) { notice(e.message, true); } finally { $('save').disabled = false; }
+    } catch (e) { notice(errText(e), true); } finally { $('save').disabled = false; }
   });
   $('auth-check').addEventListener('click', async () => {
     try { $('auth-check').disabled = true; const data = await api('/auth-check', {}); state.data.auth = data.auth; for (const el of document.querySelectorAll('[data-login-status]')) { const row = data.auth[el.dataset.loginStatus]; el.textContent = (el.tagName === 'SPAN' ? ' · ' : '') + loginLabel(row); } notice('로그인 상태를 확인했습니다.'); }
-    catch (e) { notice(e.message, true); } finally { $('auth-check').disabled = false; }
+    catch (e) { notice(errText(e), true); } finally { $('auth-check').disabled = false; }
   });
   window.addEventListener('beforeunload', event => { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } });
   load();

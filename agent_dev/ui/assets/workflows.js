@@ -1,4 +1,6 @@
 'use strict';
+// Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
 const $=id=>document.getElementById(id);
 let token='',projects=[],documentDraft=null,version=0,selected='',builtin=false,appliedPreview=false,draftChanged=false,errorNode='',execStates={},savedVersions=[];
 const note=(text,error=false)=>{ $('status').textContent=text;$('status').className=error?'error':'success'; };
@@ -6,7 +8,7 @@ async function request(op,data){const options=data?{method:'POST',headers:{'Cont
 function project(){return $('project').value;}
 function element(tag,text,cls){const item=document.createElement(tag);if(text!==undefined)item.textContent=text;if(cls)item.className=cls;return item;}
 function button(text,action){const item=element('button',text);item.type='button';item.addEventListener('click',()=>attempt(action));return item;}
-async function attempt(action){try{await action();}catch(error){note(navigator.onLine?error.message:'오프라인입니다. 초안은 보존됩니다.',true);focusError(error);}}
+async function attempt(action){try{await action();}catch(error){note(navigator.onLine?errText(error):'오프라인입니다. 초안은 보존됩니다.',true);focusError(error);}}
 let fieldInputs={},fieldErrors=[],fieldErrorSeq=0;
 function clearFieldErrors(){for(const [input,box] of fieldErrors){input.removeAttribute?.('aria-invalid');input.removeAttribute?.('aria-describedby');box.remove();}fieldErrors=[];if($('edges').children)for(const row of $('edges').children)row.classList?.remove('invalid');}
 function markField(input,wrap,message){const box=element('p','오류: '+message,'field-error');box.id='field-error-'+(++fieldErrorSeq);box.setAttribute('role','alert');wrap.append(box);input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby',box.id);fieldErrors.push([input,box]);input.focus?.();}
@@ -16,14 +18,14 @@ function layoutError(location,message){
  if(location.node&&documentDraft.nodes.some(n=>n.id===location.node)){errorNode=location.node;select(location.node);render();const g=graphNode(location.node);if(g){markField(g,$('graph-errors'),message+' · 이 단계를 끌거나 화살표 키로 옮기거나 \'자동 배치\'를 누르세요.');return;}}
  render();markField($('auto-layout'),$('graph-errors'),message+' · \'자동 배치\'로 배치를 다시 정리하세요.');}
 function focusError(error){clearFieldErrors();const location=error&&error.location;if(!documentDraft||!location){return;}
- if(location.edge!==undefined){render();const row=$('edges').children[location.edge];if(row){row.classList?.add('invalid');row.tabIndex=-1;markField(row,row,error.message);}return;}
- if(location.field==='layout'){layoutError(location,error.message);return;}
+ if(location.edge!==undefined){render();const row=$('edges').children[location.edge];if(row){row.classList?.add('invalid');row.tabIndex=-1;markField(row,row,errText(error));}return;}
+ if(location.field==='layout'){layoutError(location,errText(error));return;}
  if(!location.node||!documentDraft.nodes.some(n=>n.id===location.node))return;
  errorNode=location.node;select(location.node);render();
  const target=location.field&&fieldInputs[location.field];
- if(target){markField(target.input,target.wrap,error.message);return;}
- if(location.field){$('advanced-json').open=true;markField($('node-config'),$('node-config-wrap'),error.message);return;}
- focusNode(errorNode);note(error.message+' · 강조된 단계를 확인하세요.',true);}
+ if(target){markField(target.input,target.wrap,errText(error));return;}
+ if(location.field){$('advanced-json').open=true;markField($('node-config'),$('node-config-wrap'),errText(error));return;}
+ focusNode(errorNode);note(errText(error)+' · 강조된 단계를 확인하세요.',true);}
 function clean(value){const copy=structuredClone(value);delete copy.builtin;delete copy.version;return copy;}
 function dirty(){if(appliedPreview)version=0;appliedPreview=false;builtin=false;draftChanged=true;$('draft').textContent='수정한 초안 · 저장 필요';documentDraft.id=$('workflow-id').value;documentDraft.name=$('workflow-name').value;localStorage.setItem('workflow-draft:'+project(),JSON.stringify({document:documentDraft,version}));}
 function open(value,v=0,isBuiltin=false,isApplied=false){appliedPreview=isApplied;$('preset-library').open=false;documentDraft=clean(value);version=v;builtin=isBuiltin;draftChanged=false;selected='';$('editor').hidden=false;$('workflow-id').value=documentDraft.id;$('workflow-name').value=documentDraft.name;$('draft').textContent=isApplied?'프로젝트 적용본 · 복제해서 편집':isBuiltin?'내장 프리셋 · 복제해서 편집':v?'저장 버전 '+v:'초안';$('validation').textContent='';render();}

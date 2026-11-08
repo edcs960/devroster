@@ -97,7 +97,7 @@ def test_claude_runner_uses_only_devroster_mcp_and_app_home(tmp_path, monkeypatc
     from agent_dev.runners import claude_cli
 
     monkeypatch.setattr(claude_cli, "PROJECT_ROOT", tmp_path)
-    (tmp_path / ".mcp.json").write_text('{"mcpServers": {}}')
+    (tmp_path / ".mcp.json").write_text('{"mcpServers": {}}', encoding="utf-8")
     calls = []
     _capture(monkeypatch, calls)
     runner = claude_cli.ClaudeCliRunner(
@@ -111,7 +111,7 @@ def test_claude_runner_uses_only_devroster_mcp_and_app_home(tmp_path, monkeypatc
     runner._help_text = "--setting-sources"
     _run(runner, tmp_path)
     command, env = calls[-1]
-    settings = json.loads(Path(command[command.index("--settings") + 1]).read_text())
+    settings = json.loads(Path(command[command.index("--settings") + 1]).read_text(encoding="utf-8"))
     assert f"{tmp_path.resolve().as_posix()}/**" in settings["claudeMdExcludes"]
     assert command[command.index("--append-system-prompt") + 1] == cli_home.RUNNER_NOTE
     assert "--strict-mcp-config" in command
@@ -124,7 +124,7 @@ def test_cli_login_streams_output_with_isolated_environment(tmp_path, monkeypatc
     script = tmp_path / "fake-cli"
     script.write_text(
         f"#!{sys.executable}\nimport os\nprint('\\x1b[94mhttps://auth.example/device\\x1b[0m')\n"
-        "print('CODE ' + os.environ['CODEX_HOME'])\n"
+        "print('CODE ' + os.environ['CODEX_HOME'])\n", encoding="utf-8"
     )
     script.chmod(0o755)
     job = cli_login.start("codex_cli", str(script))
@@ -148,7 +148,7 @@ def test_cli_login_rejects_unsupported_provider():
 def test_duplicate_login_is_atomic_and_owner_scoped(tmp_path, monkeypatch):
     monkeypatch.setattr(cli_login, "_JOBS", {})
     script = tmp_path / "fake-cli"
-    script.write_text(f"#!{sys.executable}\nimport time\nprint('ready',flush=True)\ntime.sleep(10)\n")
+    script.write_text(f"#!{sys.executable}\nimport time\nprint('ready',flush=True)\ntime.sleep(10)\n", encoding="utf-8")
     script.chmod(0o700)
     first = cli_login.start("codex_cli", str(script), owner="first-server")
     try:
@@ -186,7 +186,7 @@ def test_login_stream_is_bounded_and_keeps_visible_device_text(tmp_path, monkeyp
         "os.write(1,b'\\x1b[94mhttps://auth.example/device\\x1b[0m\\n')\n"
         "os.write(1,'코드 ABCD'.encode())\n"
         f"while not Path({str(release)!r}).exists(): time.sleep(.01)\n"
-        "os.write(1,b'x'*300000)\n"
+        "os.write(1,b'x'*300000)\n", encoding="utf-8"
     )
     script.chmod(0o700)
     job = cli_login.start("codex_cli", str(script))
@@ -214,7 +214,7 @@ def test_login_timeout_and_shutdown_stop_owned_processes(tmp_path, monkeypatch):
     monkeypatch.setattr(cli_login, "_JOBS", {})
     monkeypatch.setattr(cli_login, "TIMEOUT_SECONDS", .15)
     script = tmp_path / "fake-cli"
-    script.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(10)\n")
+    script.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(10)\n", encoding="utf-8")
     script.chmod(0o700)
     first = cli_login.start("codex_cli", str(script), owner="server")
     deadline = time.monotonic() + 3
@@ -239,7 +239,7 @@ def test_login_cancel_stops_descendant_holding_stdout(tmp_path, monkeypatch):
         f"#!{sys.executable}\nimport subprocess,sys,time\nfrom pathlib import Path\n"
         "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(20)'])\n"
         f"Path({str(pidfile)!r}).write_text(str(child.pid))\n"
-        "print('waiting',flush=True)\ntime.sleep(20)\n"
+        "print('waiting',flush=True)\ntime.sleep(20)\n", encoding="utf-8"
     )
     script.chmod(0o700)
     job = cli_login.start("codex_cli", str(script), owner="server")
@@ -261,8 +261,8 @@ def test_login_cancel_stops_descendant_holding_stdout(tmp_path, monkeypatch):
         return condition()
 
     try:
-        assert wait_for(lambda: pidfile.exists() and pidfile.read_text().strip())
-        child_pid = int(pidfile.read_text())
+        assert wait_for(lambda: pidfile.exists() and pidfile.read_text(encoding="utf-8").strip())
+        child_pid = int(pidfile.read_text(encoding="utf-8"))
         cli_login.cancel(job["job_id"], owner="server")
         assert wait_for(lambda: cli_login.status(job["job_id"], owner="server")["done"])
         # The re-parented descendant is reaped asynchronously after the group kill.
@@ -282,7 +282,7 @@ def test_login_home_and_saved_command_are_frozen(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cli_login, "_JOBS", {})
     script = tmp_path / "fake-cli"
-    script.write_text(f"#!{sys.executable}\nprint('complete')\n")
+    script.write_text(f"#!{sys.executable}\nprint('complete')\n", encoding="utf-8")
     script.chmod(0o700)
 
     class Service:
@@ -336,7 +336,7 @@ def test_claude_canonical_mcp_opt_out_keeps_legacy_shared_config(tmp_path, monke
     from agent_dev.adapters.cli_runner import CliRunnerAdapter
     from agent_dev.runners import claude_cli
 
-    (tmp_path / ".mcp.json").write_text('{"mcpServers":{"unapproved":{}}}')
+    (tmp_path / ".mcp.json").write_text('{"mcpServers":{"unapproved":{}}}', encoding="utf-8")
     monkeypatch.setattr(claude_cli, "PROJECT_ROOT", tmp_path)
     canonical = CliRunnerAdapter("claude_cli", {"process_env": {"PATH": "/bin"}}, tmp_path)
     canonical.runner._help_text = "--setting-sources"
@@ -352,10 +352,10 @@ def test_codex_canonical_mcp_inspects_effective_private_home(tmp_path, monkeypat
 
     ambient = tmp_path / "ambient"
     ambient.mkdir()
-    (ambient / "config.toml").write_text('[mcp_servers.ambient_only]\ncommand="unused"\n')
+    (ambient / "config.toml").write_text('[mcp_servers.ambient_only]\ncommand="unused"\n', encoding="utf-8")
     monkeypatch.setenv("CODEX_HOME", str(ambient))
     private = Path(isolated_environment({"PATH": "/bin"})["CODEX_HOME"])
-    (private / "config.toml").write_text('[mcp_servers.private_only]\ncommand="unused"\n')
+    (private / "config.toml").write_text('[mcp_servers.private_only]\ncommand="unused"\n', encoding="utf-8")
     canonical = CliRunnerAdapter("codex_cli", {"process_env": {"PATH": "/bin"}}, tmp_path)
     assert "mcp_servers.private_only.enabled=false" in canonical.runner.extra_args
     assert "mcp_servers.ambient_only.enabled=false" not in canonical.runner.extra_args
@@ -393,10 +393,10 @@ def test_launcher_serves_setup_and_falls_back_when_port_busy(tmp_path):
 def test_gemini_home_and_system_settings_load_only_internal_note():
     env = cli_home.isolated_environment({})
     assert env["GEMINI_CLI_HOME"] == homes()["GEMINI_CLI_HOME"]
-    settings = json.loads(Path(env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]).read_text())
+    settings = json.loads(Path(env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]).read_text(encoding="utf-8"))
     assert settings["context"]["fileName"] == [cli_home.GEMINI_CONTEXT_FILE]
     note = Path(env["GEMINI_CLI_HOME"]) / ".gemini" / cli_home.GEMINI_CONTEXT_FILE
-    assert note.read_text().strip() == cli_home.RUNNER_NOTE
+    assert note.read_text(encoding="utf-8").strip() == cli_home.RUNNER_NOTE
 
 
 def test_claude_excludes_cover_project_tree_and_ancestor_instruction_files(tmp_path):
@@ -427,10 +427,10 @@ def test_app_reports_restart_when_its_code_changes(tmp_path, monkeypatch):
 
     package = tmp_path / "package"
     package.mkdir()
-    (package / "module.py").write_text("A = 1\n")
+    (package / "module.py").write_text("A = 1\n", encoding="utf-8")
     first = stamps.code_stamp(package)
     assert stamps.code_stamp(package) == first
-    (package / "module.py").write_text("A = 22\n")
+    (package / "module.py").write_text("A = 22\n", encoding="utf-8")
     assert stamps.code_stamp(package) != first
 
     current = {"stamp": "start"}

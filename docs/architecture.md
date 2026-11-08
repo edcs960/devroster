@@ -4,7 +4,7 @@
 
 | 항목 | 기준 |
 |---|---|
-| 기준 | 버전 0.3.0의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
+| 기준 | 버전 0.3.1의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
 | 대상 | `agent_dev/`, `config/`, `tests/`, 패키지 진입점 및 관련 운영 문서 |
 | 확인 방법 | Python 소스·SQL·테스트 계약 대조 |
 | 문서 책임 | 아키텍처 경계 변경 시 Architect, 저장 구조 변경 시 DBA, 최종 문서 반영 시 Tech Writer |
@@ -117,7 +117,7 @@ flowchart TB
 | `publish` | 실제 canonical 게시 허용. dry-run과 실제 게시를 구분 |
 | `legacy_readonly` | 레거시 쓰기 경로 제거로 효과 없음(값만 유지) |
 
-웹은 `FeatureRoutes`가 Agent·Workflow·Integration·Reference·Navigation·Journey·Changes·Review·Source·Wiki·Messenger 라우트를 묶는다. `StudioWeb`은 Studio/Setup·정적 자산과 함께 서버에 탑재된다. 주요 화면은 `/home`, `/agent`, `/dashboard`, `/review`, `/traceability`, `/changes`, `/workflows`, `/source`, `/integrations`, `/references`, `/wiki`, `/messengers`, `/setup`, `/settings`, `/studio`다. `/messengers`는 슬랙 채널을 주기 조회하는 리스너([messenger.py](../agent_dev/adapters/messenger.py))의 설정 화면이며, 리스너는 허용한 작성자의 명령만 기존 CLI·작업실·Studio 경로로 넘긴다([설계](design/slack-messenger.md)). 앱은 시작할 때 패키지 파일의 stamp를 기록하고, `/api/app/status`가 디스크와 다르면 공통 내비게이션이 모든 화면에 재시작 안내를 띄운다([code_stamp.py](../agent_dev/ui/code_stamp.py)). `/settings`는 공통 기본값·프로젝트 반영·공통 MCP 연결·저장 위치를 관리하며 `SetupWeb`의 `/api/settings/` 읽기/쓰기 경로를 사용한다. **CLI 기능 추가가 웹 노출을 자동으로 추가하지는 않는다.**
+웹은 `FeatureRoutes`가 Agent·Workflow·Integration·Reference·Navigation·Journey·Changes·Review·Source·Wiki·Messenger 라우트를 묶는다. `StudioWeb`은 Studio/Setup·정적 자산과 함께 서버에 탑재된다. 주요 화면은 `/home`, `/agent`(작업실, 이전 `/dashboard`는 302로 이동), `/review`, `/traceability`, `/changes`, `/workflows`, `/source`, `/integrations`, `/references`, `/wiki`, `/messengers`, `/setup`, `/settings`, `/studio`다. `/messengers`는 슬랙 채널을 주기 조회하는 리스너([messenger.py](../agent_dev/adapters/messenger.py))의 설정 화면이며, 리스너는 허용한 작성자의 명령만 기존 CLI·작업실·Studio 경로로 넘긴다([설계](design/slack-messenger.md)). 앱은 시작할 때 패키지 파일의 stamp를 기록하고, `/api/app/status`가 디스크와 다르면 공통 내비게이션이 모든 화면에 재시작 안내를 띄운다([code_stamp.py](../agent_dev/ui/code_stamp.py)). `/settings`는 공통 기본값·프로젝트 반영·공통 MCP 연결·저장 위치를 관리하며 `SetupWeb`의 `/api/settings/` 읽기/쓰기 경로를 사용한다. **CLI 기능 추가가 웹 노출을 자동으로 추가하지는 않는다.**
 
 소스: [feature_routes.py](../agent_dev/ui/feature_routes.py), [studio_server.py](../agent_dev/ui/studio_server.py), [setup_server.py](../agent_dev/ui/setup_server.py), [settings.html](../agent_dev/ui/assets/settings.html), [settings.js](../agent_dev/ui/assets/settings.js), [agent_console.py](../agent_dev/adapters/agent_console.py).
 

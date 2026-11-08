@@ -37,7 +37,7 @@ class Database:
                 self._supported(current_version)
                 if 0 < current_version < SCHEMA_VERSION:
                     self._pre_upgrade_backup(connection)
-                self._run_statements(connection, Path(__file__).with_name("schema.sql").read_text())
+                self._run_statements(connection, Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
                 for version in range(1, SCHEMA_VERSION + 1):
                     connection.execute(
                         "INSERT OR IGNORE INTO schema_versions VALUES(?,?)", (version, time.time())

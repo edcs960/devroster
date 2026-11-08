@@ -29,7 +29,7 @@ class Runner:
 
     def execute(self, request):
         root = Path(json.loads(request.context)["repositories"]["source"]["worktree"])
-        (root / "source.txt").write_text("implemented")
+        (root / "source.txt").write_text("implemented", encoding="utf-8")
         return PhaseResult(
             '```json\n{"handoff_status":"pass","summary":"private notes stay out"}\n```',
             provider="codex_cli",
@@ -42,13 +42,13 @@ class Runner:
 def runtime(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
-    (source / "source.txt").write_text("base")
+    (source / "source.txt").write_text("base", encoding="utf-8")
     git(source, "init", "-q")
     git(source, "add", "-A")
     git(source, "-c", "user.name=T", "-c", "user.email=t@example.test", "commit", "-qm", "base")
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
-    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}))
+    (root / "config/runtime.json").write_text(json.dumps({"orchestrator_v2": {"execute": True}}), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project(
         "P",

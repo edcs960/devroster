@@ -22,7 +22,7 @@ from agent_dev.ui.dashboard import make_server
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, encoding="utf-8", errors="replace"
     ).stdout.strip()
 
 
@@ -30,8 +30,8 @@ def git(root, *args):
 def workspace(tmp_path):
     root = tmp_path / "project"
     (root / "src").mkdir(parents=True)
-    (root / "src/source.txt").write_text("baseline")
-    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n")
+    (root / "src/source.txt").write_text("baseline", encoding="utf-8")
+    (root / ".gitignore").write_text("/.agent-dev/\n/output/\n", encoding="utf-8")
     git(root, "init", "-q")
     git(root, "config", "user.name", "Fixture")
     git(root, "config", "user.email", "fixture@example.test")
@@ -43,7 +43,7 @@ def workspace(tmp_path):
 
 def approved(root):
     runtime = WorkflowRuntime(root)
-    profile = json.loads((root / ".agent-dev/config/profile.json").read_text())
+    profile = json.loads((root / ".agent-dev/config/profile.json").read_text(encoding="utf-8"))
     # These fixtures exercise the preserved legacy-linear three-phase contract.
     profile.pop("workflow",None)
     profile["role_context"] = {key:value for key,value in profile["role_context"].items() if key in {"planner","developer","qa"}}
@@ -62,9 +62,9 @@ def approved(root):
     runtime.store.approve("plan", "PLAN", 1, "user")
     runtime.store.create_snapshot("T", runtime.resolve_snapshot("T"))
     path = root / ".agent-dev/config/runtime.json"
-    config = json.loads(path.read_text())
+    config = json.loads(path.read_text(encoding="utf-8"))
     config["orchestrator_v2"]["execute"] = True
-    path.write_text(json.dumps(config))
+    path.write_text(json.dumps(config), encoding="utf-8")
     return runtime
 
 
@@ -72,13 +72,13 @@ class Runner:
     def execute(self, request):
         if request.phase_id == "developer":
             binding = json.loads(request.context)["repositories"]["source"]
-            (Path(binding["worktree"]) / "src/source.txt").write_text("implemented")
+            (Path(binding["worktree"]) / "src/source.txt").write_text("implemented", encoding="utf-8")
         return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
 
 def test_initialize_preserves_source_and_has_self_contained_roles(workspace):
-    assert (workspace / "src/source.txt").read_text() == "baseline"
-    profile = json.loads((workspace / ".agent-dev/config/profile.json").read_text())
+    assert (workspace / "src/source.txt").read_text(encoding="utf-8") == "baseline"
+    profile = json.loads((workspace / ".agent-dev/config/profile.json").read_text(encoding="utf-8"))
     assert profile["repositories"]["source"]["path"] == "."
     assert profile["workflow"]["id"] == "project-roles"
     assert profile["roles"]["domain"] == "generic"
@@ -194,16 +194,16 @@ def test_restore_preserves_existing_output(workspace, tmp_path):
     approved(workspace)
     path = workspace / "output/Example/T/notes.md"
     path.parent.mkdir(parents=True)
-    path.write_text("Evidence")
+    path.write_text("Evidence", encoding="utf-8")
     archive = tmp_path / "backup.zip"
     create_bundle(workspace, archive)
     destination = tmp_path / "destination"
     existing = destination / "output/Example/T/notes.md"
     existing.parent.mkdir(parents=True)
-    existing.write_text("Keep my file")
+    existing.write_text("Keep my file", encoding="utf-8")
     with pytest.raises(DomainError):
         restore_bundle(archive, destination)
-    assert existing.read_text() == "Keep my file"
+    assert existing.read_text(encoding="utf-8") == "Keep my file"
     assert not (destination / ".agent-dev").exists()
 
 
@@ -238,7 +238,7 @@ def test_explain_reports_approval_and_required_gate(workspace):
     assert len(report["attempts"]) == 3
     assert report["gates"][0]["passed"]
     assert report["timeline"][-1]["kind"] == "TaskStateChanged"
-    assert (workspace / "src/source.txt").read_text() == "baseline"
+    assert (workspace / "src/source.txt").read_text(encoding="utf-8") == "baseline"
     with pytest.raises(DomainError):
         query.tasks(201)
 
@@ -269,11 +269,11 @@ def test_bundle_roundtrip_evidence_and_revoked_rights(workspace, tmp_path):
     runtime.execute("T", "run", runner=Runner())
     runtime.execute("T", "verify", verify=True)
     original_snapshot = runtime.store.snapshot("T")["digest"]
-    (workspace / ".agent-dev/.env").write_text("CUSTOM_TOKEN=private-value\n")
+    (workspace / ".agent-dev/.env").write_text("CUSTOM_TOKEN=private-value\n", encoding="utf-8")
     config_path = workspace / ".agent-dev/config/runtime.json"
-    config = json.loads(config_path.read_text())
+    config = json.loads(config_path.read_text(encoding="utf-8"))
     config["api_key"] = "private-value"
-    config_path.write_text(json.dumps(config))
+    config_path.write_text(json.dumps(config), encoding="utf-8")
     archive = tmp_path / "backup.zip"
     create_bundle(workspace, archive)
     assert inspect_bundle(archive)["valid"]
@@ -357,7 +357,7 @@ def test_bundle_rejects_secret_in_immutable_evidence(workspace, tmp_path, monkey
     runtime = approved(workspace)
     directory = workspace / "output/Example/T"
     directory.mkdir(parents=True)
-    (directory / "leaked.md").write_text("private-evidence-secret")
+    (directory / "leaked.md").write_text("private-evidence-secret", encoding="utf-8")
     monkeypatch.setenv("CUSTOM_TOKEN", "private-evidence-secret")
     with pytest.raises(DomainError):
         create_bundle(workspace, tmp_path / "backup.zip")

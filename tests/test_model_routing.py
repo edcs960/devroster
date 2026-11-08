@@ -151,10 +151,10 @@ def test_local_catalog_only_exposes_visible_model_metadata(tmp_path, monkeypatch
                     {"slug": "hidden", "visibility": "hide"},
                 ]
             }
-        )
+        ), encoding="utf-8"
     )
     assert codex_models() == [{"model": "candidate", "supported_efforts": ["low"]}]
-    (tmp_path / "models_cache.json").write_text("invalid")
+    (tmp_path / "models_cache.json").write_text("invalid", encoding="utf-8")
     assert codex_models() == []
 
 

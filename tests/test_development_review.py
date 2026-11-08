@@ -22,7 +22,7 @@ SECRET = "rv01-synthetic-secret-value-9f3a"
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], check=True, text=True, capture_output=True
+        ["git", "-C", str(root), *args], check=True, text=True, encoding="utf-8", errors="replace", capture_output=True
     ).stdout.strip()
 
 
@@ -45,29 +45,29 @@ class Runner:
 
 def baseline_change(root):
     (root / "src").mkdir(exist_ok=True)
-    (root / "src/app.py").write_text("print('one')\nprint('two')\nprint('three')\n")
+    (root / "src/app.py").write_text("print('one')\nprint('two')\nprint('three')\n", encoding="utf-8")
     commit(root, "committed change")
-    (root / "src/staged.py").write_text("staged = 1\n")
+    (root / "src/staged.py").write_text("staged = 1\n", encoding="utf-8")
     git(root, "add", "src/staged.py")
-    (root / "src/keep.py").write_text("keep = 2\n")
-    (root / "src/new_file.py").write_text(f"token = '{SECRET}'\n")
+    (root / "src/keep.py").write_text("keep = 2\n", encoding="utf-8")
+    (root / "src/new_file.py").write_text(f"token = '{SECRET}'\n", encoding="utf-8")
 
 
 @pytest.fixture
 def review(tmp_path):
     source = tmp_path / "source"
     (source / "src").mkdir(parents=True)
-    (source / "src/keep.py").write_text("keep = 1\n")
-    (source / "src/old_name.py").write_text("renamed = True\n" * 5)
-    (source / "src/gone.py").write_text("deleted = True\n")
+    (source / "src/keep.py").write_text("keep = 1\n", encoding="utf-8")
+    (source / "src/old_name.py").write_text("renamed = True\n" * 5, encoding="utf-8")
+    (source / "src/gone.py").write_text("deleted = True\n", encoding="utf-8")
     git(source, "init", "-q")
     commit(source, "base")
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
     (root / "config/runtime.json").write_text(
-        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}})
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}}), encoding="utf-8"
     )
-    (root / ".env").write_text(f"REVIEW_API_TOKEN={SECRET}\n")
+    (root / ".env").write_text(f"REVIEW_API_TOKEN={SECRET}\n", encoding="utf-8")
     runtime = WorkflowRuntime(root)
     runtime.store.register_project(
         "P",
@@ -103,8 +103,8 @@ def review(tmp_path):
 
     assert runtime.execute("T", "run-once", runner=Runner(change))["state"] == "verifying"
     # Written outside the role run (the role may not touch them); verification covers them.
-    (worktree / "src/.env").write_text("PRIVATE=1\n")
-    (worktree / "outside.txt").write_text("out of scope\n")
+    (worktree / "src/.env").write_text("PRIVATE=1\n", encoding="utf-8")
+    (worktree / "outside.txt").write_text("out of scope\n", encoding="utf-8")
     assert runtime.execute("T", "verify-once", verify=True)["passed"]
     web = ReviewWeb(root)
     server = make_server(web)
@@ -157,9 +157,9 @@ def test_bootstrap_lists_every_stage_within_scope_and_hides_private(review):
 
 def test_staged_and_unstaged_changes_after_verification_are_separate(review):
     _, worktree, server, _ = review
-    (worktree / "src/later.py").write_text("later = 1\n")
+    (worktree / "src/later.py").write_text("later = 1\n", encoding="utf-8")
     git(worktree, "add", "src/later.py")
-    (worktree / "src/app.py").write_text("print('one')\nprint('2')\nprint('three')\n")
+    (worktree / "src/app.py").write_text("print('one')\nprint('2')\nprint('three')\n", encoding="utf-8")
     _, data = call(server, "/api/review/bootstrap?task=T")
     files = files_by(data)
     assert ("staged", "src/later.py") in files and ("unstaged", "src/app.py") in files
@@ -178,7 +178,7 @@ def test_diff_redacts_secrets_and_returns_line_anchors(review):
 def test_binary_and_large_files_are_summaries_and_block_approval(review):
     _, worktree, server, web = review
     (worktree / "src/image.bin").write_bytes(b"\x00\x01\x02" * 100)
-    (worktree / "src/huge.py").write_text("x = 1\n" * 60000)
+    (worktree / "src/huge.py").write_text("x = 1\n" * 60000, encoding="utf-8")
     _, data = call(server, "/api/review/bootstrap?task=T")
     files = files_by(data)
     assert files[("untracked", "src/image.bin")]["binary"] is True
@@ -197,14 +197,14 @@ def test_literal_pathspec_and_no_external_diff_or_textconv(review, tmp_path):
     _, worktree, server, _ = review
     marker = tmp_path / "executed"
     tool = tmp_path / "tool.sh"
-    tool.write_text(f"#!/bin/sh\ntouch {marker}\ncat \"$1\"\n")
+    tool.write_text(f"#!/bin/sh\ntouch {marker}\ncat \"$1\"\n", encoding="utf-8")
     tool.chmod(0o755)
     git(worktree, "config", "diff.external", str(tool))
     git(worktree, "config", "diff.leak.textconv", str(tool))
-    (worktree / ".gitattributes").write_text("*.py diff=leak\n")
+    (worktree / ".gitattributes").write_text("*.py diff=leak\n", encoding="utf-8")
     special = ":(glob)*"
-    (worktree / "src" / special).write_text("literal = 1\n")
-    (worktree / "src/app.py").write_text("print('changed')\n")
+    (worktree / "src" / special).write_text("literal = 1\n", encoding="utf-8")
+    (worktree / "src/app.py").write_text("print('changed')\n", encoding="utf-8")
     _, data = call(server, "/api/review/bootstrap?task=T")
     files = files_by(data)
     assert ("untracked", f"src/{special}") in files
@@ -241,7 +241,7 @@ def test_comment_must_anchor_on_observed_line_and_turns_stale_when_code_changes(
     _, boot = call(server, "/api/review/bootstrap?task=T")
     thread = boot["threads"][0]
     assert thread["display_state"] == "open" and SECRET not in thread["body"]
-    (worktree / "src/app.py").write_text("print('rewritten')\n")
+    (worktree / "src/app.py").write_text("print('rewritten')\n", encoding="utf-8")
     commit(worktree, "rewrite")
     _, boot = call(server, "/api/review/bootstrap?task=T")
     assert boot["threads"][0]["display_state"] == "stale"
@@ -284,7 +284,7 @@ def test_approval_needs_resolved_comments_and_current_verification(review):
     assert call(server, "/api/review/decision", approve, web.token)[0] == 409
     rows = runtime.store.db.rows("SELECT * FROM approvals") if runtime.store.db.rows("SELECT name FROM sqlite_master WHERE name='approvals'") else []
     assert all(row.get("subject_kind") != "review" for row in rows)
-    (worktree / "src/keep.py").write_text("keep = 3\n")
+    (worktree / "src/keep.py").write_text("keep = 3\n", encoding="utf-8")
     _, boot = call(server, "/api/review/bootstrap?task=T")
     assert boot["decisions"][0]["current"] is False
     _, evidence = call(server, "/api/review/evidence?task=T")
@@ -311,7 +311,7 @@ def test_special_filenames_are_listed_and_diffed_exactly(review):
     _, worktree, server, _ = review
     names = ["src/-dash.py", "src/back\\slash.py", "src/new\nline.py"]
     for name in names:
-        (worktree / name).write_text(f"name = {name!r}\n")
+        (worktree / name).write_text(f"name = {name!r}\n", encoding="utf-8")
     _, data = call(server, "/api/review/bootstrap?task=T")
     files = files_by(data)
     for name in names:

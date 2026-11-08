@@ -29,7 +29,7 @@ def test_latest_actual_failure_and_repass_require_explicit_latest_link(
 ):
     root, repo, source, target = workspace
     (source / "tests/test_acceptance.py").write_text(
-        'import os\ndef test_acceptance():\n    assert os.environ.get("TASK3_FORCE_FAILURE") != "1"\n'
+        'import os\ndef test_acceptance():\n    assert os.environ.get("TASK3_FORCE_FAILURE") != "1"\n', encoding="utf-8"
     )
     subprocess.run(["git", "-C", str(source), "add", "."], check=True)
     subprocess.run(

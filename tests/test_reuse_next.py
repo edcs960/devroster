@@ -37,16 +37,16 @@ def test_presets_have_required_gates_and_isolated_roles(tmp_path, name):
         for item in value["verification"]["commands"]
     )
     initialize(tmp_path / name, preset=name)
-    saved = json.loads((tmp_path / name / ".agent-dev/config/profile.json").read_text())
+    saved = json.loads((tmp_path / name / ".agent-dev/config/profile.json").read_text(encoding="utf-8"))
     assert saved["verification"] == value["verification"]
     assert saved["allowed_paths"] == value["allowed_paths"]
     assert not saved["runners"][0]["authenticated"]
 
 
 def test_preset_inference_is_explicit_and_no_overwrite(tmp_path):
-    (tmp_path / "pyproject.toml").write_text("")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     assert select("auto", tmp_path) == "python"
-    (tmp_path / "package.json").write_text("{}")
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     with pytest.raises(DomainError):
         select("auto", tmp_path)
     destination = tmp_path / "profile.json"
@@ -58,7 +58,7 @@ def test_preset_inference_is_explicit_and_no_overwrite(tmp_path):
     assert len(listing()["presets"]) == 5
     gradle = tmp_path / "api"
     gradle.mkdir()
-    (gradle / "build.gradle.kts").write_text("")
+    (gradle / "build.gradle.kts").write_text("", encoding="utf-8")
     assert select("auto", gradle) == "spring-boot-gradle"
 
 
@@ -80,12 +80,12 @@ def test_execution_limit_validation(value):
 
 def old_workspace(root):
     managed = root / ".agent-dev"
-    marker = json.loads((managed / "workspace.json").read_text())
+    marker = json.loads((managed / "workspace.json").read_text(encoding="utf-8"))
     marker.pop("engine_version", None)
-    (managed / "workspace.json").write_text(json.dumps(marker))
-    value = json.loads((managed / "config/profile.json").read_text())
+    (managed / "workspace.json").write_text(json.dumps(marker), encoding="utf-8")
+    value = json.loads((managed / "config/profile.json").read_text(encoding="utf-8"))
     value.pop("execution_limits", None)
-    (managed / "config/profile.json").write_text(json.dumps(value))
+    (managed / "config/profile.json").write_text(json.dumps(value), encoding="utf-8")
     runtime = WorkflowRuntime(root)
     version = runtime.store.db.rows("SELECT version FROM projects WHERE id='EXAMPLE'")[0]["version"]
     runtime.store.revise_profile("EXAMPLE", value, version)
@@ -106,7 +106,7 @@ def test_upgrade_dryrun_backup_apply_idempotency_and_snapshot_preservation(works
     assert runtime.store.snapshot("T") == snapshot
     assert runtime.store.approved("T")
     assert not upgrades.upgrade(workspace, apply=True)["applied"]
-    marker = json.loads((workspace / ".agent-dev/workspace.json").read_text())
+    marker = json.loads((workspace / ".agent-dev/workspace.json").read_text(encoding="utf-8"))
     assert marker["engine_version"] == "0.3.0"
     rows = runtime.store.db.rows(
         "SELECT content_json FROM project_profile_versions WHERE project_id='EXAMPLE' ORDER BY version DESC LIMIT 1"
@@ -180,7 +180,7 @@ def test_upgrade_finalizes_committed_journal(workspace):
             for name, value in values.items()
         },
     }
-    (root / "upgrade-journal.json").write_text(json.dumps(journal))
+    (root / "upgrade-journal.json").write_text(json.dumps(journal), encoding="utf-8")
     runtime.store.event("EXAMPLE", "WorkspaceUpgraded", {"upgrade_id": "fixture"})
     assert upgrades.recover(workspace)["action"] == "finalized"
 
@@ -191,18 +191,18 @@ def test_upgrade_active_or_newer_workspace_rejected(workspace, tmp_path):
         upgrades.upgrade(workspace, apply=True, backup=tmp_path / "never.zip")
     assert not (tmp_path / "never.zip").exists()
     marker = workspace / ".agent-dev/workspace.json"
-    value = json.loads(marker.read_text())
+    value = json.loads(marker.read_text(encoding="utf-8"))
     value["engine_version"] = "9.0.0"
-    marker.write_text(json.dumps(value))
+    marker.write_text(json.dumps(value), encoding="utf-8")
     with pytest.raises(DomainError):
         upgrades.upgrade(workspace)
 
 
 def approved_budget(root, **budget):
     managed = root / ".agent-dev/config/profile.json"
-    value = json.loads(managed.read_text())
+    value = json.loads(managed.read_text(encoding="utf-8"))
     value["execution_limits"] = dict(limits(), **budget)
-    managed.write_text(json.dumps(value))
+    managed.write_text(json.dumps(value), encoding="utf-8")
     return approved(root)
 
 
@@ -373,7 +373,7 @@ def test_profile_change_does_not_reset_approved_budget(workspace):
     runtime = approved_budget(workspace, max_attempts=1)
     runner = CountingRunner()
     runtime.execute("T", "first-budget", runner=runner)
-    updated = json.loads((workspace / ".agent-dev/config/profile.json").read_text())
+    updated = json.loads((workspace / ".agent-dev/config/profile.json").read_text(encoding="utf-8"))
     updated["execution_limits"]["max_attempts"] = 100
     row = runtime.store.db.rows("SELECT version FROM projects WHERE id='EXAMPLE'")[0]
     runtime.store.revise_profile("EXAMPLE", updated, row["version"])
@@ -488,9 +488,9 @@ def test_model_diagnostic_is_offline_and_preserves_global_config(tmp_path, monke
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     config = tmp_path / "config.toml"
-    config.write_text('model="unsupported-fixture"\n')
+    config.write_text('model="unsupported-fixture"\n', encoding="utf-8")
     (tmp_path / "models_cache.json").write_text(
-        json.dumps({"models": [{"slug": "supported-fixture"}]})
+        json.dumps({"models": [{"slug": "supported-fixture"}]}), encoding="utf-8"
     )
     before = config.read_bytes()
     assert codex_model_check({})[0] == "warn"

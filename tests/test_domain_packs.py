@@ -21,7 +21,7 @@ def generic_files():
 
 def test_generic_rules_carry_no_domain_instructions():
     assert not DOMAIN_TERMS.search(defaults.agents_text())
-    leaks = [rel for rel, path in generic_files() if DOMAIN_TERMS.search(path.read_text())]
+    leaks = [rel for rel, path in generic_files() if DOMAIN_TERMS.search(path.read_text(encoding="utf-8"))]
     assert leaks == []
 
 
@@ -72,8 +72,8 @@ def test_sync_composes_the_requested_domain(tmp_path):
     sync = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sync)
     assert sync.main(["--root", str(tmp_path), "--domain", "fmea"]) == 0
-    assert "## 12. 도메인 규칙" in (tmp_path / "AGENTS.md").read_text()
-    assert "AIAG-VDA FMEA" in (tmp_path / "agent/dba.md").read_text() or "FMEA" in (tmp_path / "agent/dba.md").read_text()
+    assert "## 12. 도메인 규칙" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "AIAG-VDA FMEA" in (tmp_path / "agent/dba.md").read_text(encoding="utf-8") or "FMEA" in (tmp_path / "agent/dba.md").read_text(encoding="utf-8")
     assert sync.main(["--root", str(tmp_path), "--domain", "fmea", "--check"]) == 0
     # The generic composition differs, so a generic check reports drift.
     assert sync.main(["--root", str(tmp_path), "--check"]) == 1

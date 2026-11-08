@@ -31,7 +31,7 @@ def install_root(path: Path) -> Path:
         top = subprocess.run(
             ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=30,
             check=False,
         ).stdout.strip()

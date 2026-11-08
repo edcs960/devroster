@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_installed_scripts_share_wrapper_and_keep_legacy_entrypoint():
-    scripts = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["scripts"]
+    scripts = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
     assert scripts["devroster"] == scripts["fa"] == "agent_dev.fa:main"
     assert scripts["agent-dev"] == "agent_dev.entrypoints:main"
 
@@ -47,7 +47,7 @@ def test_help_outside_workspace_creates_no_files(tmp_path):
         [sys.executable, "-m", "agent_dev.fa", "--help"],
         cwd=tmp_path,
         env=env,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         capture_output=True,
         timeout=15,
         check=False,
@@ -145,7 +145,7 @@ const {chromium}=require(process.argv[1]);
                 f"http://127.0.0.1:{server.server_address[1]}",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=45,
             check=False,
         )

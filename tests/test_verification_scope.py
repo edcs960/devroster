@@ -16,7 +16,7 @@ from agent_dev.domain.errors import DomainError
 
 def git(root, *args):
     return subprocess.run(
-        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace", check=True
     ).stdout.strip()
 
 
@@ -25,8 +25,8 @@ def repository(path):
     git(path, "init", "-q")
     git(path, "config", "user.name", "Test")
     git(path, "config", "user.email", "test@example.test")
-    (path / ".gitignore").write_text("ignored/\n")
-    (path / "file.txt").write_text("base")
+    (path / ".gitignore").write_text("ignored/\n", encoding="utf-8")
+    (path / "file.txt").write_text("base", encoding="utf-8")
     git(path, "add", ".")
     git(path, "commit", "-qm", "base")
     return path
@@ -44,7 +44,7 @@ def prepared(tmp_path, scope):
     root = tmp_path / "app"
     (root / "config").mkdir(parents=True)
     (root / "config/runtime.json").write_text(
-        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}})
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": False}}), encoding="utf-8"
     )
     runtime = WorkflowRuntime(root)
     verification = {
@@ -76,7 +76,7 @@ def prepared(tmp_path, scope):
 class SourceOnly:
     def execute(self, request):
         context = json.loads(request.context)
-        (Path(context["repositories"]["source"]["worktree"]) / "file.txt").write_text("changed")
+        (Path(context["repositories"]["source"]["worktree"]) / "file.txt").write_text("changed", encoding="utf-8")
         return PhaseResult('```json\n{"handoff_status":"pass"}\n```')
 
 
@@ -91,7 +91,7 @@ def test_changed_scope_skips_untouched_repository_gates(tmp_path):
     runtime, marker = prepared(tmp_path, "changed")
     assert runtime.execute("T", "run", runner=SourceOnly())["state"] == "verifying"
     assert runtime.execute("T", "verify", verify=True)["passed"]
-    assert marker.read_text().split() == ["source_unit"]
+    assert marker.read_text(encoding="utf-8").split() == ["source_unit"]
     rows = gate_rows(runtime)
     assert rows["source_unit"][:2] == (True, 0)
     assert rows["other_unit"][:2] == (True, None)
@@ -102,7 +102,7 @@ def test_default_scope_runs_every_gate(tmp_path):
     runtime, marker = prepared(tmp_path, None)
     assert runtime.execute("T", "run", runner=SourceOnly())["state"] == "verifying"
     assert runtime.execute("T", "verify", verify=True)["passed"]
-    assert sorted(marker.read_text().split()) == ["other_unit", "source_unit"]
+    assert sorted(marker.read_text(encoding="utf-8").split()) == ["other_unit", "source_unit"]
 
 
 def test_changed_repositories_counts_commits_edits_and_untracked_files(tmp_path):
@@ -111,9 +111,9 @@ def test_changed_repositories_counts_commits_edits_and_untracked_files(tmp_path)
     bindings = {"repo": {"worktree": str(repo), "base_commit": base}}
     assert changed_repositories(bindings) == set()
     (repo / "ignored").mkdir()
-    (repo / "ignored/cache.bin").write_text("x")
+    (repo / "ignored/cache.bin").write_text("x", encoding="utf-8")
     assert changed_repositories(bindings) == set()
-    (repo / "new.txt").write_text("x")
+    (repo / "new.txt").write_text("x", encoding="utf-8")
     assert changed_repositories(bindings) == {"repo"}
     git(repo, "add", "new.txt")
     git(repo, "commit", "-qm", "add")
@@ -160,4 +160,4 @@ def test_workflow_verification_node_uses_the_same_scope(tmp_path):
     assert gates["source_unit"]["exit_code"] == 0
     assert gates["other_unit"]["exit_code"] is None
     assert gates["other_unit"]["evidence"].startswith("Skipped: repository 'other'")
-    assert marker.read_text().split() == ["source_unit"]
+    assert marker.read_text(encoding="utf-8").split() == ["source_unit"]

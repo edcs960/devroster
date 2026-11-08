@@ -18,7 +18,7 @@ const {chromium}=require(process.argv[2]);
    assert.match(await page.locator('#description').textContent(),/기본 AI를 활성화/);
    assert.equal(await page.locator('#links a[href="/setup#ai"]').count(),1);
    await page.screenshot({path:out+'/preparation-agent-'+width+'.png'});
-   await page.locator('#task-operation').selectOption('task.show');
+   await page.evaluate(()=>choose(catalog.find(o=>o.id==='task.show'),'T'));
    assert.equal(await page.locator('#preview-button').isDisabled(),false);
    await page.goto(base+'/studio');await page.waitForFunction(()=>document.getElementById('studio-context').textContent.includes('준비 모드'));
    await page.locator('#projects').selectOption(studio);await page.waitForFunction(()=>document.getElementById('title').value==='Preparation browser');
@@ -26,7 +26,7 @@ const {chromium}=require(process.argv[2]);
    assert.match(await page.locator('#generate-spec').getAttribute('title'),/기본 AI를 활성화/);
    assert.equal(await page.locator('#save-brief').isDisabled(),false);
    await page.locator('#brief').fill('Editable preparation brief <img src=x onerror="window.bad=true">');
-   await page.locator('#save-brief').click();await page.waitForFunction(()=>document.getElementById('notice').textContent.includes('기획서를 저장했습니다'));
+   await page.locator('#save-brief').click();await page.waitForFunction(()=>document.getElementById('ui-toasts')?.textContent.includes('기획서를 저장했습니다'));  // success feedback is a toast
    assert.equal(await page.evaluate(()=>window.bad),undefined);
    assert.equal(await page.locator('#studio-context a[href="/setup#ai"]').count(),1);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile horizontal overflow');

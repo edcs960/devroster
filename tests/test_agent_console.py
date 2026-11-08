@@ -16,7 +16,7 @@ def fake_dispatch(args):
         time.sleep(30)
     if args.namespace == "design":
         return {
-            "content": Path(args.source).read_text(),
+            "content": Path(args.source).read_text(encoding="utf-8"),
             "root": str(args.root),
             "actor": args.actor,
         }
@@ -278,7 +278,7 @@ def test_portable_root_and_safe_cosmetic_settings(tmp_path):
         materialize=True,
         request_id="settings",
     )
-    content = json.loads(Path(args.source).read_text())
+    content = json.loads(Path(args.source).read_text(encoding="utf-8"))
     assert content["theme"] == "dark"
     with pytest.raises(DomainError):
         console.prepare(

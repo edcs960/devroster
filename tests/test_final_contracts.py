@@ -102,13 +102,13 @@ def test_passed_role_recovers_without_duplicate_model_call(runtime):
 
 
 def test_graph_reads_each_source_once_and_malformed_build_finishes(tmp_path,monkeypatch):
-    initialize(tmp_path);(tmp_path/'src').mkdir();(tmp_path/'src/a.py').write_text('def a(): pass\n')
+    initialize(tmp_path);(tmp_path/'src').mkdir();(tmp_path/'src/a.py').write_text('def a(): pass\n', encoding="utf-8")
     app=SourceExplorer(tmp_path)
     with patch.object(app,'read',wraps=app.read) as read:
         result=app.normalize_graph('source',{'nodes':[{'id':str(i),'source_file':'src/a.py'} for i in range(100)]})
         assert len(result['nodes'])==100 and read.call_count==1
     binary=tmp_path/'fake-graphify'
-    binary.write_text(f'#!{sys.executable}\nimport pathlib,sys\nout=pathlib.Path(sys.argv[sys.argv.index("--out")+1]);out.mkdir();(out/"graph.json").write_text(\'{{"nodes":["bad"]}}\')\n')
+    binary.write_text(f'#!{sys.executable}\nimport pathlib,sys\nout=pathlib.Path(sys.argv[sys.argv.index("--out")+1]);out.mkdir();(out/"graph.json").write_text(\'{{"nodes":["bad"]}}\')\n', encoding="utf-8")
     binary.chmod(0o700)
     monkeypatch.setattr('agent_dev.adapters.source_jobs.shutil.which',lambda _:str(binary))
     jobs=SourceJobs(tmp_path)
@@ -154,11 +154,16 @@ def test_integrated_routes_readonly_and_oauth_top_level_callback(tmp_path,monkey
     server=make_server(tmp_path,0)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     try:
-        for page in ['agent','dashboard','setup','studio','workflows','integrations','references','source']:
+        for page in ['agent','setup','studio','workflows','integrations','references','source']:
             connection=http.client.HTTPConnection('127.0.0.1',server.server_port)
             connection.request('GET','/'+page);response=connection.getresponse()
             assert response.status==200 and b'/navigation.js' in response.read()
             connection.close()
+        # Development status is part of the agent workroom; the old address forwards there.
+        connection=http.client.HTTPConnection('127.0.0.1',server.server_port)
+        connection.request('GET','/dashboard');response=connection.getresponse();response.read()
+        assert response.status==302 and response.getheader('Location')=='/agent'
+        connection.close()
         assert not (tmp_path/'.agent-dev/state.db').exists()
         # A forged OAuth callback reaches state validation instead of being mistaken for CSRF.
         connection=http.client.HTTPConnection('127.0.0.1',server.server_port)

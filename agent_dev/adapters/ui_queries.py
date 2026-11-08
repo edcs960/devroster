@@ -9,7 +9,7 @@ from agent_dev.domain.content import redact
 
 def _read(path, default):
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return default
 

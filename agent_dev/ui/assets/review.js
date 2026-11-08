@@ -1,6 +1,8 @@
 /* Code review: every response is bound to the task generation that requested it. */
 (() => {
   'use strict';
+// Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
   const $ = id => document.getElementById(id);
   const stale = Symbol('superseded');
   const statusLabels = {A: '추가', M: '수정', D: '삭제', R: '이름 변경', C: '복사', T: '형식 변경'};
@@ -30,7 +32,7 @@
   function notice(text) { $('review-notice').textContent = text; $('review-notice').hidden = !text; }
   function failure(error, form) {
     if (error === stale) return;
-    const text = (error.status === 409 ? '내용이 바뀌었습니다. 새로고침 후 다시 확인해주세요. ' : '') + error.message;
+    const text = (error.status === 409 ? '내용이 바뀌었습니다. 새로고침 후 다시 확인해주세요. ' : '') + errText(error);
     $('review-error').textContent = text;
     $('review-error').hidden = false;
     if (form) {
@@ -188,7 +190,7 @@
       publish.replaceChildren();
       for (const row of evidence.publish) publish.append(node('p', `${row.repository} · PR ${row.pr_number || '없음'} · CI ${row.ci_state} · 병합 ${row.merge_state}. ${row.note}`, 'review-meta'));
     } catch (error) {
-      if (error !== stale) {syncDecision('검증 근거를 불러오지 못했습니다. 새로고침해주세요.');box.replaceChildren(node('p', '검증 근거를 불러오지 못했습니다: ' + error.message, 'review-meta'));}
+      if (error !== stale) {syncDecision('검증 근거를 불러오지 못했습니다. 새로고침해주세요.');box.replaceChildren(node('p', '검증 근거를 불러오지 못했습니다: ' + errText(error), 'review-meta'));}
     }
   }
   let previewData = null, prepared = null, session = null, shot = null, element = null;
@@ -197,7 +199,7 @@
   async function loadPreview(g) {
     try {
       previewData = await request('preview?' + new URLSearchParams({task}), undefined, g);
-    } catch (error) { if (error !== stale) { $('preview-section').hidden=false;$('preview-empty').hidden=false;$('preview-empty').textContent='미리보기 정보를 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.';$('preview-prepare').hidden=true;previewStatus('미리보기 정보를 불러오지 못했습니다: ' + error.message); } return; }
+    } catch (error) { if (error !== stale) { $('preview-section').hidden=false;$('preview-empty').hidden=false;$('preview-empty').textContent='미리보기 정보를 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.';$('preview-prepare').hidden=true;previewStatus('미리보기 정보를 불러오지 못했습니다: ' + errText(error)); } return; }
     $('preview-section').hidden = false;
     const services = previewData.services;
     $('preview-empty').hidden = services.length > 0;

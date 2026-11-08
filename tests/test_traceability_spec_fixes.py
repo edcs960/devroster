@@ -25,7 +25,7 @@ def test_exit_zero_without_target_pass_is_not_acceptance_proof(workspace, case):
     body = "def test_acceptance():\n    assert False\n\ndef test_other():\n    assert True\n"
     if case in {"skip", "xfail"}:
         body = "import pytest\n@pytest.mark." + case + "\n" + body
-    (source / "tests/test_acceptance.py").write_text(body)
+    (source / "tests/test_acceptance.py").write_text(body, encoding="utf-8")
     command = [sys.executable, "-m", "pytest", target]
     other = "tests/test_acceptance.py::test_other"
     command += {
@@ -84,7 +84,7 @@ def test_manual_test_file_change_is_derived_stale(workspace):
             "expected_version": 0,
         },
     )
-    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n")
+    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n", encoding="utf-8")
     assert traceability.detail(repo.db, link["id"])["link"]["state"] == "stale"
     page = traceability.query(repo.db, {"import_id": imported["import_id"], "state": "stale"})
     assert link["id"] in {row["id"] for row in page["links"]}
@@ -163,7 +163,7 @@ def test_malformed_host_observations_fail_closed(tmp_path):
                 "excluded": [],
                 "reports": ["bad"],
             }
-        )
+        ), encoding="utf-8"
     )
     assert _read(path, "N", 0, tmp_path, ["python"]) is None
 
@@ -210,14 +210,14 @@ def test_host_pytest_actual_selector_scope(tmp_path, case, expected, monkeypatch
             "import pytest\n@pytest.fixture(autouse=True)\ndef fixture():\n    yield\n    assert False\n"
             + body
         )
-    (tmp_path / "test_scope.py").write_text(body)
+    (tmp_path / "test_scope.py").write_text(body, encoding="utf-8")
     command = [sys.executable, "-m", "pytest", target, *flags]
     monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
     with observe(command, None, tmp_path, tmp_path) as (env, read):
         assert env is not None
         directory = __import__("pathlib").Path(env["PYTHONPATH"].split(__import__("os").pathsep)[0])
         process = subprocess.run(
-            command, cwd=tmp_path, env=env, capture_output=True, text=True, check=False
+            command, cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
         )
         proof = read(process.returncode)
         assert selector_passed(proof, target, command) is expected
@@ -235,13 +235,13 @@ def test_observation_files_missing_nonce_truncated_symlink_and_timeout(tmp_path)
     path = tmp_path / "raw.json"
     assert _read(path, "N", 0, tmp_path, command) is None
     for raw in ["{", json.dumps({"nonce": "WRONG", "exit_code": 0}), "x" * 1_000_001]:
-        path.write_text(raw)
+        path.write_text(raw, encoding="utf-8")
         assert _read(path, "N", 0, tmp_path, command) is None
     link = tmp_path / "symlink.json"
     link.symlink_to(path)
     assert _read(link, "N", 0, tmp_path, command) is None
     (tmp_path / "test_timeout.py").write_text(
-        "import time\ndef test_timeout():\n    time.sleep(10)\n"
+        "import time\ndef test_timeout():\n    time.sleep(10)\n", encoding="utf-8"
     )
     directory = None
     with (

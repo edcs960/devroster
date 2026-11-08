@@ -29,9 +29,9 @@ def workspace(tmp_path):
     source = tmp_path / "repo"
     source.mkdir()
     (source / "tests").mkdir()
-    (source / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n")
+    (source / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n", encoding="utf-8")
     (source / "tests/test_acceptance.py").write_text(
-        "def test_acceptance():\n    assert 1 + 1 == 2\n"
+        "def test_acceptance():\n    assert 1 + 1 == 2\n", encoding="utf-8"
     )
     subprocess.run(["git", "init", "-q", str(source)], check=True)
     subprocess.run(["git", "-C", str(source), "add", "."], check=True)
@@ -145,7 +145,7 @@ def test_actual_registered_target_proof_and_stale_without_history_mutation(works
         "missing": 2,
         "stale": 0,
     }
-    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n")
+    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n", encoding="utf-8")
     queried = traceability.query(repo.db, {"import_id": result["import_id"]})
     stale = next(l for l in queried["links"] if l["id"] == link["id"])
     assert stale["state"] == "stale" and stale["explanation"]
@@ -339,7 +339,7 @@ def test_frozen_root_scope_privacy_and_registered_secret(workspace, monkeypatch)
     task_id = first["selection"]["tasks"][0]["id"]
     secret = "example-registered-private-value"
     monkeypatch.setattr(secrets, "registered_secrets", lambda *a: (secret,))
-    (source / "visible.py").write_text('value = "' + secret + '"\n')
+    (source / "visible.py").write_text('value = "' + secret + '"\n', encoding="utf-8")
     params = {
         "import_id": result["import_id"],
         "requirement_id": "REQ-001",
@@ -364,7 +364,7 @@ def test_frozen_root_scope_privacy_and_registered_secret(workspace, monkeypatch)
     ):
         path = source / relative
         path.parent.mkdir(exist_ok=True)
-        path.write_text(secret)
+        path.write_text(secret, encoding="utf-8")
         with pytest.raises(DomainError):
             traceability.create_link(
                 repo.db, dict(params, target_ref=relative, request_id="PRIVATE-" + relative)
@@ -482,7 +482,7 @@ def test_trace_request_fingerprints_same_task_once_without_cross_request_cache(
         traceability.query(repo.db, {"import_id": result["import_id"]})["coverage"]["verified"] == 0
     )
     assert len(calls) == 2
-    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n")
+    (source / "tests/test_acceptance.py").write_text("def test_acceptance():\n    assert False\n", encoding="utf-8")
     assert (
         traceability.query(repo.db, {"import_id": result["import_id"]})["coverage"]["verified"] == 0
     )

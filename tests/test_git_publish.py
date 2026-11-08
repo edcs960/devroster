@@ -40,7 +40,7 @@ def test_publish_repository_defaults_to_task_branch_not_main(tmp_path):
     current_branch = subprocess.run(
         ["git", "-C", str(repo_path), "branch", "--show-current"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         check=True,
     ).stdout.strip()
     assert current_branch == "task/TASK-999"
@@ -48,7 +48,7 @@ def test_publish_repository_defaults_to_task_branch_not_main(tmp_path):
     main_log = subprocess.run(
         ["git", "-C", str(repo_path), "log", "main", "--oneline"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
         check=True,
     ).stdout
     assert "test commit" not in main_log
@@ -102,4 +102,4 @@ def test_publish_rejects_dirty_files_outside_explicit_task_paths(tmp_path):
                            include_paths=["feature.txt"])
     assert exc.value.code is ErrorCode.POLICY_VIOLATION
     assert subprocess.check_output(["git", "-C", str(repo), "diff", "--cached", "--name-only"]) == b""
-    assert (repo / "personal.txt").read_text() == "unrelated\n"
+    assert (repo / "personal.txt").read_text(encoding="utf-8") == "unrelated\n"

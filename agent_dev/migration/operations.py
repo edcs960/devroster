@@ -24,14 +24,14 @@ class Operations:
             "created_at": self.repository.clock(),
         }
         destination.with_suffix(destination.suffix + ".manifest.json").write_text(
-            json.dumps(manifest, indent=2)
+            json.dumps(manifest, indent=2), encoding="utf-8"
         )
         return manifest
 
     @staticmethod
     def restore(source, destination):
         source, destination = Path(source), Path(destination)
-        manifest = json.loads(source.with_suffix(source.suffix + ".manifest.json").read_text())
+        manifest = json.loads(source.with_suffix(source.suffix + ".manifest.json").read_text(encoding="utf-8"))
         if content_digest(source.read_bytes()) != manifest["sha256"] or destination.exists():
             raise DomainError(
                 ErrorCode.POLICY_VIOLATION, "Backup digest mismatch or restore destination exists."
@@ -137,7 +137,7 @@ class Operations:
 
         configuration_root = Path(configuration_root)
         config_path = configuration_root / "config/runtime.json"
-        config = json.loads(config_path.read_text()) if config_path.exists() else {}
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
         config["orchestrator_v2"] = {
             "read": False,
             "dual_write": False,

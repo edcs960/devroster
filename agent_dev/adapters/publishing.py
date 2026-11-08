@@ -209,7 +209,7 @@ class PublishAdapter:
                     )
                     with tempfile.TemporaryDirectory() as folder:
                         body = Path(folder) / "body.md"
-                        body.write_text(f"{task_id}: approved design and verification evidence.\n")
+                        body.write_text(f"{task_id}: approved design and verification evidence.\n", encoding="utf-8")
                         self._gh(
                             target.path,
                             [

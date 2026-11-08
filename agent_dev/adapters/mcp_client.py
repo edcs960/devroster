@@ -117,6 +117,13 @@ def request_remote(
                 sock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
+            if os.name == "nt":
+                # Windows does not wake a recv blocked in another thread on shutdown;
+                # closing the handle does. Detach first so nothing closes it twice.
+                try:
+                    socket.close(sock.detach())
+                except OSError:
+                    pass
 
         timer = threading.Timer(max(0, deadline - time.monotonic()), interrupt)
         timer.daemon = True

@@ -232,7 +232,7 @@ def diagnose(root: Path, *, check_auth=False):
             top = subprocess.run(
                 ["git", "-C", str(source), "rev-parse", "--show-toplevel"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=5,
                 check=False,
             )
@@ -246,7 +246,7 @@ def diagnose(root: Path, *, check_auth=False):
             branch = subprocess.run(
                 ["git", "-C", str(source), "branch", "--show-current"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 timeout=5,
                 check=False,
             ).stdout.strip()
@@ -369,7 +369,7 @@ def diagnose(root: Path, *, check_auth=False):
                     command,
                     cwd=workspace,
                     capture_output=True,
-                    text=True,
+                    text=True, encoding="utf-8", errors="replace",
                     timeout=10,
                     check=False,
                     env=isolated_environment(),

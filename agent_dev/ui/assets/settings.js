@@ -1,5 +1,9 @@
 (() => {
   'use strict';
+  // Readable failure text: network/parse errors become a Korean hint, server messages pass through.
+  const errText = error => globalThis.DevRosterUI ? globalThis.DevRosterUI.errorMessage(error) : (error?.message || String(error));
+  // Shared confirmation dialog (ui-feedback.js); falls back to the browser dialog if it is missing.
+  const ask = (title, body, confirm, opts = {}) => globalThis.DevRosterUI ? globalThis.DevRosterUI.confirmAction(title, body, confirm, opts) : Promise.resolve(window.confirm(title + '\n' + body));
   // Shared settings screen. Every action calls the local settings API; rules live in the services.
   const $ = id => document.getElementById(id);
   const LIMITS = ['max_attempts', 'max_runner_seconds', 'phase_timeout_seconds', 'max_reentries', 'session_timeout_seconds'];
@@ -35,7 +39,7 @@
     $(id).textContent = '처리 중…';
     $(id).classList.remove('error');
     return promise.then(result => { $(id).textContent = success(result); return result; })
-      .catch(error => { $(id).textContent = error.message; $(id).classList.add('error'); throw error; });
+      .catch(error => { $(id).textContent = errText(error); $(id).classList.add('error'); throw error; });
   }
 
   function renderLimits() {
@@ -86,6 +90,8 @@
     return values;
   }
 
+  // Override choices the user made but has not applied yet, by setting path.
+  let pendingEdits = {};
   function renderEffective() {
     const effective = state.effective;
     const body = $('effective-table').querySelector('tbody');
@@ -108,8 +114,13 @@
       input.type = group === 'limits' ? 'number' : 'text';
       mode.value = override === undefined ? 'inherit' : 'project';
       input.value = override === undefined ? '' : String(override);
+      // A reload (e.g. after saving shared defaults) must not discard choices not yet applied.
+      const edit = pendingEdits[path];
+      if (edit) { mode.value = edit.mode; input.value = edit.value; }
       input.disabled = mode.value === 'inherit';
-      mode.addEventListener('change', () => { input.disabled = mode.value === 'inherit'; if (!input.disabled) input.focus(); });
+      const remember = () => { pendingEdits[path] = {mode: mode.value, value: input.value}; };
+      mode.addEventListener('change', () => { input.disabled = mode.value === 'inherit'; remember(); if (!input.disabled) input.focus(); });
+      input.addEventListener('input', remember);
       control.append(mode, input);
       row.append(head, make('td', value === '' ? '(CLI 기본값)' : String(value)), make('td', ORIGINS[origin] || origin, 'origin-' + origin), control);
       body.append(row);
@@ -143,8 +154,8 @@
       item.append(make('strong', row.connection_id + ' · v' + row.version), make('span', ' ' + (row.enabled ? '사용 가능' : '비활성화됨'), row.enabled ? 'badge pass' : 'badge fail'), make('p', '제공자 ' + row.definition.provider + ' · 자료 범위 ' + scopes + ' · 도구 ' + operations, 'hint'));
       if (row.enabled) {
         const button = make('button', '비활성화', 'secondary'); button.type = 'button';
-        button.addEventListener('click', () => {
-          if (!confirm(row.connection_id + ' 연결을 비활성화하면 모든 프로젝트에서 즉시 사용할 수 없습니다. 계속할까요?')) return;
+        button.addEventListener('click', async () => {
+          if (!(await ask(row.connection_id + ' 연결을 비활성화할까요?', '모든 프로젝트에서 이 연결을 즉시 사용할 수 없게 됩니다.', '연결 비활성화'))) return;
           report('connection-status', api('/api/settings/connections/disable', {connection_id: row.connection_id, expected_revision: row.state_revision}), () => '비활성화했습니다.').then(load).catch(() => {});
         });
         item.append(button);
@@ -187,7 +198,9 @@
   async function load() {
     state.shared = await api('/api/settings/global');
     state.token = state.shared.token;
-    state.root = state.shared.location.workspace.source_root;
+    const root = state.shared.location.workspace.source_root;
+    if (root !== state.root) pendingEdits = {};  // edits belong to the project they were made for
+    state.root = root;
     state.effective = await api('/api/settings/effective?root=' + encodeURIComponent(state.root));
     renderGlobal(); renderEffective(); renderConnections(); renderLocation();
     notice('공통 설정을 불러왔습니다.');
@@ -198,7 +211,7 @@
     report('global-status', api('/api/settings/global', {values: globalValues(), expected_revision: state.shared.settings.revision}), result => '저장했습니다. 공통 revision ' + result.revision + '. 프로젝트에는 ‘반영’할 때만 적용됩니다.').then(load).catch(() => {});
   });
   $('apply-global').addEventListener('click', () => {
-    report('effective-status', api('/api/settings/apply-global', {root: state.root, global_revision: state.effective.global_revision, expected_revision: state.effective.project_revision, overrides: overrides(), templates: $('apply-templates').checked}), result => '새 프로젝트 프로필 ' + result.profile_version + '을(를) 만들었습니다. 기존 승인 작업은 그대로입니다.').then(load).catch(() => {});
+    report('effective-status', api('/api/settings/apply-global', {root: state.root, global_revision: state.effective.global_revision, expected_revision: state.effective.project_revision, overrides: overrides(), templates: $('apply-templates').checked}), result => '새 프로젝트 프로필 ' + result.profile_version + '을(를) 만들었습니다. 기존 승인 작업은 그대로입니다.').then(() => { pendingEdits = {}; return load(); }).catch(() => {});
   });
   $('connection-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -224,5 +237,5 @@
   $('recover-run').addEventListener('click', () => {
     report('move-status', api('/api/settings/storage/recover', {migration_id: $('recover-id').value.trim(), action: $('recover-action').value}), result => '복구 결과: ' + result.state).then(load).catch(() => {});
   });
-  load().catch(error => notice(error.message, true));
+  load().catch(error => notice(errText(error), true));
 })();

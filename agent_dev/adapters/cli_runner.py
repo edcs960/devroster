@@ -85,7 +85,7 @@ class CliRunnerAdapter:
 
             source = Path(isolated_environment(self.runner.process_env)["CODEX_HOME"]) / "config.toml"
             if source.is_file():
-                names = tomllib.loads(source.read_text()).get("mcp_servers", {}).keys()
+                names = tomllib.loads(source.read_text(encoding="utf-8")).get("mcp_servers", {}).keys()
                 self.runner.extra_args = [
                     argument
                     for name in names

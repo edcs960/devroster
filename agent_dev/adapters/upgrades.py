@@ -107,7 +107,7 @@ def recover(root):
     journal = root / "upgrade-journal.json"
     if not journal.is_file() or journal.is_symlink():
         reject("No valid upgrade journal to recover.")
-    value = json.loads(journal.read_text())
+    value = json.loads(journal.read_text(encoding="utf-8"))
     if value.get("format_version") != 1 or set(value.get("files", {})) != set(FILES):
         reject("Invalid upgrade journal.")
     # Validate the schema without migrating it, then hold the write lock on a plain

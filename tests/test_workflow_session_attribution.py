@@ -38,7 +38,7 @@ class Writer:
         context = json.loads(request.context)
         self.calls.append(request.node_ids)
         if self.write and request.node_ids:
-            Path(context["repositories"]["source"]["worktree"], "source.txt").write_text("new")
+            Path(context["repositories"]["source"]["worktree"], "source.txt").write_text("new", encoding="utf-8")
         sections = []
         for node_id in request.node_ids or (request.phase_id,):
             control = {"handoff_status": "pass", **self.controls.get(node_id, {})}

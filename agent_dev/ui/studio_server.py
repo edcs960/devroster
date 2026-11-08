@@ -128,20 +128,23 @@ class StudioWeb:
                     name, kind = ASSETS[parsed.path]
                     self.send(handler, self.assets.joinpath(name).read_bytes(), kind)
                     return
+                if parsed.path in {"/dashboard", "/dashboard/"}:
+                    # Status and execution share the agent workroom in the app; the standalone
+                    # `devroster dashboard` command still serves its own read-only page.
+                    target = "/agent" + ("?" + parsed.query if parsed.query else "")
+                    handler.send_response(302)
+                    handler.send_header("Location", target)
+                    handler.send_header("Content-Length", "0")
+                    handler.send_header("Cache-Control", "no-store")
+                    handler.end_headers()
+                    return
                 dashboard_assets = {
-                    "/dashboard": ("dashboard.html", "text/html"),
                     "/dashboard.js": ("dashboard.js", "text/javascript"),
                     "/dashboard.css": ("dashboard.css", "text/css"),
                 }
                 if parsed.path in dashboard_assets:
                     name, kind = dashboard_assets[parsed.path]
-                    data = self.assets.joinpath(name).read_bytes()
-                    if parsed.path == "/dashboard":
-                        data = data.replace(
-                            b'<div class="header-actions">',
-                            '<div class="header-actions"><a class="button" href="/studio">기획·화면 검토</a>'.encode(),
-                        )
-                    self.send(handler, data, kind)
+                    self.send(handler, self.assets.joinpath(name).read_bytes(), kind)
                     return
                 if parsed.path == "/api/app/status":
                     from agent_dev.ui.code_stamp import code_stamp
