@@ -35,6 +35,7 @@ EVENT_LABELS = {
     "PreviewStarted": "미리보기 연결",
     "PreviewCaptured": "화면 캡처",
     "PublishRecorded": "게시 기록",
+    "HookRun": "프로젝트 훅 실행",
 }
 SAFE_FIELDS = {
     "phase_id", "state", "from", "to", "code", "reason", "provider", "attempt_id",

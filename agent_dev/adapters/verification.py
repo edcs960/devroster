@@ -44,6 +44,20 @@ class VerificationAdapter:
         source_commits = commit_fingerprint(bindings)
         results = []
         observations = {}
+        bundle = resolved.get("project_hooks")
+        if bundle and "before_verify" in bundle.get("events", {}):
+            from agent_dev.adapters import ai_hooks
+
+            cwd = next(iter(bindings.values()))["worktree"] if bindings else bundle["root"]
+            ran = ai_hooks.run(
+                "before_verify", bundle, bundle["root"], cwd, {"task_id": task_id}, self.repository.secrets
+            )
+            self.repository.event(task_id, "HookRun", {"event": "before_verify", "results": ran})
+            # A failing before_verify hook is a failed required gate.
+            for row in ran:
+                results.append(
+                    GateResult("hook:" + row["name"], row["ok"], True, row["exit_code"], row["output"])
+                )
         # "changed" skips gates of repositories this task did not touch.
         changed = (
             changed_repositories(bindings)

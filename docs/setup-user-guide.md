@@ -167,6 +167,57 @@ devroster skills status --root PROJECT    # 저장소별 설치 상태
 devroster skills sync --root PROJECT      # 저장한 선택대로 설치·정리 (--dry-run: 계획만)
 ```
 
+## 8-1. 프로젝트 AI 규칙·스킬 (.ai/)
+
+설정 화면 3단계 "개발 역할"의 **프로젝트 AI 규칙**에서 이 프로젝트에만 적용할 규칙을 관리한다. 규칙은 `<프로젝트>/.ai/rules/*.md`에 저장하고 저장소에 커밋해 팀과 함께 쓴다.
+
+| 동작 | 설명 |
+|---|---|
+| 규칙 파일 첨부 | Markdown(.md, 64KiB 이하)을 `.ai/rules/`에 저장한다. 같은 이름이면 바꿀지 묻는다. 비밀값으로 보이는 내용은 저장하지 않는다 |
+| 개발 실행 | 작업을 승인할 때 규칙을 고정해 모든 AI(Claude·Codex·Gemini CLI, OpenAI·Claude·Gemini·Grok·호환 API)에 같은 내용으로 전달한다. 이후 규칙을 고쳐도 승인된 작업은 그대로이고 다음 작업부터 적용된다 |
+| 프로젝트 스킬 | `.ai/skills/<이름>/SKILL.md`(이름은 영문 소문자·숫자·-). 앞부분에 `description`(언제 쓰는지)과 선택 사항 `roles: [developer, qa]`를 적는다. 승인 시 고정되고, 각 역할 단계에는 `roles`가 맞거나 비어 있는 스킬만 본문과 함께 전달된다(본문 합계 48KiB까지, 넘으면 설명만). 스킬은 20개, `SKILL.md`는 32KiB, 폴더는 1MiB까지 |
+| Studio | 명세서·목업 생성에도 프로젝트 규칙과 스킬을 적용한다. 스킬은 명세서 생성에 `planner`·`studio`, 목업 생성에 `ux-ui`·`designer`·`studio` 역할(또는 `roles` 없음)인 것만 쓴다 |
+| 동기화 | `CLAUDE.md`·`GEMINI.md`에는 `@.ai/rules/...` 불러오기 줄을, `AGENTS.md`에는 규칙 내용을 넣는다. `<!-- devroster:ai begin -->`과 `end` 사이만 다시 쓰고, 그 밖에 직접 쓴 내용은 그대로 둔다. 표시가 깨진 파일은 쓰지 않는다. 프로젝트 스킬은 `.claude/skills/<이름>`·`.agents/skills/<이름>`에 링크로 연결하고(링크를 못 만드는 Windows에서는 표시 파일이 든 복사본), git에는 잡히지 않게 `.git/info/exclude`에 적는다. 같은 이름의 다른 스킬이 있으면 건드리지 않고 충돌로 알린다 |
+
+- DevRoster 기본 규칙(내장 AGENTS.md 등)은 함께 적용되며 수정할 수 없다. 프로젝트 규칙으로 쓰기 범위·승인·검증을 바꿀 수 없다.
+- DevRoster 실행 중에는 CLAUDE.md·AGENTS.md·GEMINI.md를 읽지 않는다(같은 내용이 두 번 들어가지 않도록). 동기화한 파일은 DevRoster 없이 각 도구를 직접 쓸 때를 위한 것이다.
+- 규칙 합계가 48KiB를 넘으면 경고하고, 128KiB를 넘으면 승인을 거부한다. AGENTS.md가 32KiB를 넘으면 Codex가 뒷부분을 읽지 않을 수 있어 경고한다.
+
+```bash
+devroster rules init  --root PROJECT   # .ai/ 기본 틀
+devroster rules show  --root PROJECT   # 규칙 목록·미리보기·파일 상태
+devroster rules sync  --root PROJECT   # CLAUDE.md·GEMINI.md·AGENTS.md 표시 영역, 스킬 링크 갱신
+devroster rules check --root PROJECT   # 최신이 아니면 실패 (팀 CI에 넣을 수 있음)
+```
+
+## 8-2. 프로젝트 훅 (.ai/hooks)
+
+정해진 순간에 DevRoster가 직접 실행하는 명령이다. AI 도구가 아니라 DevRoster가 실행하므로 어떤 AI를 쓰든 똑같이 동작한다.
+
+```json
+// .ai/hooks/hooks.json
+{
+  "after_edit":     [{"name": "lint", "run": ["npm", "run", "lint"], "timeout": 120}],
+  "before_publish": [{"name": "secret scan", "run": ["gitleaks", "detect", "--no-git"]}],
+  "on_problem":     [{"run": ["./.ai/hooks/notify.sh"]}]
+}
+```
+
+| 시점 | 언제 | 실패하면 |
+|---|---|---|
+| `after_edit` | 코드 역할 단계가 파일을 바꾼 직후 | 그 단계를 issue로 되돌려 다시 고치게 함 |
+| `before_verify` | 등록된 검증 명령 실행 전 | 필수 검증 실패(`hook:<이름>`) |
+| `before_publish` | 커밋·PR 만들기 전 | 게시 중단 |
+| `after_verify`, `after_publish` | 검증·게시가 끝난 뒤 | 기록만 |
+| `on_problem` | 실행 차단, 검토 지적, 비용 한도 도달 | 기록만 |
+| `phase_start`, `phase_end` | 역할 단계 시작·끝 | 기록만 |
+| `studio_confirmed` | Studio 명세서 확정, 화면 확정, 개발 인계 | 기록만 |
+
+- `run`은 명령과 인수의 배열이다(셸 문자열 금지). `./.ai/hooks/`로 시작하는 스크립트는 프로젝트 폴더의 `.ai/hooks`에서 실행한다. 제한 시간은 기본 120초, 최대 600초, 시점마다 10개까지.
+- 훅에는 `DEVROSTER_EVENT`, `DEVROSTER_TASK_ID`, `DEVROSTER_PHASE`, `DEVROSTER_RESULT` 등이 환경변수로 전달된다. `PATH`·`HOME` 같은 기본 값 외의 환경변수(API 키 등)는 전달하지 않는다.
+- **승인**: 저장소에 든 명령이라 그대로 실행하지 않는다. 설정 화면 "프로젝트 훅"에서 명령을 확인하고 승인하거나, `devroster rules hooks`로 내용과 digest를 확인한 뒤 `devroster rules approve-hooks <digest>`로 승인한다. 승인은 이 컴퓨터의 작업 공간 설정에만 저장된다. 승인하지 않았거나 승인 후 `.ai/hooks`가 바뀌면 작업을 승인할 수 없고, 승인된 작업에서도 바뀐 훅은 실행하지 않는다.
+- 작업의 훅 결과는 작업실 실행 기록("프로젝트 훅 실행")에 남는다. Studio 훅 결과는 설정 화면에 최근 결과로 표시된다.
+
 ## 9. AI 도구 (공통)
 
 메뉴 **설정·자료 → AI 도구**(`/ai`)에서 모든 프로젝트가 함께 쓰는 AI 도구를 관리한다.

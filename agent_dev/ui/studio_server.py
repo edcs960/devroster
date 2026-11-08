@@ -253,7 +253,11 @@ class StudioWeb:
         if action == "spec-save":
             return service.save_specs(project, version, p["payload"])
         if action == "spec-approve":
-            return service.approve_specs(project, version)
+            result = service.approve_specs(project, version)
+            from agent_dev.adapters.ai_hooks import studio_event
+
+            studio_event(self.root, {"what": "spec_approved", "studio_project": project})
+            return result
         if action == "generate":
             return self.jobs.start(
                 project, version, p["kind"], p.get("provider"), p.get("model"), p.get("effort")
@@ -272,9 +276,13 @@ class StudioWeb:
                 project, version, revision, p["comment_id"], p["state"], p.get("resolution", "")
             )
         if action == "screen-approve":
-            return service.approve_screen(
+            result = service.approve_screen(
                 project, version, revision, p["screen"], p.get("note", "")
             )
+            from agent_dev.adapters.ai_hooks import studio_event
+
+            studio_event(self.root, {"what": "screen_approved", "studio_project": project, "screen": p["screen"]})
+            return result
         raise StudioError("요청한 기능을 찾을 수 없습니다.", 404)
 
 

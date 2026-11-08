@@ -70,7 +70,11 @@ class JourneyWeb(LocalWeb):
         if action == "preview":
             return studio_handoff.preview(self._db(), self._root, payload)
         if action == "commit":
-            return studio_handoff.commit(self._db(False), self._root, payload)
+            result = studio_handoff.commit(self._db(False), self._root, payload)
+            from agent_dev.adapters.ai_hooks import studio_event
+
+            studio_event(self._root, {"what": "handoff", "studio_project": payload.get("source_studio_id", ""), "plan": payload.get("plan_id", "")})
+            return result
         if action == "link":
             return traceability.create_link(self._db(False), payload)
         raise DomainError(ErrorCode.INVALID_INPUT, "실행 기능을 찾을 수 없습니다.")

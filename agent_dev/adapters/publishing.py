@@ -94,6 +94,15 @@ class PublishAdapter:
                 "Source changed after verification; approve a new task plan.",
             )
         local = completion_mode(self.store.snapshot(task_id)["resolved"]) == "local"
+        if not dry_run:
+            from agent_dev.adapters.ai_hooks import failure_text
+
+            # before_publish hooks (secret scan, commit rules): a failure stops the publish.
+            failed = failure_text(
+                self.runtime.task_hooks(task_id, "before_publish", {"repository": repository_name})
+            )
+            if failed:
+                raise DomainError(ErrorCode.VERIFICATION_FAILED, failed)
         binding = bindings[repository_name]
         if not WorktreeManager.validate(binding):
             raise DomainError(ErrorCode.POLICY_VIOLATION, "Publish worktree ownership mismatch.")

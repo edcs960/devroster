@@ -479,6 +479,21 @@ class DagExecution:
                     method(task_id, node_id, result.output, before, lease, generation)
                 else:
                     method(task_id, node_id, "", before, lease, generation)
+            hook_results = []
+            hooks = getattr(self.c, "hooks", None)
+            if hooks and decision["handoff_status"] == "pass" and "code.write" in request.capabilities:
+                # after_edit hooks (lint, format checks): a failure sends the node back to fix it.
+                hook_results = hooks(task_id, "after_edit", {"phase": node_id})
+                failed = next((r for r in hook_results if not r["ok"]), None)
+                if failed:
+                    decision = {
+                        "handoff_status": "issue",
+                        "issue_type": "implementation",
+                        "root_cause": f"after_edit 훅 '{failed['name']}' 실패 (종료 코드 {failed['exit_code']}): "
+                        + failed["output"][-1500:],
+                        "owning_agent_id": node_id,
+                        "reentry_step_id": node_id,
+                    }
             evidence = {
                 "decision": decision,
                 "attempt_id": attempt["id"],
@@ -493,6 +508,8 @@ class DagExecution:
                 evidence["session_fallback"] = True
             if node_id in self.session_changes:
                 evidence["session_changes"] = self.session_changes.pop(node_id)
+            if hook_results:
+                evidence["hooks"] = [{k: r[k] for k in ("name", "ok", "exit_code")} for r in hook_results]
             self.store.finish_attempt(
                 attempt["id"], "passed" if decision["handoff_status"] == "pass" else "failed", lease,
                 evidence=evidence,

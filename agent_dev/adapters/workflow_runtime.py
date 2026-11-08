@@ -211,6 +211,11 @@ class WorkflowRuntime:
         self.artifacts = FilesystemArtifacts(self.store, self.locations.output_root)
         self.governance = GovernanceRepository(self.store, self.project_root)
         self.wiki = WikiKnowledge(self.store, self.project_root)
+        from agent_dev.adapters.ai_hooks import HOOKS_FILE, HookObserver
+
+        if (self.project_root / HOOKS_FILE).is_file():
+            # Record-only hook moments follow the task events (a task without hooks skips).
+            self.store.hook_observer = HookObserver(self.task_hooks)
 
     def flags(self):
         path = self.root / "config/runtime.json"
@@ -460,6 +465,23 @@ class WorkflowRuntime:
         if role_sources:
             resolved["role_sources"] = role_sources
         resolved["operating_rules"] = defaults.operating_rules(domain)
+        # Project rules (.ai/rules) are frozen here, so a later edit only affects new tasks.
+        from agent_dev.adapters.ai_rules import snapshot_value
+
+        project_rules = snapshot_value(self.project_root)
+        if project_rules["items"]:
+            resolved["project_rules"] = project_rules
+        from agent_dev.adapters.ai_rules import skills_snapshot
+
+        project_skills = skills_snapshot(self.project_root)
+        if project_skills["items"]:
+            resolved["project_skills"] = project_skills
+        # Hooks (.ai/hooks) run only as approved by this user, exactly as reviewed.
+        from agent_dev.adapters import ai_hooks
+
+        project_hooks = ai_hooks.snapshot_value(self.project_root, self.root)
+        if project_hooks:
+            resolved["project_hooks"] = dict(project_hooks, root=str(self.project_root))
         resolved["domain"] = domain
         knowledge = resolved.get("knowledge", {})
         resolved["knowledge_facts"] = (
@@ -600,10 +622,28 @@ class WorkflowRuntime:
                     SnapshotPhaseCatalog(self.store, self.root),
                     parse_harness,
                     tools=tools,
+                    hooks=self.task_hooks,
                 )
                 return coordinator.execute(task_id, lease)
 
         return self.safety.command(request_id, {"task_id": task_id, "verify": verify}, operation)
+
+    def task_hooks(self, task_id, event, context):
+        """Run a task's approved project hooks for one moment; [] when it has none."""
+        from agent_dev.adapters import ai_hooks
+
+        resolved = self.store.snapshot(task_id)["resolved"]
+        bundle = resolved.get("project_hooks")
+        if not bundle:
+            return []
+        bindings = list(resolved.get("repositories", {}).values())
+        cwd = bindings[0]["worktree"] if bindings else bundle["root"]
+        results = ai_hooks.run(
+            event, bundle, bundle["root"], cwd, dict(context, task_id=task_id), self.store.secrets
+        )
+        if results:
+            self.store.event(task_id, "HookRun", {"event": event, "results": results})
+        return results
 
     def validate_snapshot_paths(self, task_id):
         resolved = self.store.snapshot(task_id)["resolved"]

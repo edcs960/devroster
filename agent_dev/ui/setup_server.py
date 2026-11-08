@@ -200,6 +200,40 @@ class SetupWeb:
                 from agent_dev.adapters.skill_cli import sync
 
                 result = sync(service.config)
+            elif parsed.path in {
+                "/api/setup/rules",
+                "/api/setup/rules/attach",
+                "/api/setup/rules/remove",
+                "/api/setup/rules/sync",
+            }:
+                from agent_dev.adapters import ai_rules
+
+                # Rules live with the project's source (.ai/rules), not in the engine folder.
+                action = parsed.path.rsplit("/", 1)[1]
+                if action == "attach":
+                    ai_rules.attach(
+                        service.root, payload["name"], payload["content"], payload.get("replace") is True
+                    )
+                elif action == "remove":
+                    ai_rules.remove(service.root, payload["name"])
+                elif action == "sync":
+                    synced = ai_rules.sync(service.root)
+                    if not synced["ok"]:
+                        raise DomainError(
+                            ErrorCode.INVALID_INPUT,
+                            "표시 영역이 깨진 파일은 쓰지 않았습니다: " + ", ".join(synced["stale"]),
+                        )
+                result = ai_rules.overview(service.root)
+            elif parsed.path in {"/api/setup/hooks", "/api/setup/hooks/approve"}:
+                from agent_dev.adapters import ai_hooks
+
+                # Approval is kept with this user's engine settings, never in the repository.
+                if parsed.path.endswith("approve"):
+                    ai_hooks.approve(service.config, service.root, str(payload.get("digest", "")))
+                result = dict(
+                    ai_hooks.overview(service.root, service.config),
+                    recent=ai_hooks.recent(service.config),
+                )
             elif parsed.path == "/api/setup/preset-gates":
                 result = service.preset_gates(payload.get("modules"))
             elif parsed.path == "/api/setup/check":

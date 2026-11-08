@@ -5,6 +5,9 @@ import json
 # Static context a resumed conversation already received in its first invocation.
 RESUME_OMITTED = (
     "operating_rules",
+    "project_rules",
+    "project_rules_rule",
+    "project_skills_rule",
     "context_policy",
     "approved_design",
     "knowledge_verified_data",

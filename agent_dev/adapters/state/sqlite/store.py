@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 from dataclasses import replace
+from typing import Any
 
 from agent_dev.adapters.state.sqlite.database import Database
 from agent_dev.domain.content import canonical, digest, redact
@@ -56,6 +57,8 @@ def validate_dag(tasks: list[dict], existing: set[str] | frozenset[str] = frozen
 class WorkflowRepository:
     def __init__(self, db: Database, *, clock=time.time, secrets: tuple[str, ...] = ()):
         self.db, self.clock, self.secrets = db, clock, secrets
+        # Project hook observer (ai_hooks.HookObserver); None when the project has no hooks.
+        self.hook_observer: Any = None
 
     def _json(self, content) -> str:
         return canonical(redact(content, self.secrets))
@@ -70,6 +73,9 @@ class WorkflowRepository:
             "INSERT INTO events VALUES(?,?,?,?,?,?)",
             (event_id, aggregate_id, version, kind, payload_json, self.clock()),
         )
+        observer = self.hook_observer
+        if observer is not None:
+            observer.notify(aggregate_id, kind, payload)  # Queues only; hooks run elsewhere.
         project_kinds = {
             "ProjectRegistered",
             "ProfileRevised",

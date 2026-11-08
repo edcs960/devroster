@@ -39,6 +39,7 @@ NAMESPACES = {
     "source",
     "changes",
     "skills",
+    "rules",
     "ai",
     "settings",
     "feedback",
@@ -63,6 +64,7 @@ SUMMARIES = {
     "doctor": "설치 · 로그인 · 저장소 준비 상태 진단",
     "ai": "공통 AI 도구 설정 보기 · 저장 · 프로젝트 설정 가져오기",
     "skills": "역할별 스킬 묶음 제안 · 설치 · 동기화",
+    "rules": "프로젝트 AI 규칙·스킬·훅(.ai/) 보기 · 동기화 · 훅 승인",
     "settings": "설정 · DB 저장 위치 확인과 이전",
     "upgrade": "작업 공간 저장소 업그레이드",
     "studio": "기획 · 명세 · 화면 검토(Studio) 웹 화면",
@@ -241,6 +243,7 @@ def parser():
         "settings": {"location": ["operation", "target?"]},
         "messenger": {"listen": [], "status": [], "test": []},
         "skills": {"catalog": [], "suggest": [], "status": [], "sync": []},
+        "rules": {"show": [], "sync": [], "check": [], "init": [], "hooks": [], "approve-hooks": ["digest"]},
         "ai": {"show": [], "set": ["source"], "import": []},
         "changes": {
             "bootstrap": [],
@@ -467,6 +470,35 @@ def wiki_knowledge(wiki, args, workspace):
     return wiki.render(args.project_id)
 
 
+def _rules(root, action, args=None):
+    from agent_dev.adapters import ai_hooks, ai_rules
+
+    target = root  # A plain repository: the rules live right here.
+    if (root / ".agent-dev").is_dir() or (root / "workspace.json").is_file():
+        from agent_dev.adapters.workflow_runtime import project_root
+
+        target = project_root(root)  # A workspace: rules live with its source folder.
+    if action == "init":
+        return ai_rules.init(target)
+    if action in {"hooks", "approve-hooks"}:
+        config = ai_hooks._config(root)
+        if action == "approve-hooks":
+            # The digest printed by `rules hooks`: approving means "exactly what I reviewed".
+            ai_hooks.approve(config, target, getattr(args, "digest", ""))
+        return ai_hooks.overview(target, config)
+    if action == "show":
+        return ai_rules.overview(target)
+    result = ai_rules.sync(target, check=action == "check")
+    if not result["ok"]:
+        raise DomainError(
+            ErrorCode.VERIFICATION_FAILED,
+            "최상위 AI 파일이 .ai/rules와 다르거나 표시 영역이 깨졌습니다: "
+            + ", ".join(result["stale"])
+            + (". devroster rules sync로 다시 만드세요." if action == "check" else ""),
+        )
+    return result
+
+
 # Commands that actually preview with --dry-run. Every other command would run for real.
 DRY_RUN_COMMANDS = frozenset(
     {("refactor", "migrate"), ("refactor", "retention"), ("task", "publish"), ("skills", "sync")}
@@ -521,6 +553,8 @@ def dispatch(args):
         from agent_dev.adapters.skill_cli import run as skills
 
         return skills(args)
+    if namespace == "rules":
+        return _rules(root, action, args)
     if namespace == "init":
         from agent_dev.adapters.workspace import initialize
 

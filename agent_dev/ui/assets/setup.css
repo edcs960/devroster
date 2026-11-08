@@ -136,3 +136,12 @@ body.app-shell.page-setup #setup-steps a[aria-current] span{background:var(--ui-
 
 /* Skill bundles per repository: a compact matrix that scrolls on narrow screens. */
 .page-setup .skill-table{overflow-x:auto;margin:8px 0 12px}.page-setup .skill-table table{border-collapse:collapse;width:100%;font-size:13px}.page-setup .skill-table th,.page-setup .skill-table td{padding:6px 8px;border-bottom:1px solid var(--ui-border);text-align:center;vertical-align:middle}.page-setup .skill-table th[scope=row]{text-align:left;font-weight:400}.page-setup .skill-table th[scope=row] small{display:block;color:var(--ui-muted)}.page-setup #skill-status p{margin:4px 0;font-size:13px;overflow-wrap:anywhere}
+/* Project AI rules (.ai/rules) */
+.rules-panel { display: grid; gap: 10px; margin-top: 4px; }
+.rules-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rules-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 10px; border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface); }
+.rules-list li code { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rules-list li.hint, .rules-list li.field-error { border-style: dashed; }
+.rules-panel pre { max-height: 320px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-xs); }
+#rules-title { margin-top: 28px; }
+.rules-panel h4 { margin: 12px 0 0; font-size: var(--fs-md); }

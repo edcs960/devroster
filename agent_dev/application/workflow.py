@@ -23,9 +23,12 @@ class WorkflowCoordinator:
         parser,
         *,
         tools=None,
+        hooks=None,
     ):
         self.store, self.runners, self.artifacts = store, runners, artifacts
         self.catalog, self.parser, self.tools = catalog, parser, tools
+        # Project hooks (task_id, event, context) -> results; run by DevRoster, not the AI.
+        self.hooks = hooks
 
     def execute(self, task_id: str, lease: dict, max_reentries: int | None = None) -> dict:
         self.store.assert_change_allowed(task_id)
@@ -140,6 +143,21 @@ class WorkflowCoordinator:
                         lease,
                         generation,
                     )
+                if self.hooks and decision["handoff_status"] == "pass" and "code.write" in capabilities:
+                    # after_edit hooks (lint, format checks): a failure sends the phase back.
+                    failed = next(
+                        (r for r in self.hooks(task_id, "after_edit", {"phase": phase_id}) if not r["ok"]),
+                        None,
+                    )
+                    if failed:
+                        decision = {
+                            "handoff_status": "issue",
+                            "issue_type": "implementation",
+                            "root_cause": f"after_edit 훅 '{failed['name']}' 실패 (종료 코드 {failed['exit_code']}): "
+                            + failed["output"][-1500:],
+                            "owning_agent_id": phase_id,
+                            "reentry_step_id": phase_id,
+                        }
             except DomainError as exc:
                 self.store.event(
                     task_id,

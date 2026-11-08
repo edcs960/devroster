@@ -26,6 +26,7 @@
 | 검증 | 모듈별 검증 명령, 실패 시 자동 재진입, 변경 검토 화면(코드·화면 캡처), 요구사항↔테스트 추적, 요구사항 변경 영향 분석 |
 | AI 도구 | Codex·Claude·Gemini CLI(앱 전용 로그인), OpenAI·Claude·Gemini·Grok API, OpenAI 호환·로컬 모델(Ollama), 작업 난이도별 모델·추론 강도 자동 선택 |
 | 지식·연동 | 승인 기반 프로젝트 위키, 역할별 스킬 묶음, MCP 도구 연결 카탈로그, Stitch·Figma 디자인 참고, 슬랙 요청·승인·상태 알림 |
+| 프로젝트 AI 규칙 | `.ai/`의 규칙·스킬·훅을 모든 AI 도구(CLI·API)와 Studio에 같게 적용, CLAUDE.md·AGENTS.md·GEMINI.md 자동 동기화, 승인한 훅만 실행 |
 | 운영 | 사용량·예상 비용 집계, 백업·복원, 저장 위치 이전, 데스크톱 앱 빌드 |
 
 ## 요구 사항
@@ -95,6 +96,7 @@ devroster app --root /path/to/my-project
 | `devroster doctor` | 설치·로그인·저장소 진단 |
 | `devroster task list` · `run` · `verify` · `resume` · `complete` | 작업 조회·실행·검증·재개·완료 |
 | `devroster design` · `plan` | 설계·계획 등록과 승인 |
+| `devroster rules show` · `sync` · `check` · `hooks` | 프로젝트 AI 규칙·스킬·훅(`.ai/`) 확인, CLAUDE.md·AGENTS.md·GEMINI.md 동기화, 훅 승인 |
 | `devroster messenger listen` | 슬랙 리스너 실행 |
 | `devroster backup` | 작업 공간 백업·복원 |
 

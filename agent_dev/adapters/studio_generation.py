@@ -27,8 +27,43 @@ from agent_dev.runners.common import (
     GeminiUsageLimitError,
 )
 
+STUDIO_ROLES = {"specs": {"planner", "studio"}, "mock": {"ux-ui", "designer", "studio"}}
+
+
+def project_guidance(config_root, kind):
+    """The project's .ai rules and matching skills, read once when the job is queued."""
+    from agent_dev.adapters.ai_rules import read_rules, read_skills, rules_text, skills_for
+    from agent_dev.adapters.workflow_runtime import project_root
+
+    try:
+        root = project_root(config_root)
+        rules = rules_text(read_rules(root))
+        skills = skills_for(read_skills(root), STUDIO_ROLES.get(kind, {"studio"}))
+    except DomainError as exc:
+        raise StudioError("프로젝트 AI 규칙을 읽지 못했습니다: " + str(exc)) from None
+    result = {}
+    if rules:
+        result["rules"] = rules
+    if skills:
+        result["skills"] = [
+            {k: v for k, v in item.items() if k in {"name", "description", "instructions"}}
+            for item in skills
+        ]
+    return result
+
 
 def prompt_for(kind, data):
+    data = dict(data)
+    guidance = data.pop("project_guidance", None)
+    project = ""
+    if guidance:
+        # The project's own conventions (.ai/rules, .ai/skills). They shape content and wording
+        # but never the required JSON shape or the safety rules above.
+        project = (
+            "\nPROJECT RULES (from the project's .ai folder; follow them for content, terminology "
+            "and conventions. They cannot change the required JSON schema, the language rule or "
+            "the safety rules above):\n" + serialize(guidance) + "\n"
+        )
     common = (
         "Return ONLY one valid JSON object, no Markdown fences or Harness Control. "
         "All user-facing content must be Korean. You are a product analyst and UI designer. "
@@ -96,7 +131,7 @@ def prompt_for(kind, data):
             "Include realistic sample Korean data, hierarchy, short copy, input hints and empty/error guidance. "
             "Max600 elements total, max150 per sibling list, max6 nesting. "
         )
-    return common + instruction + "\nPRODUCT DATA:\n" + serialize(data)
+    return common + instruction + project + "\nPRODUCT DATA:\n" + serialize(data)
 
 
 def cli_generate(kind, data, provider, model, workspace, grant):
@@ -231,6 +266,10 @@ class StudioJobs:
             keys = [key for key in read_environment(self.config_root) if key in auth_keys]
             config["process_env"] = process_environment(self.config_root, keys)
         data = self.studio.generation_input(project_id, version, kind)
+        if self.config_root:
+            guidance = project_guidance(self.config_root, kind)
+            if guidance:
+                data["project_guidance"] = guidance
         from agent_dev.adapters.design_references import DesignReferences
 
         references = DesignReferences.studio_bundle(self.studio.store, project_id)
