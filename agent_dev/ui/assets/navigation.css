@@ -86,3 +86,13 @@ body.app-shell > main { padding: 20px var(--gutter) 40px; max-width: var(--conte
   .app-header-actions > * { flex: none; }
 }
 @keyframes app-drawer-in { from { transform: translateX(-100%); } }
+
+/* 앱 종료 (desktop app only): pinned to the bottom of the menu, quiet until hovered. */
+.app-menu-quit { display: flex; align-items: center; gap: 10px; min-height: 36px; margin-top: auto; padding: 0 10px; border: 0; border-radius: var(--r-md); background: none; box-shadow: none; color: var(--c-text-3); font-size: var(--fs-sm); font-weight: var(--fw-medium); justify-content: flex-start; }
+.app-menu-quit:hover { background: var(--c-danger-bg); color: var(--c-danger); }
+@media (min-width: 1440px) { .app-menu-quit[data-tip]::before { display: none; } }
+@media (max-width: 1439px) and (min-width: 1024px) { .app-menu-quit { width: 44px; height: 40px; padding: 0; justify-content: center; } }
+@media (max-width: 1023px) { .app-menu-quit { min-height: 44px; padding: 6px 10px; } .app-menu-quit[data-tip]::before { display: none; } }
+.app-quit-done { display: grid; place-content: center; gap: 8px; min-height: 100vh; padding: 24px; text-align: center; }
+.app-quit-done h1 { margin: 0; font-size: var(--fs-2xl); }
+.app-quit-done p { margin: 0; color: var(--c-text-2); }

@@ -5,7 +5,8 @@ import json
 import secrets
 import sqlite3
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from collections.abc import Callable
+from http.server import BaseHTTPRequestHandler
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -16,6 +17,7 @@ from agent_dev.adapters.studio_store import StudioStore
 from agent_dev.application.studio import Studio
 from agent_dev.domain.errors import DomainError
 from agent_dev.domain.studio import DOCUMENTS, StudioError
+from agent_dev.ui.local_server import LocalHTTPServer
 from agent_dev.ui.page_navigation import local_page_navigation
 from agent_dev.ui.shared_assets import shared_asset_name
 
@@ -42,6 +44,8 @@ class StudioWeb:
 
         self.setup = SetupWeb(root)
         self.token = secrets.token_urlsafe(32)
+        # Set by the desktop launcher: lets the screen stop the app (no terminal to Ctrl+C).
+        self.quit: Callable[[], None] | None = None
         from agent_dev.ui.code_stamp import code_stamp
 
         self.code_stamp = code_stamp()
@@ -149,7 +153,10 @@ class StudioWeb:
                 if parsed.path == "/api/app/status":
                     from agent_dev.ui.code_stamp import code_stamp
 
-                    self.send(handler, {"restart_required": code_stamp() != self.code_stamp})
+                    self.send(
+                        handler,
+                        {"restart_required": code_stamp() != self.code_stamp, "can_quit": self.quit is not None},
+                    )
                     return
                 if parsed.path in {"/api/tasks", "/api/task", "/api/doctor"}:
                     from agent_dev.ui.dashboard import read_view
@@ -205,6 +212,15 @@ class StudioWeb:
                 return
             if handler.command != "POST":
                 raise StudioError("지원하지 않는 요청 방식입니다.", 405)
+            if parsed.path == "/api/app/quit":
+                # Same-origin only (checked above) and a custom header a plain form cannot send.
+                if self.quit is None:
+                    raise StudioError("이 방식으로 실행한 DevRoster는 화면에서 종료할 수 없습니다.", 404)
+                if handler.headers.get("X-DevRoster-Action") != "quit":
+                    raise StudioError("화면을 새로고침한 뒤 다시 시도해주세요.", 403)
+                self.send(handler, {"stopping": True})
+                threading.Thread(target=self.quit, name="devroster-quit", daemon=True).start()
+                return
             if not hmac.compare_digest(handler.headers.get("X-Studio-Token", ""), self.token):
                 raise StudioError("화면을 새로고침한 뒤 다시 시도해주세요.", 403)
             if handler.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
@@ -286,7 +302,7 @@ class StudioWeb:
         raise StudioError("요청한 기능을 찾을 수 없습니다.", 404)
 
 
-class StudioHTTPServer(ThreadingHTTPServer):
+class StudioHTTPServer(LocalHTTPServer):
     studio: StudioWeb
 
 

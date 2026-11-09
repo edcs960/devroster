@@ -4,7 +4,7 @@ import hmac
 import json
 import secrets
 import sqlite3
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -16,6 +16,7 @@ from agent_dev.adapters.project_setup import ProjectSetup
 from agent_dev.adapters.skill_cli import listing as skill_listing
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.project_roles import catalog as role_catalog
+from agent_dev.ui.local_server import LocalHTTPServer
 from agent_dev.ui.page_navigation import local_page_navigation
 from agent_dev.ui.studio_server import StudioWeb
 
@@ -33,7 +34,7 @@ ASSETS = {
 }
 
 
-class SetupHTTPServer(ThreadingHTTPServer):
+class SetupHTTPServer(LocalHTTPServer):
     studio: StudioWeb
 
 

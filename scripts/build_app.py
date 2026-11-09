@@ -1,13 +1,14 @@
-"""Build the DevRoster desktop launcher with PyInstaller.
+"""Build the DevRoster desktop app with PyInstaller.
 
     python -m pip install -e ".[app]"
-    python scripts/build_app.py [--onefile] [--smoke]
+    python scripts/build_app.py --dmg --smoke        # macOS: dist-app/DevRoster-<ver>-macos-<arch>.dmg
+    python scripts/build_app.py --onefile --smoke    # Windows: dist-app/DevRoster.exe
 
-Output: dist-app/DevRoster/ (folder build; DevRoster.exe on Windows).
-Build on each target OS; PyInstaller does not cross-compile. The launcher
-starts the local web workspace and opens the browser; AI CLIs (codex, claude)
-must be installed separately and are logged in from the settings screen.
---smoke starts the built launcher without a browser and checks /setup.
+Build on each target OS; PyInstaller does not cross-compile (one-click: scripts/build_macos.command, scripts\build_windows.bat).
+The app has no console window: it starts the local web workspace, opens the browser and is
+stopped from the screen's menu (앱 종료). Opening it again shows the running one. AI CLIs
+(codex, claude) are installed separately and logged in from the settings screen.
+--smoke starts the built app without a browser and checks /setup.
 """
 
 from __future__ import annotations
@@ -26,9 +27,46 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist-app"
 WORK = ROOT / "build-app"
 NAME = "DevRoster"
+ICON_PNG = ROOT / "packaging" / "DevRoster.png"
+BUNDLE_ID = "com.devroster.app"
+
+
+def version() -> str:
+    import tomllib
+
+    return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+
+
+def icon_file() -> Path | None:
+    """.icns (macOS) or .ico (Windows) made from packaging/DevRoster.png, no extra packages."""
+    WORK.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "darwin":
+        iconset = WORK / f"{NAME}.iconset"
+        iconset.mkdir(exist_ok=True)
+        for size in (16, 32, 128, 256, 512):
+            for scale in (1, 2):
+                name = f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png"
+                subprocess.run(
+                    ["sips", "-z", str(size * scale), str(size * scale), str(ICON_PNG), "--out", str(iconset / name)],
+                    check=True, capture_output=True,
+                )
+        target = WORK / f"{NAME}.icns"
+        subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(target)], check=True)
+        return target
+    if os.name == "nt":
+        # An .ico may hold a PNG image directly (Windows Vista and later).
+        data = ICON_PNG.read_bytes()
+        import struct
+
+        header = struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", 0, 0, 0, 0, 1, 32, len(data), 22)
+        target = WORK / f"{NAME}.ico"
+        target.write_bytes(header + data)
+        return target
+    return None
 
 
 def build(onefile: bool) -> Path:
+    icon = icon_file()
     command = [
         sys.executable,
         "-m",
@@ -48,11 +86,71 @@ def build(onefile: bool) -> Path:
         "--collect-data",
         "agent_dev",
         "--onefile" if onefile else "--onedir",
+        # No console window: the app is stopped from its screen (앱 종료).
+        "--windowed",
+        "--osx-bundle-identifier",
+        BUNDLE_ID,
+        *(["--icon", str(icon)] if icon else []),
         str(ROOT / "agent_dev" / "app.py"),
     ]
     subprocess.run(command, check=True, cwd=ROOT)
+    if sys.platform == "darwin":
+        app = DIST / f"{NAME}.app"
+        stamp_version(app)
+        return app / "Contents" / "MacOS" / NAME
     suffix = ".exe" if os.name == "nt" else ""
     return DIST / (f"{NAME}{suffix}" if onefile else f"{NAME}/{NAME}{suffix}")
+
+
+def stamp_version(app: Path) -> None:
+    import plistlib
+
+    info = app / "Contents" / "Info.plist"
+    value = plistlib.loads(info.read_bytes())
+    value.update(
+        CFBundleShortVersionString=version(),
+        CFBundleVersion=version(),
+        CFBundleDisplayName=NAME,
+        NSHighResolutionCapable=True,
+        LSMinimumSystemVersion="11.0",
+    )
+    info.write_bytes(plistlib.dumps(value))
+
+
+def dmg(app: Path) -> Path:
+    """A compressed disk image with the app and an Applications shortcut to drag it onto."""
+    import platform
+    import shutil
+
+    stage = WORK / "dmg"
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir(parents=True)
+    shutil.copytree(app, stage / app.name, symlinks=True)
+    (stage / "Applications").symlink_to("/Applications")
+    target = DIST / f"{NAME}-{version()}-macos-{platform.machine()}.dmg"
+    target.unlink(missing_ok=True)
+    subprocess.run(
+        ["hdiutil", "create", "-volname", NAME, "-srcfolder", str(stage), "-ov", "-format", "UDZO", str(target)],
+        check=True,
+    )
+    return target
+
+
+def check_dmg(image: Path) -> None:
+    """Mount the image read-only and make sure the app and the Applications link are there."""
+    import tempfile as temp
+
+    with temp.TemporaryDirectory(prefix="devroster-dmg-") as mount:
+        subprocess.run(
+            ["hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", mount, str(image)],
+            check=True, capture_output=True,
+        )
+        try:
+            assert (Path(mount) / f"{NAME}.app" / "Contents" / "MacOS" / NAME).is_file()
+            assert (Path(mount) / "Applications").is_symlink()
+        finally:
+            subprocess.run(["hdiutil", "detach", mount], check=True, capture_output=True)
+    print(f"dmg ok: {image}")
 
 
 def free_port() -> int:
@@ -83,7 +181,7 @@ def smoke(executable: Path) -> None:
                     break
                 except OSError:
                     if process.poll() is not None or time.time() > deadline:
-                        raise RuntimeError("launcher did not serve /setup:\n" + process.stdout.read())
+                        raise RuntimeError("launcher did not serve /setup:\n" + (process.stdout.read() if process.stdout else ""))
                     time.sleep(1)
             homes = Path(folder) / "home" / "cli"
             assert (homes / "claude").is_dir() and (homes / "codex").is_dir()
@@ -94,19 +192,26 @@ def smoke(executable: Path) -> None:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "DevRoster app").splitlines()[0])
     parser.add_argument("--onefile", action="store_true", help="Single executable (slower start)")
     parser.add_argument("--smoke", action="store_true", help="Start the build and check /setup")
+    parser.add_argument("--dmg", action="store_true", help="macOS: also make a .dmg disk image")
     args = parser.parse_args(argv)
     if subprocess.run(
         [sys.executable, "-m", "PyInstaller", "--version"], capture_output=True, check=False
     ).returncode:
         print('PyInstaller가 필요합니다: python -m pip install -e ".[app]"')
         return 1
-    executable = build(args.onefile)
+    if args.dmg and sys.platform != "darwin":
+        print("--dmg는 macOS에서만 만들 수 있습니다.")
+        return 1
+    executable = build(args.onefile and sys.platform != "darwin")
     print(f"built: {executable}")
     if args.smoke:
         smoke(executable)
+    if args.dmg:
+        image = dmg(executable.parents[2])
+        check_dmg(image)
     return 0
 
 

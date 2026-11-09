@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from importlib.resources import files
 from pathlib import Path
 from typing import cast
@@ -12,6 +12,7 @@ from agent_dev.adapters.task_queries import TaskQueries
 from agent_dev.adapters.workspace import configuration_root, metadata
 from agent_dev.domain.content import redact
 from agent_dev.domain.errors import DomainError, ErrorCode
+from agent_dev.ui.local_server import LocalHTTPServer
 
 
 def read_view(root, parsed):
@@ -131,7 +132,7 @@ def make_server(root: Path, port=8766):
         do_DELETE = do_POST
         do_PATCH = do_POST
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return LocalHTTPServer(("127.0.0.1", port), Handler)
 
 
 def serve(root, port=8766):

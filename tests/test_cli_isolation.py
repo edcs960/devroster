@@ -444,9 +444,9 @@ def test_app_reports_restart_when_its_code_changes(tmp_path, monkeypatch):
             with urllib.request.urlopen(url, timeout=5) as response:
                 return json.loads(response.read())
 
-        assert status() == {"restart_required": False}
+        assert status() == {"restart_required": False, "can_quit": False}
         current["stamp"] = "pulled"
-        assert status() == {"restart_required": True}
+        assert status() == {"restart_required": True, "can_quit": False}
     finally:
         server.shutdown()
         server.studio.close()

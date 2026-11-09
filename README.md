@@ -38,6 +38,30 @@
 
 ## 설치
 
+**앱으로 설치(권장)** — 저장소를 받아 내 컴퓨터에서 앱을 만듭니다. Python 3.11 이상이 필요하고, 처음 한 번은 몇 분 걸립니다.
+
+```sh
+git clone https://github.com/edcs960/devroster.git    # 또는 GitHub에서 Code → Download ZIP
+```
+
+| OS | 실행할 파일 | 결과 |
+|---|---|---|
+| macOS | Finder에서 `scripts/build_macos.command`를 더블클릭 | `DevRoster.app`을 만들고, 원하면 Applications 폴더에 설치합니다. 내 Mac에서 만든 앱이라 "확인되지 않은 개발자" 경고 없이 열립니다 |
+| Windows | 탐색기에서 `scripts\build_windows.bat`를 더블클릭 | `dist-app\DevRoster.exe`를 만듭니다. 바탕 화면 등 원하는 곳에 옮겨 더블클릭합니다 |
+
+ZIP으로 받았거나 macOS에서 더블클릭이 막히면 터미널에서 `bash scripts/build_macos.command`로 실행합니다. 새 버전은 저장소를 갱신(`git pull`)한 뒤 같은 파일을 다시 실행하면 됩니다.
+
+앱을 실행하면 브라우저에 DevRoster 화면이 열립니다. 이미 실행 중이면 그 화면을 다시 엽니다. 끌 때는 화면 왼쪽 메뉴 맨 아래의 **앱 종료**를 누릅니다. AI CLI(Claude Code·Codex 등)는 따로 설치하고 설정 화면에서 로그인합니다.
+
+**명령어로 설치** — 클론 없이 설치합니다([uv](https://docs.astral.sh/uv/) 또는 pipx).
+
+```sh
+uv tool install git+https://github.com/edcs960/devroster    # 또는: pipx install git+https://github.com/edcs960/devroster
+devroster app
+```
+
+**소스로 설치** — 개발에 참여할 때.
+
 ```sh
 git clone https://github.com/edcs960/devroster.git
 cd devroster
@@ -143,6 +167,17 @@ API는 파일을 직접 수정하지 않습니다. 실제 개발에는 CLI 도�
 - 코드 구조: `agent_dev/domain`(순수 규칙) · `application`(흐름 조정) · `ports`(계약) · `adapters`(파일·DB·프로세스·외부 연동) · `ui`(웹 서버와 화면). 자세한 내용은 [아키텍처](docs/architecture.md)를 참고하세요.
 - 실제 AI를 호출하는 확인은 `scripts/smoke_live.py --run --provider codex_cli`(또는 `claude_cli`)로 임시 저장소에서 따로 실행합니다.
 - 버그 제보와 제안은 GitHub Issues로 부탁드립니다.
+
+## 설치 파일 만들기
+
+PyInstaller는 다른 OS용 파일을 만들지 못하므로 각 OS에서 만듭니다. 보통은 위의 `scripts/build_macos.command`·`scripts\build_windows.bat`이면 충분하고, 다른 사람에게 줄 macOS 디스크 이미지(.dmg)는 직접 만듭니다.
+
+```sh
+python3 -m venv .build-venv && .build-venv/bin/pip install -e ".[app]"
+.build-venv/bin/python scripts/build_app.py --dmg --smoke     # dist-app/DevRoster-<버전>-macos-<arch>.dmg
+```
+
+서명하지 않은 앱이라 다른 컴퓨터에서 받은 파일은 처음 열 때 경고가 나옵니다(macOS: 앱을 **오른쪽 클릭 → 열기**, Windows: **추가 정보 → 실행**). 아이콘은 `packaging/DevRoster.png`이고 `python packaging/make_icon.py`로 다시 만들 수 있습니다.
 
 ## 라이선스
 

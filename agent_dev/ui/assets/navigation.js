@@ -117,6 +117,21 @@
   }
   if (header) { const syncHeader = () => document.documentElement.style.setProperty('--app-header-height', header.getBoundingClientRect().height + 'px'); syncHeader(); if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncHeader).observe(header); window.addEventListener('resize', syncHeader); }
   // The running app keeps its old code after a pull or an upgrade; ask for a restart.
-  if (typeof fetch === 'function') { fetch('/api/app/status').then(r => r.ok ? r.json() : null).then(status => { if (!status?.restart_required || document.getElementById('app-restart-notice')) return; const notice = make('div', 'DevRoster 코드가 바뀌었습니다. 앱을 종료하고 다시 실행해야 새 코드가 적용됩니다.', 'app-restart-notice'); notice.id = 'app-restart-notice'; notice.setAttribute('role', 'status'); document.body.insertBefore(notice, document.body.firstChild); }).catch(() => {}); }
+  // A double-clicked app has no terminal to stop it from: offer 앱 종료 in the menu.
+  const addQuit = () => {
+    if (document.getElementById('app-quit')) return;
+    const quit = make('button', undefined, 'app-menu-quit'); quit.id = 'app-quit'; quit.type = 'button'; quit.setAttribute('data-tip', '앱 종료'); quit.setAttribute('data-tip-pos', 'right');
+    const quitIcon = icon('x'); if (quitIcon) quit.append(quitIcon); quit.append(make('span', '앱 종료', 'app-nav-text'));
+    quit.addEventListener('click', async () => {
+      const UI = globalThis.DevRosterUI;
+      const ok = UI ? await UI.confirmAction('DevRoster를 종료할까요?', '진행 중인 AI 실행이 있으면 멈춥니다. 다시 쓰려면 앱을 다시 실행하세요.', '종료', { danger: true }) : globalThis.confirm?.('DevRoster를 종료할까요?');
+      if (!ok) return;
+      try { await fetch('/api/app/quit', { method: 'POST', headers: { 'X-DevRoster-Action': 'quit' } }); } catch { /* The server is already stopping. */ }
+      const done = make('main', undefined, 'app-quit-done'); done.append(make('h1', 'DevRoster를 종료했습니다'), make('p', '이 탭을 닫아도 됩니다. 다시 쓰려면 DevRoster 앱을 실행하세요.'));
+      document.body.replaceChildren(done);
+    });
+    panel.append(quit);
+  };
+  if (typeof fetch === 'function') { fetch('/api/app/status').then(r => r.ok ? r.json() : null).then(status => { if (status?.can_quit) addQuit(); if (!status?.restart_required || document.getElementById('app-restart-notice')) return; const notice = make('div', 'DevRoster 코드가 바뀌었습니다. 앱을 종료하고 다시 실행해야 새 코드가 적용됩니다.', 'app-restart-notice'); notice.id = 'app-restart-notice'; notice.setAttribute('role', 'status'); document.body.insertBefore(notice, document.body.firstChild); }).catch(() => {}); }
   sync();
 })();

@@ -5,12 +5,13 @@ import json
 import logging
 import secrets
 import sqlite3
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from importlib.resources import files
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from agent_dev.domain.errors import DomainError, ErrorCode
+from agent_dev.ui.local_server import LocalHTTPServer
 from agent_dev.ui.page_navigation import local_page_navigation
 from agent_dev.ui.shared_assets import NAVIGATION_ASSETS, shared_asset_name
 from agent_dev.ui.studio_server import StudioWeb
@@ -166,4 +167,4 @@ def make_server(web, port=0):
         def log_message(self, format, *args):
             pass
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return LocalHTTPServer(("127.0.0.1", port), Handler)
