@@ -28,11 +28,40 @@ def _unique_fields(pairs):
     return result
 
 
+def _trailing_object(output):
+    """A control object written without a code fence at the very end of the output.
+
+    Smaller models often drop the fence. Only an object that ends the output counts, so a
+    JSON example quoted earlier in the text is never taken as the result.
+    """
+    text = output.rstrip()
+    if not text.endswith("}"):
+        return None
+    window = len(text) - min(len(text), 20000)
+    start = text.rfind("{", window)
+    while start >= window:
+        candidate = text[start:]
+        if "handoff_status" in candidate:
+            try:
+                json.loads(candidate)
+            except ValueError:
+                pass
+            else:
+                return candidate
+        start = text.rfind("{", window, start)
+    return None
+
+
 def parse_harness(output: str, allowed_phases: set[str] | None = None) -> dict:
     if not isinstance(output, str) or len(output) > 2_000_000:
         raise DomainError(ErrorCode.INVALID_INPUT, "Agent output exceeds control parser limits.")
     controls = []
-    for block in re.findall(r"```(?:json)?\s*(.*?)\s*```", output, re.DOTALL):
+    blocks = re.findall(r"```(?:json)?\s*(.*?)\s*```", output, re.DOTALL)
+    if not any("handoff_status" in block for block in blocks):
+        trailing = _trailing_object(output)
+        if trailing:
+            blocks = [trailing]
+    for block in blocks:
         if "handoff_status" not in block:
             continue
         try:

@@ -166,6 +166,7 @@ API는 파일을 직접 수정하지 않습니다. 실제 개발에는 CLI 도�
 
 - 코드 구조: `agent_dev/domain`(순수 규칙) · `application`(흐름 조정) · `ports`(계약) · `adapters`(파일·DB·프로세스·외부 연동) · `ui`(웹 서버와 화면). 자세한 내용은 [아키텍처](docs/architecture.md)를 참고하세요.
 - 실제 AI를 호출하는 확인은 `scripts/smoke_live.py --run --provider codex_cli`(또는 `claude_cli`)로 임시 저장소에서 따로 실행합니다.
+- 개발 환경, 코드 구조, 처음 읽을 파일, PR 규칙은 [기여 안내](CONTRIBUTING.md)에 있습니다.
 - 버그 제보와 제안은 GitHub Issues로 부탁드립니다.
 
 ## 설치 파일 만들기

@@ -92,3 +92,22 @@ def test_worktree_removal_gives_up_after_the_last_attempt(monkeypatch):
     monkeypatch.setattr(worktrees.time, "sleep", lambda seconds: None)
     with pytest.raises(DomainError):
         worktrees.remove_worktree("repo", "task", attempts=2)
+
+
+def test_validate_compares_git_paths_not_their_spelling(tmp_path, monkeypatch):
+    common = tmp_path / "repo" / ".git"
+    common.mkdir(parents=True)
+    worktree = tmp_path / "task"
+    worktree.mkdir()
+    binding = {"worktree": str(worktree), "branch": "task/T/source", "common_dir": str(common.resolve())}
+
+    def git_output(root, *arguments):
+        if arguments[:2] == ("branch", "--show-current"):
+            return "task/T/source"
+        # Git spells the same folder differently (Windows: C:/x/.git, not C:\x\.git).
+        return str(common) + "/./"
+
+    monkeypatch.setattr(worktrees, "git", git_output)
+    assert worktrees.WorktreeManager.validate(binding)
+    binding["common_dir"] = str(tmp_path / "other" / ".git")
+    assert not worktrees.WorktreeManager.validate(binding)

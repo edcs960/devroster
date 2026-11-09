@@ -105,6 +105,19 @@ class WorkflowCoordinator:
                     "reason": "EXECUTION_LIMIT_REACHED",
                     "usage": usage,
                 }
+            recover = getattr(self.catalog, "recover_interrupted", None)
+            try:
+                if recover:
+                    recover(task_id, phase_id)  # A crashed attempt's leftovers are checked first.
+            except DomainError as exc:
+                self.store.event(
+                    task_id, "ExecutionBlocked", {"code": exc.code.value, "reason": str(exc), "phase_id": phase_id}
+                )
+                current = self.store.task(task_id)
+                self.store.transition(
+                    task_id, TaskStatus.BLOCKED, TransitionContext(expected_version=current.version), lease
+                )
+                return {"task_id": task_id, "state": "blocked", "error": exc.code.value, "reason": str(exc)}
             if budget_pause and budget_pause(task_id, policy)[0]:
                 self.store.event(
                     task_id,
@@ -157,9 +170,25 @@ class WorkflowCoordinator:
                 self.artifacts.prompt(task_id, phase_id, attempt["id"], request.context)
                 capture = getattr(self.catalog, "role_before", None)
                 before = capture(task_id, phase_id) if capture else None
+                save_baseline = getattr(self.catalog, "save_baseline", None)
+                if save_baseline and before is not None:
+                    save_baseline(task_id, phase_id, attempt["id"], before)
                 result = self.runners.execute(request)
                 self.artifacts.write(task_id, phase_id, attempt["id"], result.output)
-                decision = self.parser(result.output, {p[0] for p in phases})
+                from .workflow_dag import parse_with_repair
+
+                result, decision = parse_with_repair(
+                    self.parser,
+                    {p[0] for p in phases},
+                    request,
+                    result,
+                    self.runners,
+                    capture=(lambda c=capture, p=phase_id: c(task_id, p)) if capture else None,
+                    seconds_left=remaining - (time.monotonic() - started),
+                    record=lambda a=attempt["id"], p=phase_id: self.store.event(
+                        task_id, "ControlRepairRequested", {"attempt_id": a, "phase_id": p}
+                    ),
+                )
                 apply_result = getattr(self.catalog, "apply_role_result", None)
                 if apply_result:
                     apply_result(

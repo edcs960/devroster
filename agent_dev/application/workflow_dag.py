@@ -34,6 +34,52 @@ def merge_usage(*usages):
 
 
 
+# Parser messages for a result block that is missing or not valid JSON; anything else
+# (unknown fields, bad status, wrong owner) is a real answer and is never "repaired".
+FORMAT_ERRORS = frozenset({"Malformed Harness Control JSON.", "Exactly one Harness Control block required."})
+REPAIR_NOTE = (
+    "Your previous reply in this conversation did not end with exactly one valid Harness Control "
+    "JSON block. Do not change, create or delete any file and do not redo the work. Reply with only "
+    "that block, in a ```json fence, describing the work you already did."
+)
+
+
+def parse_with_repair(parser, phases, request, result, runners, capture=None, seconds_left=None, record=None):
+    """(result, decision); a format error gets one repair request in the same conversation.
+
+    Only a runner that returned a resumable session is asked (a fresh call would redo the
+    work and cost a full attempt). The repair must not change files, its time comes out of
+    the attempt's remaining budget, and its usage is added to the attempt.
+    """
+    try:
+        return result, parser(result.output, phases)
+    except DomainError as exc:
+        left = request.timeout_seconds if seconds_left is None else int(seconds_left)
+        if str(exc) not in FORMAT_ERRORS or not getattr(result, "resume_session", "") or left < 1:
+            raise
+    context = json.loads(request.context)
+    context["control_repair"] = REPAIR_NOTE
+    repair = with_fields(
+        request,
+        context=json.dumps(context, ensure_ascii=False),
+        resume_session=result.resume_session,
+        timeout_seconds=max(1, min(request.timeout_seconds, left, 600)),
+    )
+    before = capture() if capture else None
+    repaired = runners.execute(repair)
+    if capture and capture() != before:
+        raise DomainError(ErrorCode.POLICY_VIOLATION, "Control repair changed files.")
+    decision = parser(repaired.output, phases)
+    if record:
+        record()
+    merged = with_fields(
+        result,
+        usage=merge_usage(result.usage, repaired.usage),
+        resume_session=repaired.resume_session or result.resume_session,
+    )
+    return merged, decision
+
+
 def verification_reentry(graph):
     """The code role a failed workflow gate returns to: developer, else a developer-* node."""
     roles = [n["id"] for n in graph["nodes"] if n.get("kind") == "role"]
@@ -388,6 +434,9 @@ class DagExecution:
         budget_pause = getattr(self.store, "budget_pause", None)
         if budget_pause and budget_pause(task_id, snapshot["resolved"].get("usage_policy"))[0]:
             raise DomainError(ErrorCode.POLICY_VIOLATION, "BUDGET_PAUSE")
+        recover = getattr(self.c.catalog, "recover_interrupted", None)
+        if recover:
+            recover(task_id, node_id)  # A crashed attempt's leftovers are checked before rerunning.
         attempt = self.store.begin_attempt(
             task_id, node_id, digest([task_id, node_id, snapshot["digest"], generation]), lease
         )
@@ -451,6 +500,9 @@ class DagExecution:
                 fallback = node_id in self.session_fallback
                 self.session_fallback.discard(node_id)
                 before = capture(task_id, node_id) if capture else None
+                save_baseline = getattr(self.c.catalog, "save_baseline", None)
+                if save_baseline and before is not None:
+                    save_baseline(task_id, node_id, attempt["id"], before)
                 ai_call = True
                 result = self.c.runners.execute(request)
                 if node_id in self.session_usage:
@@ -460,9 +512,23 @@ class DagExecution:
                     )
             # Preserve malformed output as fenced evidence; it cannot apply structured edits.
             self.c.artifacts.write(task_id, node_id, attempt["id"], result.output)
-            decision = self.c.parser(
-                result.output, {n["id"] for n in resolved["workflow_graph"]["nodes"]}
-            )
+            node_ids = {n["id"] for n in resolved["workflow_graph"]["nodes"]}
+            if node.get("session") and before is None:
+                # A session member's result came from the shared call: nothing to resume alone.
+                decision = self.c.parser(result.output, node_ids)
+            else:
+                result, decision = parse_with_repair(
+                    self.c.parser,
+                    node_ids,
+                    request,
+                    result,
+                    self.c.runners,
+                    capture=(lambda: capture(task_id, node_id)) if capture else None,
+                    seconds_left=remaining - (time.monotonic() - started),
+                    record=lambda: self.store.event(
+                        task_id, "ControlRepairRequested", {"attempt_id": attempt["id"], "node_id": node_id}
+                    ),
+                )
             cross_policy = node.get("cross_check", "off")
             review_remaining = int(remaining - (time.monotonic() - started))
             if node_id in self.session_cross:

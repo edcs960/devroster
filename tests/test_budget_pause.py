@@ -52,7 +52,7 @@ GRAPH = {
 }
 
 
-def runtime_with(tmp_path, policy, graph=None):
+def runtime_with(tmp_path, policy, graph=None, phases=None):
     source = tmp_path / "source"
     source.mkdir()
     (source / "source.txt").write_text("base", encoding="utf-8")
@@ -68,7 +68,8 @@ def runtime_with(tmp_path, policy, graph=None):
         "Project",
         {
             "repositories": {"source": {"path": str(source), "allowed_paths": ["source.txt"]}},
-            "phases": [
+            "phases": phases
+            or [
                 {"id": "developer", "capabilities": ["code.write"]},
                 {"id": "developer2", "capabilities": ["code.write"]},
                 {"id": "developer3", "capabilities": ["code.write"]},

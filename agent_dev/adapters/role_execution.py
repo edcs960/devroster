@@ -68,3 +68,99 @@ def enforce(bindings, before, role_policy, module=None):
             ]
         validate_changes(root, delta, narrowed)
     return after
+
+
+# Interrupted attempts ------------------------------------------------------------------
+# A role that crashes never reaches enforce(), and the next run would capture its leftovers
+# as the new baseline. Each attempt therefore stores where it started: the file digests
+# (to find what changed) and a Git tree of the whole worktree (to put changed paths back
+# without touching the index or the work of earlier roles, which stays uncommitted).
+
+
+def _attempts_dir(bindings):
+    first = next(iter(bindings.values()))
+    return Path(first["worktree"]).resolve().parent / ".attempts"
+
+
+def _git(root, *arguments, env=None, check=True):
+    return subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        capture_output=True,
+        text=True, encoding="utf-8", errors="surrogateescape",
+        timeout=120,
+        check=check,
+        env=env,
+    )
+
+
+def worktree_tree(binding):
+    """A tree object of the worktree as it is now (tracked and new files), index untouched."""
+    import os
+    import tempfile
+
+    root = Path(binding["worktree"]).resolve()
+    with tempfile.TemporaryDirectory(prefix="devroster-index-") as folder:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(folder) / "index"))
+        _git(root, "read-tree", "HEAD", env=env)
+        _git(root, "add", "-A", env=env)
+        return _git(root, "write-tree", env=env).stdout.strip()
+
+
+def save_baseline(bindings, attempt_id, before):
+    import json
+
+    if not bindings:
+        return
+    folder = _attempts_dir(bindings)
+    folder.mkdir(parents=True, exist_ok=True)
+    trees = {name: worktree_tree(binding) for name, binding in bindings.items()}
+    data = {
+        "capture": {name: {p: list(v) if v else None for p, v in files.items()} for name, files in before.items()},
+        "trees": trees,
+    }
+    (folder / f"{attempt_id}.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def load_baseline(bindings, attempt_id):
+    import json
+
+    path = _attempts_dir(bindings) / f"{attempt_id}.json" if bindings else None
+    if path is None or not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["capture"] = {
+        name: {p: tuple(v) if v else None for p, v in files.items()} for name, files in data["capture"].items()
+    }
+    return data
+
+
+def changed_since(bindings, before):
+    """{repository: [paths]} that differ from ``before``."""
+    after = capture(bindings)
+    result = {}
+    for name in bindings:
+        previous, current = before.get(name, {}), after.get(name, {})
+        delta = sorted(p for p in previous.keys() | current.keys() if previous.get(p) != current.get(p))
+        if delta:
+            result[name] = delta
+    return result
+
+
+def restore_paths(bindings, baseline, changed, backup):
+    """Put ``changed`` paths back to the attempt's start; current files are copied to ``backup``."""
+    import shutil
+
+    for name, paths in changed.items():
+        root = Path(bindings[name]["worktree"]).resolve()
+        tree = baseline["trees"][name]
+        for relative in paths:
+            current = root / relative
+            if current.is_file() and not current.is_symlink():
+                target = Path(backup) / name / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(current, target)
+            literal = ":(literal)" + relative
+            if _git(root, "cat-file", "-e", f"{tree}:{relative}", check=False).returncode == 0:
+                _git(root, "restore", "--source", tree, "--worktree", "--", literal)
+            elif current.is_file() or current.is_symlink():
+                current.unlink()

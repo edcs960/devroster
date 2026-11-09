@@ -1,6 +1,8 @@
 """Task-specific Git worktrees; the user's checkout is never a write target."""
 
+import contextlib
 import os
+import shutil
 import stat
 import subprocess
 import time
@@ -110,11 +112,15 @@ class WorktreeManager:
     @staticmethod
     def validate(binding):
         root = Path(binding["worktree"]).resolve()
+        # Compare paths, not strings: Git prints C:/x/.git on Windows while the binding
+        # stores the resolved C:\x\.git, and drive letters may differ in case.
         return (
             root.is_dir()
             and git(root, "branch", "--show-current") == binding["branch"]
-            and git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-            == binding["common_dir"]
+            and Path(
+                git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+            ).resolve()
+            == Path(binding["common_dir"]).resolve()
         )
 
 
@@ -290,3 +296,111 @@ def evidence_digest(bindings):
             )
         result[name] = {"files": files}
     return digest(result)
+
+
+# Cleanup of finished tasks ---------------------------------------------------------------
+# release() runs only when a task is cancelled and keeps anything with commits outside the
+# base, so a task merged on GitHub (squash: new commit IDs) kept its worktree forever.
+
+FINISHED = ("completed", "cancelled")
+
+
+def _folder_size(root):
+    total = 0
+    for folder, directories, files in os.walk(root, followlinks=False):
+        directories[:] = [d for d in directories if d != ".git" and not os.path.islink(os.path.join(folder, d))]
+        for name in files:
+            path = os.path.join(folder, name)
+            if not os.path.islink(path):
+                with contextlib.suppress(OSError):
+                    total += os.lstat(path).st_size
+    return total
+
+
+def _contained(binding):
+    """The task branch's work is in the source checkout's current branch or its base ref."""
+    worktree = Path(binding["worktree"])
+    head = subprocess.run(
+        ["git", "-C", str(worktree), "rev-parse", "HEAD"], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=30, check=False,
+    ).stdout.strip()
+    if not head:
+        return False
+    for ref in dict.fromkeys(["HEAD", binding.get("base_ref") or "HEAD"]):
+        check = subprocess.run(
+            ["git", "-C", str(binding["path"]), "merge-base", "--is-ancestor", head, ref],
+            capture_output=True, timeout=30, check=False,
+        )
+        if check.returncode == 0:
+            return True
+    return False
+
+
+def cleanup_plan(store, task_id=""):
+    """Worktrees of finished tasks: which can go (work merged, nothing uncommitted) and why not."""
+    query = "SELECT id,state FROM tasks WHERE state IN (?,?)" + (" AND id=?" if task_id else "") + " ORDER BY id"
+    rows = []
+    for task in store.db.rows(query, (*FINISHED, task_id) if task_id else FINISHED):
+        try:
+            bindings = store.snapshot(task["id"])["resolved"].get("repositories", {})
+        except DomainError:
+            continue  # Never approved: no worktree was made.
+        merged = {
+            r["repository"]
+            for r in store.db.rows(
+                "SELECT repository FROM publish_records WHERE task_id=? AND merge_state='merged'", (task["id"],)
+            )
+        }
+        for name, binding in bindings.items():
+            worktree = Path(binding["worktree"])
+            row = {"task_id": task["id"], "task_state": task["state"], "repository": name,
+                   "worktree": str(worktree), "branch": binding.get("branch", "")}
+            if not worktree.is_dir():
+                continue
+            try:
+                if not WorktreeManager.validate(binding):
+                    rows.append(dict(row, action="keep", reason="다른 저장소나 브랜치의 폴더입니다."))
+                    continue
+                dirty = subprocess.run(
+                    ["git", "-C", str(worktree), "status", "--porcelain"], capture_output=True, text=True,
+                    encoding="utf-8", errors="replace", timeout=60, check=True,
+                ).stdout.strip()
+            except (DomainError, subprocess.SubprocessError, OSError):
+                rows.append(dict(row, action="keep", reason="Git으로 상태를 확인하지 못했습니다."))
+                continue
+            if dirty:
+                rows.append(dict(row, action="keep", reason="커밋하지 않은 변경이 있습니다."))
+            elif name in merged or _contained(binding):
+                rows.append(dict(row, action="remove", reason="작업이 기준 브랜치에 병합되었습니다.",
+                                 bytes=_folder_size(worktree)))
+            else:
+                rows.append(dict(row, action="keep", reason="병합되지 않은 커밋이 있습니다. 병합하거나 직접 정리하세요."))
+    removable = [r for r in rows if r["action"] == "remove"]
+    return {"worktrees": rows, "removable": len(removable), "bytes": sum(r.get("bytes", 0) for r in removable)}
+
+
+def cleanup(store, safety, task_id="", apply=False):
+    """Preview by default; with apply, remove the worktrees and task branches the plan allows."""
+    plan = cleanup_plan(store, task_id)
+    if not apply:
+        return dict(plan, applied=False)
+    for row in plan["worktrees"]:
+        if row["action"] != "remove":
+            continue
+        binding = store.snapshot(row["task_id"])["resolved"]["repositories"][row["repository"]]
+        try:
+            with safety.lease(f"repository:{binding['common_dir']}"):
+                unlink_dependencies(binding["worktree"])
+                remove_worktree(binding["path"], binding["worktree"])
+                with contextlib.suppress(DomainError):
+                    git(binding["path"], "branch", "-D", binding["branch"])  # Merged; may be gone.
+            row["result"] = "removed"
+        except DomainError:
+            row["result"] = "kept: git refused to remove it"
+            continue
+        task_folder = Path(binding["worktree"]).parent
+        if not any(p.name != ".attempts" for p in task_folder.iterdir()):
+            shutil.rmtree(task_folder / ".attempts", ignore_errors=True)  # Crash baselines of this task.
+            with contextlib.suppress(OSError):
+                task_folder.rmdir()
+    return dict(plan, applied=True)

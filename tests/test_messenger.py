@@ -359,3 +359,51 @@ def test_slack_text_from_tasks_cannot_mention_or_link(workspace):
     app.poll_once()
     text = slack.posts[-1][1]
     assert "<!channel>" not in text and "&lt;!channel&gt; &amp; &lt;https://x.test|y&gt;" in text
+
+
+class FlakySlack(FakeSlack):
+    """Slack that fails one post, as a network drop would."""
+
+    def __init__(self, fail_on):
+        super().__init__()
+        self.fail_on, self.calls = fail_on, 0
+
+    def post(self, channel, text, thread_ts=None):
+        self.calls += 1
+        if self.calls == self.fail_on:
+            raise OSError("network down")
+        return super().post(channel, text, thread_ts)
+
+
+def test_a_failed_reply_does_not_resend_earlier_replies(workspace):
+    slack, clock = FlakySlack(fail_on=2), [1000.0]
+    app = listener(workspace, slack, FakeConsole(), clock)
+    app._tasks = lambda: []
+    app.poll_once()
+    slack.messages = [
+        {"ts": "1001.0", "user": USER, "text": "도움말"},
+        {"ts": "1002.0", "user": USER, "text": "도움말"},
+        {"ts": "1003.0", "user": USER, "text": "도움말"},
+    ]
+    with pytest.raises(OSError):
+        app.poll_once()  # first reply sent, second fails
+    app.poll_once()
+    threads = [thread for thread, _ in slack.posts]
+    # 1001 answered once; 1002 was recorded before its reply failed (at most once); 1003 answered.
+    assert threads == ["1001.0", "1003.0"]
+
+
+def test_a_failed_notification_does_not_repeat_earlier_ones(workspace):
+    slack, clock = FlakySlack(fail_on=2), [1000.0]
+    app = listener(workspace, slack, FakeConsole(), clock)
+    tasks = [{"id": f"TASK-00{i}", "title": "t", "state": "ready"} for i in (1, 2, 3)]
+    app._tasks = lambda: tasks
+    app.poll_once()
+    app.poll_once()  # baseline
+    for index in range(3):
+        tasks[index] = dict(tasks[index], state="running")
+    with pytest.raises(OSError):
+        app.poll_once()  # TASK-001 posted, TASK-002 fails
+    app.poll_once()
+    posted = [text.split("*")[1] for _, text in slack.posts]
+    assert posted == ["TASK-001", "TASK-003"]

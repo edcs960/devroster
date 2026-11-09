@@ -335,7 +335,13 @@ class TaskQueries:
                 ),
                 None,
             )
-            if failure and failure["payload"].get("reason") == "BUDGET_PAUSE":
+            if failure and failure["payload"].get("reason") == "INTERRUPTED_CHANGES":
+                reason(
+                    "INTERRUPTED_CHANGES",
+                    "A crashed attempt left changes its role was not allowed to make; they were copied aside.",
+                    f"Inspect the copy under the task worktree folder (.attempts); resuming restores those paths and reruns the step: devroster task resume {task_id}.",
+                )
+            elif failure and failure["payload"].get("reason") == "BUDGET_PAUSE":
                 reason(
                     "BUDGET_PAUSE",
                     "The estimated cost reached the budget; execution paused before the next AI call.",

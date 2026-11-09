@@ -375,7 +375,6 @@ class MessengerListener:
                     continue
                 author = message.get("user") or message.get("bot_id", "")
                 reply, pending = self.handle(command, settings, author, ts)
-                slack.post(settings["channel_id"], reply, thread_ts=ts)
                 if pending:
                     state["pending"][ts] = pending
                     if pending.get("task_id"):
@@ -385,6 +384,10 @@ class MessengerListener:
                 )
                 state["handled"] = state.get("handled", 0) + 1
                 handled += 1
+                # Saved before replying: if Slack fails below, the next poll must not answer
+                # this message again (the command itself is already idempotent by request ID).
+                self._save(state)
+                slack.post(settings["channel_id"], reply, thread_ts=ts)
             self._follow(slack, settings, state)
             self._notify(slack, settings, state)
             state.update(last_poll=self.clock(), last_error="", heartbeat=self.clock())
@@ -569,9 +572,15 @@ class MessengerListener:
             return
         threads = state.setdefault("threads", {})
         changed = [t for t in tasks if known.get(t["id"]) != t.get("state", "")][:NOTIFY_LIMIT]
+        # Changes still to post keep their old state until their own message is recorded, so a
+        # Slack failure part-way neither repeats earlier messages nor loses later ones.
+        for task in changed:
+            state["task_states"][task["id"]] = known.get(task["id"], "")
         for task in changed:
             task_id, new = task["id"], task.get("state", "")
             text = self._transition(task, known.get(task_id), new, settings)
+            state["task_states"][task_id] = new
+            self._save(state)
             slack.post(settings["channel_id"], text, thread_ts=threads.get(task_id))
             if new in {"completed", "cancelled"}:
                 threads.pop(task_id, None)
@@ -631,8 +640,9 @@ class MessengerListener:
                         else f"❌ {project} 명세 생성 실패: {esc(job.get('message', ''))}"
                     )
             if text:
-                slack.post(settings["channel_id"], text, thread_ts=ts)
                 del state["pending"][ts]
+                self._save(state)  # At most one outcome message per request.
+                slack.post(settings["channel_id"], text, thread_ts=ts)
 
 
 def status(root, listener=None):

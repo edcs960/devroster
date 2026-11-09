@@ -1,3 +1,5 @@
+import json
+import subprocess
 from pathlib import Path
 
 from agent_dev.domain.errors import DomainError, ErrorCode
@@ -164,6 +166,98 @@ class SnapshotPhaseCatalog:
         from agent_dev.adapters.role_execution import capture
 
         return capture(self.repository.snapshot(task_id)["resolved"].get("repositories", {}))
+
+    def save_baseline(self, task_id, node_id, attempt_id, before):
+        """Where this attempt started, so a crash can be checked on the next run."""
+        from agent_dev.adapters.role_execution import save_baseline
+
+        if before is None:
+            return
+        bindings = self.repository.snapshot(task_id)["resolved"].get("repositories", {})
+        try:
+            save_baseline(bindings, attempt_id, before)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            # Without a baseline the crash check is skipped; the run itself is unaffected.
+            self.repository.event(task_id, "AttemptBaselineSkipped", {"attempt_id": attempt_id, "node_id": node_id})
+
+    def _node_policy(self, resolved, node_id):
+        policy = resolved.get("role_policies", {}).get(node_id)
+        if policy:
+            return policy
+        from agent_dev.domain.role_policy import legacy_role
+        from agent_dev.domain.role_policy import policy as make_policy
+
+        phase = next((p for p in resolved.get("phases", []) if p.get("id") == node_id), {"id": node_id})
+        bindings = resolved.get("repositories", {})
+        return make_policy(
+            legacy_role({"id": node_id, "capabilities": list(phase.get("capabilities", []))}),
+            project_paths=resolved.get("allowed_paths", [])
+            or [p for b in bindings.values() for p in b.get("allowed_paths", [])],
+        )
+
+    def recover_interrupted(self, task_id, node_id):
+        """Check what a crashed attempt of this node left in the worktree.
+
+        Nothing changed, or changes within the node's role policy: continue (the role picks
+        up its own partial work). Changes the role was not allowed to make: copy them aside
+        and stop with INTERRUPTED_CHANGES; when the user resumes, put those paths back to
+        where the attempt started and continue.
+        """
+        from agent_dev.adapters.role_execution import (
+            changed_since,
+            enforce,
+            load_baseline,
+            restore_paths,
+        )
+
+        rows = self.repository.db.rows(
+            "SELECT id,state FROM phase_attempts WHERE task_id=? AND phase_id=? ORDER BY started_at DESC, id DESC LIMIT 1",
+            (task_id, node_id),
+        )
+        if not rows or rows[0]["state"] != "interrupted":
+            return
+        attempt_id = rows[0]["id"]
+        handled = {}
+        for row in self.repository.db.rows(
+            "SELECT kind,payload_json FROM events WHERE aggregate_id=? AND kind LIKE 'InterruptedChanges%'",
+            (task_id,),
+        ):
+            payload = json.loads(row["payload_json"])
+            if payload.get("attempt_id") == attempt_id:
+                handled[row["kind"]] = payload
+        if handled.keys() & {"InterruptedChangesKept", "InterruptedChangesDiscarded", "InterruptedChangesNone"}:
+            return
+        resolved = self.repository.snapshot(task_id)["resolved"]
+        bindings = resolved.get("repositories", {})
+        baseline = load_baseline(bindings, attempt_id)
+        if baseline is None:
+            return  # Started before baselines existed, or the baseline could not be written.
+        changed = changed_since(bindings, baseline["capture"])
+        record = {"attempt_id": attempt_id, "node_id": node_id, "paths": changed}
+        if not changed:
+            self.repository.event(task_id, "InterruptedChangesNone", record)
+            return
+        if "InterruptedChangesHeld" in handled:
+            # The user resumed after the stop: undo only what the crashed role was not allowed to do.
+            restore_paths(bindings, baseline, changed, handled["InterruptedChangesHeld"]["backup"])
+            self.repository.event(task_id, "InterruptedChangesDiscarded", record)
+            return
+        graph = {n["id"]: n for n in resolved.get("workflow_graph", {}).get("nodes", [])}
+        try:
+            enforce(bindings, baseline["capture"], self._node_policy(resolved, node_id), graph.get(node_id, {}).get("module"))
+        except DomainError:
+            backup = Path(next(iter(bindings.values()))["worktree"]).resolve().parent / ".attempts" / (attempt_id + "-interrupted")
+            for name, paths in changed.items():
+                root = Path(bindings[name]["worktree"]).resolve()
+                for relative in paths:
+                    source = root / relative
+                    if source.is_file() and not source.is_symlink():
+                        target = backup / name / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(source.read_bytes())
+            self.repository.event(task_id, "InterruptedChangesHeld", dict(record, backup=str(backup)))
+            raise DomainError(ErrorCode.POLICY_VIOLATION, "INTERRUPTED_CHANGES") from None
+        self.repository.event(task_id, "InterruptedChangesKept", record)
 
     def enforce_session(self, task_id, node_ids, before, declared=None):
         """Check one session invocation's changes against the union of member code policies.

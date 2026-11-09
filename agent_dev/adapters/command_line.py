@@ -44,6 +44,7 @@ NAMESPACES = {
     "settings",
     "feedback",
     "messenger",
+    "worktree",
 }
 
 
@@ -66,6 +67,7 @@ SUMMARIES = {
     "skills": "역할별 스킬 묶음 제안 · 설치 · 동기화",
     "rules": "프로젝트 AI 규칙·스킬·훅(.ai/) 보기 · 동기화 · 훅 승인",
     "settings": "설정 · DB 저장 위치 확인과 이전",
+    "worktree": "끝난 작업의 작업 폴더(워크트리) 확인 · 정리(--apply)",
     "upgrade": "작업 공간 저장소 업그레이드",
     "studio": "기획 · 명세 · 화면 검토(Studio) 웹 화면",
     "dashboard": "개발 현황 웹 화면",
@@ -244,6 +246,7 @@ def parser():
         "messenger": {"listen": [], "status": [], "test": []},
         "skills": {"catalog": [], "suggest": [], "status": [], "sync": []},
         "rules": {"show": [], "sync": [], "check": [], "init": [], "hooks": [], "approve-hooks": ["digest"]},
+        "worktree": {"list": [], "prune": []},
         "ai": {"show": [], "set": ["source"], "import": []},
         "changes": {
             "bootstrap": [],
@@ -348,6 +351,8 @@ def parser():
                     choices=["generic", "python", "react", "spring-boot", "spring-boot-gradle", "auto"],
                     default="generic",
                 )
+            if name == "worktree":
+                command.add_argument("--task", default="", help="이 작업만")
             if name == "upgrade":
                 command.add_argument("--apply", action="store_true")
                 command.add_argument("--recover", action="store_true")
@@ -652,6 +657,11 @@ def dispatch(args):
         raise DomainError(ErrorCode.INVALID_INPUT, "No shadow database. Run migrate first.")
     runtime = WorkflowRuntime(root, db)
     store, governance = runtime.store, runtime.governance
+    if namespace == "worktree":
+        from agent_dev.adapters.worktrees import cleanup
+
+        # list never changes anything; prune previews unless --apply is given.
+        return cleanup(store, runtime.safety, args.task, apply=action == "prune" and args.apply)
     operations = Operations(store)
     if namespace == "refactor":
         sources = (
