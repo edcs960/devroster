@@ -13,7 +13,9 @@ import time
 if __name__ == '__main__':
     if os.read(sys.stdin.fileno(), 1) != b'\n':
         sys.exit(1)
-    sys.exit(subprocess.Popen(sys.argv[1:], stdin=subprocess.DEVNULL).wait())
+    from windows_launch import windows_command  # same folder; the package is not imported yet
+
+    sys.exit(subprocess.Popen(windows_command(sys.argv[1:]), stdin=subprocess.DEVNULL).wait())
 
 from pathlib import Path
 from typing import NoReturn

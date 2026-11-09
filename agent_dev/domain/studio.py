@@ -85,6 +85,22 @@ def decode_output(output):
     return value
 
 
+def locate_quote(quote, source):
+    """The brief's own text for a quoted passage, or None.
+
+    Models often re-wrap lines or change spacing (Korean spacing especially) while copying,
+    so whitespace may differ anywhere; every other character must match exactly. The
+    brief's original wording is returned, so traceability keeps the real source text.
+    """
+    if quote in source:
+        return quote
+    characters = [c for c in quote if not c.isspace()]
+    if not characters:
+        return None
+    match = re.search(r"\s*".join(re.escape(c) for c in characters), source)
+    return match.group(0) if match else None
+
+
 def validate_specs(value, source):
     if not isinstance(value, dict):
         raise StudioError("명세서 형식이 잘못되었습니다.")
@@ -99,9 +115,10 @@ def validate_specs(value, source):
         seen.add(item_id)
         for field in ("title", "description"):
             text(requirement.get(field), "요구사항 " + field, 8000)
-        quote = text(requirement.get("source_quote"), "기획서 원문 근거", 8000)
-        if quote not in source:
+        quote = locate_quote(text(requirement.get("source_quote"), "기획서 원문 근거", 8000), source)
+        if quote is None:
             raise StudioError(f"{item_id}의 원문 근거를 기획서에서 찾을 수 없습니다.")
+        requirement["source_quote"] = quote
         if requirement.get("priority") not in {"must", "should", "could"}:
             raise StudioError("요구사항 우선순위가 잘못되었습니다.")
         for criterion in collection(requirement.get("acceptance"), "수용 기준", 30, 1):

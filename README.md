@@ -33,7 +33,7 @@
 
 - Python 3.11 이상, Git
 - AI 도구 하나 이상: [Codex CLI](https://github.com/openai/codex), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Gemini CLI](https://github.com/google-gemini/gemini-cli) 중 하나(파일 수정이 가능한 개발 역할에 필요), 또는 API 키(명세·목업 생성과 텍스트 단계에 사용)
-- macOS 또는 Linux 권장. Windows에서도 동작하지만 소스 탐색·검색은 지원하지 않습니다.
+- macOS, Linux, Windows. Windows에서는 소스 탐색·검색이 폴더 단계마다 링크·정션을 막고 연 파일을 다시 대조하는 방식으로 동작합니다.
 - 개발할 프로젝트는 Git 저장소이고 첫 커밋이 있어야 합니다.
 
 ## 설치

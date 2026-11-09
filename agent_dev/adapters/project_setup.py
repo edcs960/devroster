@@ -26,6 +26,7 @@ from agent_dev.adapters.presets import profile as preset_profile
 from agent_dev.adapters.state.sqlite.database import Database
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository
 from agent_dev.adapters.storage_registry import workspace_locations
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.adapters.workspace import configuration_root, engine_configuration, metadata
 from agent_dev.core.io import locked
 from agent_dev.core.output_paths import slugify
@@ -1267,7 +1268,7 @@ def auth_probe(provider, command):
 
     try:
         result = subprocess.run(
-            args,
+            windows_command(args),
             capture_output=True,
             text=True, encoding="utf-8", errors="replace",
             timeout=10,

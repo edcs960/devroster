@@ -15,7 +15,9 @@ if __name__ == "__main__":
     # Descendants inherit the Job, even if their immediate parent exits first.
     if os.read(sys.stdin.fileno(), 1) != b"\n":
         sys.exit(1)
-    sys.exit(subprocess.Popen(sys.argv[1:]).wait())
+    from windows_launch import windows_command  # same folder; the package is not imported yet
+
+    sys.exit(subprocess.Popen(windows_command(sys.argv[1:])).wait())
 
 from agent_dev.adapters.bounded_process import _exited_unreaped, _signal_owned_group, _wait_options
 from agent_dev.domain.content import redact

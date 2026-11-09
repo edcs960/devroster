@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 
@@ -23,7 +24,7 @@ class ProcessOperation:
     def execute(self, timeout_seconds):
         try:
             process = subprocess.Popen(
-                self.command,
+                windows_command(self.command, cwd=self.cwd),
                 cwd=self.cwd,
                 env=self.env,
                 text=True, encoding="utf-8", errors="replace",

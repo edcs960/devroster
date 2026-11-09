@@ -3,7 +3,9 @@
 Prices are data the project owner types in; nothing here fetches prices,
 converts currencies or reads subscription balances. Absent measurements stay
 unknown (never zero), cached input is charged once according to how each
-provider reports it, and budget alerts are estimates, never a hard stop.
+provider reports it, and budget alerts are estimates. Stopping is opt-in: with
+``pause_at_budget`` a task pauses before its next AI call once the estimate reaches the
+budget, and continues only when the user resumes it (each resume allows one more budget).
 """
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ def normalize_policy(value):
     """Validated usage_policy profile data (or None when not configured)."""
     if value in (None, {}):
         return None
-    if not isinstance(value, dict) or set(value) - {"currency", "alert_thresholds", "estimated_budget", "price_book"}:
+    if not isinstance(value, dict) or set(value) - {"currency", "alert_thresholds", "estimated_budget", "pause_at_budget", "price_book"}:
         _fail("비용 설정 항목을 확인해주세요.")
     currency = value.get("currency", "USD")
     if currency not in CURRENCIES:
@@ -57,6 +59,11 @@ def normalize_policy(value):
     budget = _rate(value.get("estimated_budget"), "예상 예산")
     if clean and budget is None:
         _fail("예산 알림을 쓰려면 예상 예산을 입력해주세요.")
+    pause = value.get("pause_at_budget", False)
+    if not isinstance(pause, bool):
+        _fail("예산 도달 시 일시정지 설정을 확인해주세요.")
+    if pause and not budget:
+        _fail("예산 도달 시 일시정지를 쓰려면 0보다 큰 예상 예산을 입력해주세요.")
     book = value.get("price_book", [])
     if not isinstance(book, list) or len(book) > 100:
         _fail("가격표는 100개까지 등록할 수 있습니다.")
@@ -85,6 +92,7 @@ def normalize_policy(value):
         "currency": currency,
         "alert_thresholds": sorted(set(clean)),
         "estimated_budget": budget,
+        "pause_at_budget": pause,
         "price_book": sorted(rows, key=lambda r: (r["provider"], r["model"], r["valid_from"])),
     }
 
@@ -172,3 +180,16 @@ def crossed_thresholds(policy, summary):
     if policy is None or not policy["estimated_budget"] or summary.get("budget_ratio") is None:
         return []
     return [t for t in policy["alert_thresholds"] if summary["budget_ratio"] >= t]
+
+
+def budget_pause_due(policy, summary, approved_cost=None):
+    """True when the next AI call must wait for the user (opt-in pause at budget).
+
+    The first pause comes when the known estimate reaches the budget; a resume approves
+    the cost so far, and the next pause comes one more budget later. Calls without a price
+    stay unknown and do not count.
+    """
+    if policy is None or not policy.get("pause_at_budget") or not policy.get("estimated_budget"):
+        return False
+    known = summary.get("known_cost") or 0
+    return known >= (approved_cost or 0) + policy["estimated_budget"]

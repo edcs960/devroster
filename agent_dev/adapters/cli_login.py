@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.core.cli_home import cli_homes, isolated_environment
 from agent_dev.domain.errors import DomainError, ErrorCode
 
@@ -87,7 +88,7 @@ def start(provider: str, command: str, owner: str | tuple[str, str] | None = Non
             return _snapshot_locked(running)
         try:
             process = subprocess.Popen(
-                argv,
+                windows_command(argv),
                 env=isolated_environment(),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,

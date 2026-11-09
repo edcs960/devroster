@@ -303,9 +303,10 @@ def test_platform_without_safe_reads_keeps_web_servers_up(root):
 
 
 def test_cli_search_reports_unsupported_platform(root, monkeypatch):
-    from agent_dev.adapters import source_search
+    from agent_dev.adapters import source_explorer, source_search
 
-    monkeypatch.delattr(os, "O_DIRECTORY")
+    monkeypatch.delattr(os, "O_DIRECTORY", raising=False)
+    monkeypatch.setattr(source_explorer, "PATH_READS", False)  # Windows reads by verified path.
     assert source_search.cli_key(root, create=False) is None
     with pytest.raises(DomainError) as error:
         source_search.cli_key(root, create=True)

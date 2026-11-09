@@ -127,6 +127,13 @@ class DagExecution:
             lease_acquired=True,
             expected_version=task.version,
         )
+        budget_pause = getattr(self.store, "budget_pause", None)
+        if task.state == TaskStatus.BLOCKED and budget_pause:
+            due, summary = budget_pause(task_id, self.store.snapshot(task_id)["resolved"].get("usage_policy"))
+            if due:
+                approve = getattr(self.store, "approve_budget_pause", None)
+                if approve:
+                    approve(task_id, summary)  # Resuming is the approval.
         if task.state in {TaskStatus.BLOCKED, TaskStatus.WAITING_FOR_CAPACITY}:
             task = self.store.transition(task_id, TaskStatus.READY, context, lease)
         if task.state == TaskStatus.READY:
@@ -378,6 +385,9 @@ class DagExecution:
         remaining = budget["max_runner_seconds"] - usage["runner_seconds"]
         if usage["attempts"] >= budget["max_attempts"] or remaining < 1:
             raise DomainError(ErrorCode.POLICY_VIOLATION, "EXECUTION_LIMIT_REACHED")
+        budget_pause = getattr(self.store, "budget_pause", None)
+        if budget_pause and budget_pause(task_id, snapshot["resolved"].get("usage_policy"))[0]:
+            raise DomainError(ErrorCode.POLICY_VIOLATION, "BUDGET_PAUSE")
         attempt = self.store.begin_attempt(
             task_id, node_id, digest([task_id, node_id, snapshot["digest"], generation]), lease
         )

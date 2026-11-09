@@ -597,6 +597,30 @@ class WorkflowRepository:
                 recorded.append(threshold)
         return recorded
 
+    def budget_pause(self, task_id, policy):
+        """(due, summary) for the opt-in pause at the estimated budget."""
+        from agent_dev.adapters.execution_view import usage_calls
+        from agent_dev.domain.usage_policy import budget_pause_due, estimate, normalize_policy
+
+        policy = normalize_policy(policy)
+        if policy is None or not policy.get("pause_at_budget"):
+            return False, None
+        summary = estimate(policy, usage_calls(self.db, task_id))
+        approved = self.db.rows(
+            "SELECT payload_json FROM events WHERE aggregate_id=? AND kind='BudgetPauseApproved' ORDER BY version DESC LIMIT 1",
+            (task_id,),
+        )
+        approved_cost = json.loads(approved[0]["payload_json"]).get("known_cost") if approved else None
+        return budget_pause_due(policy, summary, approved_cost), summary
+
+    def approve_budget_pause(self, task_id, summary):
+        """A resume after a budget pause: the cost so far is accepted, one more budget may run."""
+        self.event(
+            task_id,
+            "BudgetPauseApproved",
+            {"known_cost": summary["known_cost"], "budget": summary["budget"], "currency": summary["currency"]},
+        )
+
     def assert_change_allowed(self, task_id, connection=None):
         from agent_dev.adapters.requirement_changes import execution_guard, guard_in_transaction
 

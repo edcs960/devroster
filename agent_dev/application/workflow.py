@@ -58,6 +58,14 @@ class WorkflowCoordinator:
             lease_acquired=True,
             expected_version=task.version,
         )
+        policy = snapshot["resolved"].get("usage_policy")
+        budget_pause = getattr(self.store, "budget_pause", None)
+        if task.state == TaskStatus.BLOCKED and budget_pause:
+            due, summary = budget_pause(task_id, policy)
+            if due:
+                approve = getattr(self.store, "approve_budget_pause", None)
+                if approve:
+                    approve(task_id, summary)  # Resuming is the approval.
         if task.state in {TaskStatus.BLOCKED, TaskStatus.WAITING_FOR_CAPACITY}:
             task = self.store.transition(task_id, TaskStatus.READY, context, lease)
             context = replace(context, expected_version=task.version)
@@ -96,6 +104,25 @@ class WorkflowCoordinator:
                     "error": ErrorCode.POLICY_VIOLATION.value,
                     "reason": "EXECUTION_LIMIT_REACHED",
                     "usage": usage,
+                }
+            if budget_pause and budget_pause(task_id, policy)[0]:
+                self.store.event(
+                    task_id,
+                    "ExecutionBlocked",
+                    {"code": ErrorCode.POLICY_VIOLATION.value, "reason": "BUDGET_PAUSE"},
+                )
+                current = self.store.task(task_id)
+                self.store.transition(
+                    task_id,
+                    TaskStatus.BLOCKED,
+                    TransitionContext(expected_version=current.version),
+                    lease,
+                )
+                return {
+                    "task_id": task_id,
+                    "state": "blocked",
+                    "error": ErrorCode.POLICY_VIOLATION.value,
+                    "reason": "BUDGET_PAUSE",
                 }
             key = digest([task_id, phase_id, snapshot["digest"], generation])
             attempt = self.store.begin_attempt(task_id, phase_id, key, lease)

@@ -6,6 +6,7 @@ import subprocess
 from copy import deepcopy
 from pathlib import Path
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.core.cli_home import RUNNER_NOTE, claude_settings_file, isolated_environment
 from agent_dev.core.models import AgentConfig, PipelineStep, Task
 from agent_dev.core.paths import PROJECT_ROOT
@@ -82,7 +83,7 @@ class ClaudeCliRunner:
         if getattr(self, "_help_text", None) is None:
             try:
                 completed = subprocess.run(
-                    [self.command, "--help"],
+                    windows_command([self.command, "--help"]),
                     env=isolated_environment(self.process_env),
                     capture_output=True,
                     text=True, encoding="utf-8", errors="replace",
@@ -133,7 +134,7 @@ class ClaudeCliRunner:
                        "--holder", grant["holder"], "--token", str(grant["token"]), "--", *command]
 
         process = subprocess.Popen(
-            command,
+            windows_command(command),
             env=isolated_environment(self.process_env),
             cwd=self.workspace_path,
             text=True, encoding="utf-8", errors="replace",

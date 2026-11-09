@@ -9,6 +9,11 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    from agent_dev.adapters.windows_launch import windows_command
+except ImportError:  # started as a script without the package on sys.path
+    from windows_launch import windows_command  # type: ignore[no-redef]
+
 
 def parent_alive(pid):
     if os.name != "nt":
@@ -66,7 +71,7 @@ def main():
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    child = subprocess.Popen(command, start_new_session=True)
+    child = subprocess.Popen(windows_command(command), start_new_session=True)
 
     def terminate(*unused):
         terminate_tree(child)

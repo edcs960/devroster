@@ -19,7 +19,7 @@ import re
 import secrets
 import stat
 import time
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from agent_dev.adapters import query_cursor
 from agent_dev.adapters.source_explorer import UnreadableEntry
@@ -43,13 +43,53 @@ def _invalid(message, code=ErrorCode.INVALID_INPUT):
     raise DomainError(code, message)
 
 
+def _path_key(base, create):
+    """Windows: the same 32-byte key as a plain file in the project's managed folder.
+
+    Without descriptor-relative opens the file is checked by path (no link or junction);
+    os.link never replaces an existing key, so concurrent creators converge.
+    """
+    from agent_dev.adapters.source_explorer import redirects
+
+    path = base / KEY_NAME
+    try:
+        for _ in range(2):
+            try:
+                info = os.lstat(path)
+            except FileNotFoundError:
+                if not create:
+                    return None
+                if not base.is_dir():
+                    _invalid("프로젝트 작업 공간을 먼저 준비해주세요.", ErrorCode.CAPABILITY_UNAVAILABLE)
+                temporary = base / f".{KEY_NAME}.{secrets.token_hex(8)}"
+                temporary.write_bytes(secrets.token_bytes(32))
+                try:
+                    with contextlib.suppress(FileExistsError):
+                        os.link(temporary, path)
+                finally:
+                    temporary.unlink(missing_ok=True)
+                continue
+            if redirects(info) or not stat.S_ISREG(info.st_mode):
+                _invalid("검색 이어보기 키 파일이 안전하지 않습니다.", ErrorCode.POLICY_VIOLATION)
+            key = path.read_bytes()[:33]
+            if len(key) != 32:
+                _invalid("검색 이어보기 키 파일이 안전하지 않습니다.", ErrorCode.POLICY_VIOLATION)
+            return key
+    except OSError:
+        _invalid("검색 이어보기 키를 준비하지 못했습니다.", ErrorCode.CAPABILITY_UNAVAILABLE)
+    return None
+
+
 def cli_key(root, create=True):
     """Private 0600 signer for cross-process CLI cursors; GET callers pass create=False."""
+    from agent_dev.adapters import source_explorer
     from agent_dev.adapters.project_setup import ProjectSetup
-    from agent_dev.adapters.source_explorer import UNSUPPORTED, safe_reads_supported
+    from agent_dev.adapters.source_explorer import UNSUPPORTED
 
+    if source_explorer.PATH_READS and not source_explorer.descriptor_reads():
+        return _path_key(Path(ProjectSetup(root).managed), create)
     if not (
-        safe_reads_supported()
+        source_explorer.descriptor_reads()
         and hasattr(os, "getuid")
         and os.link in os.supports_dir_fd
         and os.unlink in os.supports_dir_fd

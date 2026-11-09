@@ -104,15 +104,17 @@
     $('price-book').append(card);
   }
   function renderPolicy(policy) {
-    $('cost-currency').value=policy?.currency||'USD';$('cost-budget').value=rateText(policy?.estimated_budget);$('cost-thresholds').value=(policy?.alert_thresholds||[]).map(v=>Math.round(v*10000)/100).join(', ');
+    $('cost-currency').value=policy?.currency||'USD';$('cost-budget').value=rateText(policy?.estimated_budget);$('cost-thresholds').value=(policy?.alert_thresholds||[]).map(v=>Math.round(v*10000)/100).join(', ');$('cost-pause').checked=!!policy?.pause_at_budget;
     $('price-book').replaceChildren();(policy?.price_book||[]).forEach(priceCard);
   }
   function collectPolicy() {
     const num=v=>{if(v.trim()==='')return null;const n=Number(v);if(!Number.isFinite(n))throw new Error('비용 설정에는 숫자를 입력해주세요.');return n;};
     const book=[...$('price-book').children].map(card=>{const get=k=>card.querySelector(`[data-field=${k}]`).value;const row={provider:get('provider'),model:get('model').trim(),input_per_million:num(get('input_per_million')),cached_input_per_million:num(get('cached_input_per_million')),output_per_million:num(get('output_per_million'))};if(get('valid_from').trim())row.valid_from=get('valid_from').trim();return row;});
     const thresholds=$('cost-thresholds').value.split(',').map(v=>v.trim()).filter(Boolean).map(v=>num(v)/100),budget=num($('cost-budget').value);
-    if(!book.length&&!thresholds.length&&budget===null)return null;
-    return {currency:$('cost-currency').value,alert_thresholds:thresholds,estimated_budget:budget,price_book:book};
+    const pause=$('cost-pause').checked;
+    if(!book.length&&!thresholds.length&&budget===null&&!pause)return null;
+    if(pause&&!(budget>0))throw new Error('예산 도달 시 멈추려면 작업당 예상 예산을 입력해주세요.');
+    return {currency:$('cost-currency').value,alert_thresholds:thresholds,estimated_budget:budget,pause_at_budget:pause,price_book:book};
   }
   function envRow(row={key:'',value:''}) {
     const card=make('div',undefined,'card env-row'),cols=make('div',undefined,'columns');field(cols,'변수 이름',row.key,'text','key');const input=field(cols,'값 (저장 후 숨김)',row.value,'password','value');input.autocomplete='new-password';card.append(cols);

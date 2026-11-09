@@ -1,14 +1,21 @@
-"""Read registered source through descriptor-relative, non-symlink paths."""
+"""Read registered source through descriptor-relative, non-symlink paths.
+
+Windows has no descriptor-relative opens, so there every step of a path is checked to be
+a plain folder (no symlink or junction), a file is opened and compared with the file that
+was checked, and a listed folder is re-checked after its scan.
+"""
 
 import contextlib
+import errno
 import json
 import os
 import re
 import stat
 import threading
 import time
+from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from agent_dev.adapters.project_setup import ProjectSetup, atomic_json
 from agent_dev.adapters.secrets import registered_secrets
@@ -46,8 +53,59 @@ UNSUPPORTED = (
 )
 
 
+# Windows: verified path reads (see _open_verified_path). Tests switch this on elsewhere.
+PATH_READS = os.name == "nt"
+REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+NAME_SURROGATE = 0x20000000  # Reparse tags that redirect a name: symlinks, junctions, mounts.
+
+
 def safe_reads_supported():
-    """Descriptor-relative, no-follow reads. There is deliberately no path-based fallback."""
+    """Descriptor-relative no-follow reads, or Windows verified path reads."""
+    return descriptor_reads() or PATH_READS
+
+
+def redirects(info):
+    """A symlink or junction-like entry; OneDrive placeholders and similar tags are plain files."""
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    if not getattr(info, "st_file_attributes", 0) & REPARSE_POINT:
+        return False
+    tag = getattr(info, "st_reparse_tag", 0)
+    return not tag or bool(tag & NAME_SURROGATE)
+
+
+def _plain(path, directory):
+    info = os.lstat(path)
+    if redirects(info):
+        raise UnreadableEntry(
+            "심볼릭 링크나 정션은 따라가지 않습니다.", None, ErrorCode.POLICY_VIOLATION
+        )
+    if directory and not stat.S_ISDIR(info.st_mode):
+        raise UnreadableEntry("폴더가 아닙니다.", errno.ENOTDIR)
+    if not directory and not stat.S_ISREG(info.st_mode):
+        raise UnreadableEntry(
+            "일반 소스 파일/폴더만 조회할 수 있습니다.", None, ErrorCode.POLICY_VIOLATION
+        )
+    return info
+
+
+def _entry_redirects(entry):
+    if entry.is_symlink():
+        return True
+    if os.name != "nt":
+        return False
+    try:
+        return redirects(entry.stat(follow_symlinks=False))  # Cached from the folder scan.
+    except OSError:
+        return True  # Vanished or unreadable: not listed.
+
+
+def _same(info, other):
+    return (info.st_dev, info.st_ino) == (other.st_dev, other.st_ino)
+
+
+def descriptor_reads():
+    """Descriptor-relative, no-follow reads (macOS, Linux)."""
     return (
         hasattr(os, "O_DIRECTORY")
         and hasattr(os, "O_NOFOLLOW")
@@ -163,12 +221,17 @@ class SourceExplorer:
         return False
 
     @contextlib.contextmanager
-    def _open(self, module, path, directory=False):
+    def _open(self, module, path, directory=False) -> Iterator[tuple[Any, Any]]:
+        # (descriptor, stat); on Windows a folder comes as its verified path.
         if not safe_reads_supported():
             invalid(UNSUPPORTED, ErrorCode.CAPABILITY_UNAVAILABLE)
         if not self.permitted(module, path, directory):
             invalid("등록된 읽기 범위 밖입니다.")
         relative, _ = self._module(module)
+        if not descriptor_reads():
+            with self._open_verified_path(relative, path, directory) as opened:
+                yield opened
+            return
         descriptors = []
         try:
             module_path = Path(relative)
@@ -195,6 +258,44 @@ class SourceExplorer:
             for fd in reversed(descriptors):
                 os.close(fd)
 
+    @contextlib.contextmanager
+    def _open_verified_path(self, relative, path, directory) -> Iterator[tuple[Any, Any]]:
+        """Windows: every step a plain folder; the opened file is the file that was checked.
+
+        A folder is yielded as its path (os.scandir cannot take a descriptor there) and the
+        whole chain is checked again after the scan, so names read through a folder swapped
+        for a junction meanwhile are discarded with an error instead of being returned.
+        """
+        if Path(relative).is_absolute():
+            invalid("Windows에서는 프로젝트 폴더 안의 모듈만 읽을 수 있습니다.")
+        parts = [p for p in PurePosixPath(relative, path).parts if p not in {".", "/"}]
+        chain = [self.root, *(self.root.joinpath(*parts[: i + 1]) for i in range(len(parts)))]
+        try:
+            checked = [
+                _plain(step, directory=index < len(chain) - 1 or directory)
+                for index, step in enumerate(chain)
+            ]
+            if directory:
+                yield str(chain[-1]), checked[-1]
+                for step, before in zip(chain, checked, strict=True):
+                    if not _same(_plain(step, directory=True), before):
+                        raise UnreadableEntry("읽는 중 폴더가 바뀌었습니다. 다시 조회해주세요.")
+                return
+            fd = os.open(chain[-1], os.O_RDONLY | getattr(os, "O_BINARY", 0))
+            try:
+                opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode) or not _same(opened, checked[-1]):
+                    raise UnreadableEntry(
+                        "확인한 파일과 연 파일이 다릅니다. 다시 조회해주세요.",
+                        None,
+                        ErrorCode.POLICY_VIOLATION,
+                    )
+                yield fd, opened
+            finally:
+                os.close(fd)
+        except OSError as error:
+            raise UnreadableEntry("파일이 없거나 안전하게 읽을 수 없습니다.", error.errno) from None
+
     def listing(self, module, path=""):
         """One bounded scan (10000 entries) of a folder: permitted rows, truncated, version."""
         with self._open(module, path, True) as (fd, info):
@@ -206,7 +307,7 @@ class SourceExplorer:
                     if scanned > 10000:
                         break
                     name = entry.name
-                    if forbidden(name) or entry.is_symlink():
+                    if forbidden(name) or _entry_redirects(entry):
                         continue
                     child = (path.rstrip("/") + "/" + name).lstrip("/")
                     directory = entry.is_dir(follow_symlinks=False)

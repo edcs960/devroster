@@ -1,6 +1,9 @@
 """Task-specific Git worktrees; the user's checkout is never a write target."""
 
+import os
+import stat
 import subprocess
+import time
 from pathlib import Path
 
 from agent_dev.domain.errors import DomainError, ErrorCode
@@ -96,7 +99,8 @@ class WorktreeManager:
             if git(worktree, "rev-list", "--count", binding["base_commit"] + "..HEAD") != "0":
                 return "kept: commits not in the base"
             with self.safety.lease(f"repository:{binding['common_dir']}"):
-                git(binding["path"], "worktree", "remove", str(worktree))
+                unlink_dependencies(worktree)
+                remove_worktree(binding["path"], worktree)
                 # The branch has no commits of its own, so deleting it loses nothing.
                 git(binding["path"], "branch", "-D", binding["branch"])
         except DomainError:
@@ -119,13 +123,65 @@ class WorktreeManager:
 DEPENDENCY_DIRS = ("node_modules",)
 
 
+def _junction(target, link):
+    if os.name != "nt":
+        return False
+    try:
+        import _winapi
+
+        _winapi.CreateJunction(str(target), str(link))
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+def _is_link(path):
+    """A symlink or a Windows junction: removing it must never touch what it points to."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & reparse)
+
+
+def unlink_dependencies(worktree):
+    """Drop the dependency links first, so removing the worktree cannot reach the checkout's copy."""
+    for name in DEPENDENCY_DIRS:
+        link = Path(worktree) / name
+        if not _is_link(link):
+            continue
+        try:
+            os.unlink(link)
+        except OSError:
+            os.rmdir(link)  # A Windows junction is removed as an (empty-looking) directory.
+
+
+def remove_worktree(repository, worktree, attempts=None, delay=0.5):
+    """`git worktree remove`, retried on Windows while an exiting process still holds a file."""
+    attempts = attempts or (4 if os.name == "nt" else 1)
+    for attempt in range(attempts):
+        try:
+            git(repository, "worktree", "remove", str(worktree))
+            return
+        except DomainError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay * 2**attempt)
+
+
 def link_dependencies(source, destination, common):
     """Link the checkout's installed dependencies into a task worktree, hidden from git."""
     for name in DEPENDENCY_DIRS:
         installed, link = Path(source) / name, Path(destination) / name
         if not installed.is_dir() or link.exists() or link.is_symlink():
             continue
-        link.symlink_to(installed, target_is_directory=True)
+        try:
+            link.symlink_to(installed, target_is_directory=True)
+        except OSError:
+            # Windows without symlink rights (WinError 1314): a junction needs none.
+            if not _junction(installed, link):
+                continue
         ignored = subprocess.run(
             ["git", "-C", str(destination), "check-ignore", "-q", name],
             capture_output=True,

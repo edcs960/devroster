@@ -11,6 +11,7 @@ from pathlib import Path
 
 from agent_dev.adapters.secrets import registered_secrets
 from agent_dev.adapters.state.sqlite.database import SCHEMA_VERSION, Database
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.adapters.workspace import configuration_root, metadata
 from agent_dev.domain.content import redact
 from agent_dev.domain.errors import DomainError
@@ -366,7 +367,7 @@ def diagnose(root: Path, *, check_auth=False):
                 from agent_dev.core.cli_home import isolated_environment
 
                 probe = subprocess.run(
-                    command,
+                    windows_command(command),
                     cwd=workspace,
                     capture_output=True,
                     text=True, encoding="utf-8", errors="replace",

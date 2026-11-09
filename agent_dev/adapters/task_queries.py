@@ -335,7 +335,13 @@ class TaskQueries:
                 ),
                 None,
             )
-            if failure and failure["payload"].get("reason") == "AWAITING_WORKFLOW_APPROVAL":
+            if failure and failure["payload"].get("reason") == "BUDGET_PAUSE":
+                reason(
+                    "BUDGET_PAUSE",
+                    "The estimated cost reached the budget; execution paused before the next AI call.",
+                    f"Check usage (devroster task usage {task_id}); resuming approves one more budget: devroster task resume {task_id}.",
+                )
+            elif failure and failure["payload"].get("reason") == "AWAITING_WORKFLOW_APPROVAL":
                 # A gate waiting for the user is a normal step, not a failure.
                 reason(
                     "WORKFLOW_APPROVAL_PENDING",

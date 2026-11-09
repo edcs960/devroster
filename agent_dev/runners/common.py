@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.core.models import AgentConfig, PipelineStep, Task
 from agent_dev.core.paths import AGENT_DEV_ROOT, PROJECT_ROOT
 
@@ -113,7 +114,7 @@ def ensure_mcp_servers(
     from agent_dev.core.cli_home import isolated_environment
 
     completed = subprocess.run(
-        [command, "mcp", "list"],
+        windows_command([command, "mcp", "list"]),
         cwd=PROJECT_ROOT,
         env=isolated_environment(),
         text=True, encoding="utf-8", errors="replace",

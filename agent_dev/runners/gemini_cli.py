@@ -8,6 +8,7 @@ import tempfile
 from copy import deepcopy
 from pathlib import Path
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.core.cli_home import GEMINI_CONTEXT_FILE, isolated_environment
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.model_routing import select_model
@@ -36,7 +37,7 @@ class GeminiCliRunner:
     def preflight(self):
         try:
             help_result = subprocess.run(
-                [self.command, "--help"],
+                windows_command([self.command, "--help"]),
                 capture_output=True,
                 text=True, encoding="utf-8", errors="replace",
                 timeout=10,
@@ -159,7 +160,7 @@ class GeminiCliRunner:
                     *command,
                 ]
             process = subprocess.Popen(
-                command,
+                windows_command(command),
                 cwd=self.workspace_path,
                 env=env,
                 text=True, encoding="utf-8", errors="replace",

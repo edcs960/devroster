@@ -9,6 +9,7 @@ import tempfile
 from copy import deepcopy
 from pathlib import Path
 
+from agent_dev.adapters.windows_launch import windows_command
 from agent_dev.core.cli_home import isolated_environment
 from agent_dev.core.models import AgentConfig, PipelineStep, Task
 from agent_dev.core.paths import PROJECT_ROOT
@@ -136,7 +137,7 @@ class CodexCliRunner:
                        "--holder", grant["holder"], "--token", str(grant["token"]), "--", *command]
 
         process = subprocess.Popen(
-            command,
+            windows_command(command),
             env=isolated_environment(self.process_env),
             cwd=self.workspace_path,
             text=True, encoding="utf-8", errors="replace",
@@ -232,7 +233,7 @@ class CodexCliRunner:
         names: set[str] = set()
         try:
             completed = subprocess.run(
-                [self.command, "mcp", "list"],
+                windows_command([self.command, "mcp", "list"]),
                 cwd=self.workspace_path,
                 env=isolated_environment(self.process_env),
                 text=True, encoding="utf-8", errors="replace",
@@ -251,7 +252,7 @@ class CodexCliRunner:
     def supports_exec_option(self, option: str) -> bool:
         if self._exec_help is None:
             completed = subprocess.run(
-                [self.command, "exec", "--help"],
+                windows_command([self.command, "exec", "--help"]),
                 cwd=self.workspace_path,
                 env=isolated_environment(self.process_env),
                 text=True, encoding="utf-8", errors="replace",
