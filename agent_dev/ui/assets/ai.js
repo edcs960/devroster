@@ -110,12 +110,15 @@
 
   function renderKeys() {
     $('key-rows').replaceChildren();
+    const sources = state.data.key_sources || {};
     for (const [name, set] of Object.entries(state.data.keys)) {
-      const row = make('div', undefined, 'path-row'), label = make('label', `${name} · ${set ? '저장됨' : '없음'}`), input = make('input'), save = make('button', set ? '교체' : '저장', 'secondary'), remove = make('button', '삭제', 'secondary');
-      const id = 'key-' + name; label.htmlFor = id; input.id = id; input.type = 'password'; input.autocomplete = 'off'; input.placeholder = set ? '새 값으로 교체할 때만 입력' : '키 값 입력';
-      save.type = remove.type = 'button'; remove.disabled = !set;
-      save.addEventListener('click', async () => { if (!input.value) { $('key-status').textContent = '키 값을 입력해주세요.'; return; } try { state.data.keys = (await api('/key', {name, value: input.value})).keys; input.value = ''; renderKeys(); $('key-status').textContent = name + ' 키를 저장했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
-      remove.addEventListener('click', async () => { if (!(await ask(name + ' 키를 삭제할까요?', '이 키를 쓰는 모든 프로젝트의 API 실행이 다음 실행부터 인증에 실패합니다. 되돌릴 수 없습니다.', '키 삭제'))) return; try { state.data.keys = (await api('/key', {name, delete: true})).keys; renderKeys(); $('key-status').textContent = name + ' 키를 삭제했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
+      const source = sources[name], kept = set || !!source;
+      const where = source ? `환경변수 ${source.env}에서 읽음 · ${source.present ? '설정됨' : '지금 설정되지 않음'}` : (set ? '저장됨' : '없음');
+      const row = make('div', undefined, 'path-row'), label = make('label', `${name} · ${where}`), input = make('input'), save = make('button', kept ? '교체' : '저장', 'secondary'), remove = make('button', '삭제', 'secondary');
+      const id = 'key-' + name; label.htmlFor = id; input.id = id; input.type = 'password'; input.autocomplete = 'off'; input.placeholder = kept ? '새 값 또는 env:환경변수이름으로 교체' : '키 값 또는 env:환경변수이름';
+      save.type = remove.type = 'button'; remove.disabled = !kept;
+      save.addEventListener('click', async () => { if (!input.value) { $('key-status').textContent = '키 값을 입력해주세요.'; return; } try { const reference = input.value.startsWith('env:'); state.data = Object.assign(state.data, await api('/key', {name, value: input.value})); input.value = ''; renderKeys(); $('key-status').textContent = name + (reference ? ' 키를 환경변수 이름으로 저장했습니다. 값은 저장하지 않습니다.' : ' 키를 저장했습니다.'); return; $('key-status').textContent = name + ' 키를 저장했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
+      remove.addEventListener('click', async () => { if (!(await ask(name + ' 키를 삭제할까요?', '이 키를 쓰는 모든 프로젝트의 API 실행이 다음 실행부터 인증에 실패합니다. 되돌릴 수 없습니다.', '키 삭제'))) return; try { state.data = Object.assign(state.data, await api('/key', {name, delete: true})); renderKeys(); $('key-status').textContent = name + ' 키를 삭제했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
       const wrap = make('div'); wrap.append(label, row); row.append(input, save, remove); $('key-rows').append(wrap);
     }
   }

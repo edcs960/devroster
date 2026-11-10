@@ -109,7 +109,7 @@
     const key=job.id+':'+job.state;
     if(box.dataset.job!==key){
       box.dataset.job=key;
-      const what=job.kind==='specs'?'명세서를':'목업을',head=make('div',undefined,'job-head');
+      const what=job.kind==='specs'?'명세서를':job.kind==='spec_documents'?'선택한 문서를':'목업을',head=make('div',undefined,'job-head');
       head.append(make('strong',job.state==='queued'?'AI 생성 준비 중입니다':'AI가 '+what+' 만들고 있습니다'),button('생성 중단',()=>mutate('cancel',{job_id:job.id})));
       jobBar=DevRosterProgress.create('AI 생성 진행 상황 (예상)');
       const meta=make('p',undefined,'job-meta');meta.setAttribute('aria-hidden','true');  // ticks every second; the bar carries it
@@ -124,7 +124,7 @@
     const estimate=state.data?.job_estimates?.[job.kind]||JOB_DEFAULT_SECONDS[job.kind]||120;
     const elapsed=Date.now()/1000-job.created,over=job.state==='running'&&elapsed>estimate;
     const percent=job.state==='queued'?0:Math.min(95,Math.round(elapsed/estimate*100));
-    const text=job.state==='queued'?'AI 실행 순서를 기다리고 있습니다':over?'예상보다 오래 걸리고 있습니다 · 경과 '+clock(elapsed):'경과 '+clock(elapsed)+' · 보통 약 '+clock(estimate)+' 걸립니다';
+    const stage=job.state==='running'&&job.message?job.message+' · ':'';const text=job.state==='queued'?'AI 실행 순서를 기다리고 있습니다':stage+(over?'예상보다 오래 걸리고 있습니다 · 경과 '+clock(elapsed):'경과 '+clock(elapsed)+' · 보통 약 '+clock(estimate)+' 걸립니다');
     jobBar.set(percent/100,text,over?'over':'');meta.textContent=text;
   }
   function render() {
@@ -165,13 +165,23 @@
     renderDocList();
     renderDocument();
   }
+  // Mermaid source with a copy button. The screen's CSP (style-src 'self') blocks the inline
+  // styles Mermaid draws with, so the picture is left to GitHub or any Mermaid viewer.
+  function diagram(pre, code) {
+    const box=make('figure',undefined,'mermaid-block'), head=make('figcaption');
+    head.append(make('span','Mermaid 다이어그램 · GitHub나 Mermaid 편집기에 붙여 넣으면 그림으로 보입니다.'),button('코드 복사',async()=>{
+      try{await navigator.clipboard.writeText(code.textContent);notice('다이어그램 코드를 복사했습니다.');}
+      catch{notice('복사 권한이 없습니다. 코드를 선택해 직접 복사하세요.',true);}
+    },'secondary sm'));
+    box.append(head,pre);return box;
+  }
   function markdown(container, text) {
     container.replaceChildren();
     const lines=text.split('\n'), cells=line=>line.trim().replace(/^\||\|$/g,'').split('|').map(v=>v.trim());
     let code=null, list=null;
     for(let i=0;i<lines.length;i++) {
       const line=lines[i];
-      if(line.trim().startsWith('```')) {if(code){code=null;}else{const pre=make('pre');code=make('code');pre.append(code);container.append(pre);}list=null;continue;}
+      if(line.trim().startsWith('```')) {if(code){code=null;}else{const pre=make('pre');code=make('code');pre.append(code);container.append(line.trim().slice(3).trim().toLowerCase()==='mermaid'?diagram(pre,code):pre);}list=null;continue;}
       if(code){code.append(document.createTextNode(line+'\n'));continue;}
       if(line.includes('|') && i+1<lines.length && /^\s*\|?[\s:|\-]+\|?\s*$/.test(lines[i+1]) && lines[i+1].includes('---')) {
         const table=make('table'), head=make('thead'), row=make('tr');cells(line).forEach(c=>row.append(make('th',c)));head.append(row);table.append(head);i++;
@@ -197,7 +207,7 @@
     for(const [label,names] of groups){
       const list=names.filter(name=>state.documents.includes(name)&&(!needle||name.includes(needle)));if(!list.length)continue;
       nav.append(make('p',label,'doc-group'));
-      for(const name of list){const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');if(name===state.document)b.setAttribute('aria-current','true');nav.append(b);shown++;}
+      for(const name of list){const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');if((draft.failed_documents||[]).includes(name)){b.dataset.failed='true';b.title='생성 실패 · 다시 생성 필요';}if(name===state.document)b.setAttribute('aria-current','true');nav.append(b);shown++;}
     }
     if(!shown)nav.append(make('p','‘'+needle+'’와 일치하는 문서가 없습니다.','hint'));
   }
@@ -207,6 +217,9 @@
     $('document-body').disabled=state.history || !!live() || state.pending;$('document-body').hidden=state.preview;$('document-preview').hidden=!state.preview;
     $('document-toggle').textContent=state.preview?'편집 내용으로 돌아가기':'미리보기';
     markdown($('document-preview'),state.specDraft.documents[state.document]||'이 버전에는 선택한 문서 본문이 없습니다.');
+    const failed=(state.specDraft.failed_documents||[]).includes(state.document);$('document-failed').hidden=!failed;$('document-failed').textContent=failed?'이 문서는 AI 생성에 실패했습니다. 아래에서 다시 생성해주세요.':'';
+    const blocked=state.preparationMode||state.history||!!live()||state.pending||state.specDirty||state.document==='개발기획서'||!state.data?.spec;
+    $('regenerate-document').disabled=blocked;$('document-note').disabled=blocked;$('regenerate-document').title=state.document==='개발기획서'?'개발기획서는 입력한 기획서 원문입니다.':state.specDirty?'수정 내용을 저장한 뒤 다시 생성할 수 있습니다.':'';
   }
   function collect(items,result={}) {items.forEach(e=>{result[e.id]=e;collect(e.children || [],result);});return result;}
   function renderMock() {
@@ -441,7 +454,8 @@
     const info=state.providers?.[$('provider').value];$('provider-help').textContent=info?.kind==='api'?'등록한 API 또는 로컬 서버로 기획서를 전달합니다. 모델·인증 키는 '+(state.aiShared?'AI 도구 메뉴':'AI·환경 설정')+'에서 준비해주세요.':'로컬에 설치하고 로그인한 CLI를 사용합니다. 생성 시 선택한 AI 서비스로 기획서를 전달합니다.';
     $('routing-hint').textContent=automatic?(selected?.routing?.mode==='auto'?'균형형 자동 선택: 명세·위험 검토 high, 일반 작업 medium, 단순 작업 low. 등록한 지원 강도와 상한 안에서 선택합니다.':'프로젝트에 저장한 고정 모델·추론 강도를 사용합니다.'):'이번 생성에만 모델·추론 강도를 직접 지정합니다.';
   }
-  const generate=kind=>{if(state.preparationMode){notice(preparationReason,true);return Promise.resolve(false);}return mutate('generate',{kind,provider:$('provider').value,...($('auto-routing').checked?{}:{model:$('model').value,effort:$('effort').value})},{message:'AI 생성을 시작했습니다. 완료되면 검토 화면으로 이동합니다.'});};
+  const generate=(kind,extra={})=>{if(state.preparationMode){notice(preparationReason,true);return Promise.resolve(false);}return mutate('generate',{kind,...extra,provider:$('provider').value,...($('auto-routing').checked?{}:{model:$('model').value,effort:$('effort').value})},{message:kind==='spec_documents'?'선택한 문서를 다시 생성합니다. 완료되면 새 버전으로 열립니다.':'AI 생성을 시작했습니다. 완료되면 검토 화면으로 이동합니다.'});};
+  $('regenerate-document').addEventListener('click',async()=>{const name=state.document;if(!name||$('regenerate-document').disabled)return;if(!await ask('이 문서 다시 생성',name+' 문서만 AI로 다시 씁니다. 다른 문서와 요구사항은 그대로이고, 결과는 새 명세 버전으로 저장됩니다.','다시 생성'))return;if(await generate('spec_documents',{documents:[name],note:$('document-note').value.trim()}))$('document-note').value='';});
   $('provider').addEventListener('change',syncRouting);
   $('auto-routing').addEventListener('change',syncRouting);
   $('generate-spec').addEventListener('click',()=>{if(state.specDirty){notice('명세서 수정 내용을 먼저 저장해주세요.',true);return;}generate('specs');});

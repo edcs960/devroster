@@ -3,7 +3,7 @@
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 MESSAGE = "준비 모드에서는 AI 실행을 할 수 없습니다. 프로젝트 설정의 AI 도구에서 기본 AI를 활성화하고 인증을 확인해주세요."
-AI_OPERATIONS = frozenset({"task.run", "task.resume"})
+AI_OPERATIONS = frozenset({"task.run", "task.resume", "task.quick"})
 
 
 class PreparationModeError(DomainError):

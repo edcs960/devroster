@@ -128,7 +128,7 @@ devroster setup --web --root /path/to/another-project
 | `.agent-dev/config/runtime.json` | 실행 gate·서버와 legacy 설정 | 기존 `devroster backup`에 포함 |
 | `.agent-dev/studio/studio.db` | 기획·명세·목업·코멘트 | `devroster backup`(format 2)에 포함 |
 
-legacy 엔진의 config 캐시는 기존 엔진 `config/`에 저장한다. 실제 값은 최상위 프로젝트 `.agent-dev/environment.json`에 저장하며 DB·프로필·감사 이벤트·공개 API에 넣지 않는다. 관리 폴더는 0700, private 파일은 0600으로 저장한다. Windows의 접근 제어는 해당 계정·폴더 권한에도 따른다.
+legacy 엔진의 config 캐시는 기존 엔진 `config/`에 저장한다. 실제 값은 최상위 프로젝트 `.agent-dev/environment.json`에 저장하며 DB·프로필·감사 이벤트·공개 API에 넣지 않는다. 관리 폴더는 0700, private 파일은 0600으로 저장한다. Windows의 접근 제어는 해당 계정·폴더 권한에도 따른다. 복사·복원·동기화 도구로 권한이 느슨해지면 `devroster doctor`가 경고하고, `devroster doctor --fix-permissions`가 0700/0600으로 되돌린다.
 
 환경 파일은 원자적으로 교체하며 설정 트랜잭션 실패 시 이전 값으로 되돌린다. 프로세스가 파일 교체 직후 종료되면 값 회전이 DB 갱신보다 먼저 적용될 수 있다. 승인된 환경 이름과 snapshot은 DB 기준으로 유지된다. 저장 경고가 나오면 권한을 확인하고 설정을 다시 저장해 캐시·폴더를 복구한다.
 
@@ -227,8 +227,10 @@ devroster rules check --root PROJECT   # 최신이 아니면 실패 (팀 CI에 �
 |---|---|
 | 도구별 설정 | Codex·Claude·Gemini CLI와 API 도구의 사용 여부, 실행파일(이름 또는 절대 경로), 모델, 추론 강도. CLI는 DevRoster 전용 로그인과 "로그인 상태 확인" |
 | 기본 순서 | 새 프로젝트가 도구를 고를 때의 순서 |
-| API 키 | OpenAI·Claude·Gemini·Grok(xAI) API 키. 값은 `<관리 폴더>/credentials/shared/ai-providers.json`(0600)에만 저장하고 화면·DB·내보내기에 나오지 않는다. 프로젝트 환경변수에 같은 이름이 있으면 그 프로젝트는 자기 키를 쓴다 |
+| API 키 | OpenAI·Claude·Gemini·Grok(xAI) API 키. 값은 `<관리 폴더>/credentials/shared/ai-providers.json`(0600)에만 저장하고 화면·DB·내보내기에 나오지 않는다. 프로젝트 환경변수에 같은 이름이 있으면 그 프로젝트는 자기 키를 쓴다. 값 대신 `env:환경변수이름`을 입력하면 이름만 저장하고, 실행할 때 그 환경변수에서 읽는다(아래 참고) |
 | 사용 중인 프로젝트 | 공통 AI 도구를 쓰는 등록 프로젝트 |
+
+**키를 파일에 두지 않기(`env:` 참조)**: API 키·슬랙 토큰 입력란에 값 대신 `env:OPENAI_API_KEY`처럼 적으면 DevRoster는 환경변수 이름만 저장한다. 값은 DevRoster를 실행한 프로세스의 환경변수에서 그때그때 읽고, 로그·결과에서는 다른 비밀값처럼 가린다. 셸 설정(`~/.zshrc`)·`launchctl setenv`(macOS 앱으로 실행할 때)·비밀 관리 도구(`op run -- devroster app` 등)로 값을 넣는다. 환경변수가 없으면 화면에 "지금 설정되지 않음"으로 보이고 그 키를 쓰는 실행은 인증 오류로 멈춘다. 운영체제 키체인에 직접 저장하는 기능은 플랫폼마다 수동 확인이 필요해 넣지 않았다.
 
 - 저장하면 새 revision이 생기고 **다음에 승인하는 작업부터** 적용된다. 이미 승인된 작업과 재시도는 승인 시점의 도구·모델을 그대로 쓴다. 레거시 파이프라인은 다음 실행부터 적용된다.
 - 프로젝트 설정 2단계 **사용할 AI**에서는 공통 도구 중 쓸 도구를 체크하고 순서만 정한다. 위의 도구가 먼저 쓰이고, 첫 번째 도구가 기획·목업 생성의 기본 도구다. 아무것도 고르지 않으면 준비 모드가 되어 AI 실행을 할 수 없다.

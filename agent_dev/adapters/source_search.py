@@ -376,8 +376,20 @@ class SourceSearch:
                         row["direction"] = "mixed"
                     if edge["type"] not in row["relations"]:
                         row["relations"].append(edge["type"])
+        source, partial = ("graph" if overview["state"] in {"ready", "stale"} else "naming"), False
+        if source == "naming":
+            # No Graphify graph: the built-in index finds import relations (#29).
+            from agent_dev.adapters.code_index import CodeIndex
+            from agent_dev.adapters.code_index import related as imported
+
+            try:
+                index = CodeIndex(self.explorer).build(module)
+            except DomainError:
+                index = None
+            if index is not None:
+                related, source, partial = imported(index, path), "code_index", index["partial"]
         tests = [
-            {"path": row["path"], "evidence": row["evidence"], "reason": "관계 그래프"}
+            {"path": row["path"], "evidence": row["evidence"], "reason": "import 관계" if source == "code_index" else "관계 그래프"}
             for row in related.values()
             if TEST_NAME.search(row["path"])
         ]
@@ -396,6 +408,8 @@ class SourceSearch:
         return {
             "path": path,
             "state": overview["state"],
+            "source": source,
+            "partial": partial,
             "message": overview.get("message", ""),
             "related": sorted(related.values(), key=lambda row: row["path"]),
             "tests": sorted(tests, key=lambda row: row["path"]),

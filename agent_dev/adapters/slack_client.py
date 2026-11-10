@@ -16,12 +16,18 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+# Bot tokens call the Web API; the app-level token only opens Socket Mode connections.
+KINDS = {
+    "bot": (("xoxb-", "xoxp-"), "슬랙 봇 토큰(xoxb-로 시작)을 먼저 저장해주세요."),
+    "app": (("xapp-",), "슬랙 앱 수준 토큰(xapp-로 시작)을 먼저 저장해주세요."),
+}
+
+
 class SlackClient:
-    def __init__(self, token, *, base=BASE, opener=None, timeout=15):
-        if not isinstance(token, str) or not token.startswith(("xoxb-", "xoxp-")):
-            raise DomainError(
-                ErrorCode.AUTH_REQUIRED, "슬랙 봇 토큰(xoxb-로 시작)을 먼저 저장해주세요."
-            )
+    def __init__(self, token, *, base=BASE, opener=None, timeout=15, kind="bot"):
+        prefixes, missing = KINDS[kind]
+        if not isinstance(token, str) or not token.startswith(prefixes):
+            raise DomainError(ErrorCode.AUTH_REQUIRED, missing)
         self.token, self.base, self.timeout = token, base, timeout
         # The token must never reach an ambient proxy or a redirect target.
         self.opener = opener or urllib.request.build_opener(

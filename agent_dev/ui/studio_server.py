@@ -276,7 +276,14 @@ class StudioWeb:
             return result
         if action == "generate":
             return self.jobs.start(
-                project, version, p["kind"], p.get("provider"), p.get("model"), p.get("effort")
+                project,
+                version,
+                p["kind"],
+                p.get("provider"),
+                p.get("model"),
+                p.get("effort"),
+                documents=p.get("documents"),
+                note=p.get("note", ""),
             )
         if action == "cancel":
             return service.cancel_job(project, version, p["job_id"])

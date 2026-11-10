@@ -11,7 +11,7 @@
 <ol id="order-list" class="role-list" aria-labelledby="order-title"></ol></section>
 <div class="save-bar"><span id="revision">아직 저장하지 않음</span><div><button id="save" type="submit" class="primary">AI 도구 저장</button></div></div>
 </form>
-<section id="keys" aria-labelledby="keys-title"><div class="section-title"><span>03</span><div><h2 id="keys-title">API 키</h2><p>API 도구가 쓰는 키입니다. 값은 이 컴퓨터의 보호된 파일(0600)에만 저장하고 다시 표시하지 않습니다. 프로젝트 환경변수에 같은 이름의 키가 있으면 그 프로젝트는 자기 키를 씁니다.</p></div></div>
+<section id="keys" aria-labelledby="keys-title"><div class="section-title"><span>03</span><div><h2 id="keys-title">API 키</h2><p>API 도구가 쓰는 키입니다. 값은 이 컴퓨터의 보호된 파일(0600)에만 저장하고 다시 표시하지 않습니다. 값 대신 <code>env:환경변수이름</code>을 입력하면 이름만 저장하고, 실행할 때 그 환경변수에서 읽습니다(셸 설정·<code>launchctl setenv</code>·비밀 관리 도구로 값을 넣어 주세요). 프로젝트 환경변수에 같은 이름의 키가 있으면 그 프로젝트는 자기 키를 씁니다.</p></div></div>
 <div id="key-rows"></div><p id="key-status" role="status" aria-live="polite"></p></section>
 <section id="projects" aria-labelledby="projects-title"><div class="section-title"><span>04</span><div><h2 id="projects-title">사용 중인 프로젝트</h2><p>공통 AI 도구를 쓰는 프로젝트입니다. 저장하면 이 프로젝트들의 다음 작업에 적용됩니다.</p></div></div>
 <ul id="project-list" class="plain-list"></ul></section>

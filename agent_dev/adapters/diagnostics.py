@@ -54,7 +54,7 @@ def codex_model_check(config):
         return "warn", "로컬 모델 설정·목록을 확인하지 못했습니다."
 
 
-def diagnose(root: Path, *, check_auth=False):
+def diagnose(root: Path, *, check_auth=False, fix_permissions=False):
     from agent_dev.adapters.workflow_runtime import project_root
 
     root = configuration_root(root)
@@ -419,6 +419,30 @@ def diagnose(root: Path, *, check_auth=False):
             "등록된 준비 상태만 확인했습니다. 실제 도구 인증은 확인하지 않았습니다.",
             "연결의 권한·범위와 인증 환경변수를 확인해주세요.",
         )
+    try:
+        from agent_dev.adapters.credential_store import permission_report
+        from agent_dev.adapters.environment import environment_file
+
+        permissions = permission_report(repair=fix_permissions, extra=[environment_file(root)])
+        if not permissions["applicable"]:
+            add("credential_permissions", "pass", "Windows는 사용자 프로필 권한(ACL)으로 인증 파일을 보호합니다.")
+        elif permissions["loose"] and not permissions["repaired"]:
+            add(
+                "credential_permissions",
+                "warn",
+                f"다른 사용자가 읽을 수 있는 인증 파일·폴더가 {len(permissions['loose'])}개 있습니다.",
+                "devroster doctor --fix-permissions로 0600/0700으로 되돌려주세요.",
+            )
+        else:
+            add(
+                "credential_permissions",
+                "pass",
+                f"인증 파일 권한을 {len(permissions['repaired'])}개 바로잡았습니다."
+                if permissions["repaired"]
+                else "인증 파일은 소유자만 읽을 수 있습니다.",
+            )
+    except (OSError, DomainError):
+        add("credential_permissions", "warn", "인증 파일 권한을 확인하지 못했습니다.")
     try:
         free = shutil.disk_usage(workspace if workspace.exists() else workspace.parent).free
         add(

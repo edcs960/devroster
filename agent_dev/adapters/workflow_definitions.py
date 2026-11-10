@@ -18,6 +18,7 @@ from agent_dev.domain.workflow_graph import (
 
 PRESET_ROLES = {
     "quick-fix": ["developer", "qa", "reviewer"],
+    "test-first": ["planner", "test-automation", "developer", "qa", "reviewer"],
     "full-feature": [
         "planner",
         "fmea-expert",
@@ -87,6 +88,7 @@ PRESET_ROLES = {
 }
 LABELS = {
     "quick-fix": "빠른 수정",
+    "test-first": "테스트 먼저",
     "full-feature": "기능 개발",
     "frontend-ui": "화면 개선",
     "backend-api": "API 개발",
@@ -117,13 +119,34 @@ def preset(preset_id):
             return ("risk", "fmea")
         return None
 
-    return linear_graph(
+    graph = linear_graph(
         preset_id,
         LABELS[preset_id],
         " → ".join(PRESET_ROLES[preset_id]),
         PRESET_ROLES[preset_id],
         condition,
     )
+    return test_first(graph) if preset_id == "test-first" else graph
+
+
+def test_first(graph):
+    """Tests are written from the acceptance criteria first and must fail before development.
+
+    A red check (verification expecting failure) sits between Test Automation and the
+    developer; tests that already pass are sent back to Test Automation.
+    """
+    nodes = [dict(n) for n in graph["nodes"]]
+    for node in nodes:
+        if node.get("role_id") == "test-automation":
+            node["reentry_targets"] = ["test-automation"]
+    nodes.append({"id": "red-check", "kind": "verification", "gate_ids": [], "expect": "fail"})
+    edges = []
+    for edge in graph["edges"]:
+        if edge["from"] == "test-automation" and edge["to"] == "developer":
+            edges += [{"from": "test-automation", "to": "red-check"}, {"from": "red-check", "to": "developer"}]
+        else:
+            edges.append(edge)
+    return normalize(dict(graph, nodes=nodes, edges=edges, description=graph["description"].replace("developer", "red-check → developer", 1)))
 
 
 ROSTER_WORKFLOW_ID = "project-roles"
@@ -283,6 +306,9 @@ def check_custom_roles(graph, profile):
 
 def trusted_metadata(metadata):
     value = deepcopy(metadata or {})
+    # Workflow metadata is what the task is about, not its configuration: a workflow document
+    # in config_override contains words like "schema_version" that would read as DB impact.
+    value.pop("config_override", None)
     impacts = impact(value)
     risk = value.get("risk", [])
     risks = [risk] if isinstance(risk, str) else risk if isinstance(risk, list) else []

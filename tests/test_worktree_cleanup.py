@@ -74,3 +74,44 @@ def test_running_tasks_are_never_listed(tmp_path):
     runtime = runtime_with(tmp_path, POLICY)
     runtime.execute("T", "run-1", runner=Runner())
     assert cleanup_plan(runtime.store)["worktrees"] == []
+
+
+def merged(tmp_path):
+    runtime, binding = finished(tmp_path)
+    git(binding["worktree"], "commit", "-qam", "task work")
+    git(binding["path"], "merge", "--ff-only", "-q", binding["branch"])
+    return runtime, binding
+
+
+def test_apply_removes_only_what_the_preview_showed(tmp_path):
+    runtime, binding = merged(tmp_path)
+    done = cleanup(runtime.store, runtime.safety, apply=True, only=[])
+    assert only(done)["result"] == "kept: not in the preview"
+    assert Path(binding["worktree"]).is_dir()
+    done = cleanup(runtime.store, runtime.safety, apply=True, only=[binding["worktree"]])
+    assert only(done)["result"] == "removed" and not Path(binding["worktree"]).exists()
+
+
+def test_settings_screen_previews_then_removes_the_listed_folders(tmp_path):
+    import pytest
+
+    from agent_dev.ui.setup_server import worktree_cleanup
+
+    runtime, binding = merged(tmp_path)
+    root = runtime.root
+    preview = worktree_cleanup(root, False, None)
+    assert preview["applied"] is False and preview["removable"] == 1
+    assert Path(binding["worktree"]).is_dir()
+    with pytest.raises(ValueError):
+        worktree_cleanup(root, True, None)  # Apply must name the folders the user saw.
+    done = worktree_cleanup(root, True, [only(preview)["worktree"]])
+    assert done["applied"] is True and only(done)["result"] == "removed"
+    assert not Path(binding["worktree"]).exists()
+
+
+def test_settings_screen_without_a_database_lists_nothing(tmp_path):
+    from agent_dev.ui.setup_server import worktree_cleanup
+
+    (tmp_path / "config").mkdir()
+    assert worktree_cleanup(tmp_path, False, None)["worktrees"] == []
+    assert not any(tmp_path.rglob("*.db"))

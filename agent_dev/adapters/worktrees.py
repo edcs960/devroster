@@ -379,13 +379,21 @@ def cleanup_plan(store, task_id=""):
     return {"worktrees": rows, "removable": len(removable), "bytes": sum(r.get("bytes", 0) for r in removable)}
 
 
-def cleanup(store, safety, task_id="", apply=False):
-    """Preview by default; with apply, remove the worktrees and task branches the plan allows."""
+def cleanup(store, safety, task_id="", apply=False, only=None):
+    """Preview by default; with apply, remove the worktrees and task branches the plan allows.
+
+    ``only`` limits removal to the worktree folders the user saw in a preview, so a task that
+    finished between preview and apply is not removed without being shown first.
+    """
     plan = cleanup_plan(store, task_id)
     if not apply:
         return dict(plan, applied=False)
+    chosen = None if only is None else {str(path) for path in only}
     for row in plan["worktrees"]:
         if row["action"] != "remove":
+            continue
+        if chosen is not None and row["worktree"] not in chosen:
+            row["result"] = "kept: not in the preview"
             continue
         binding = store.snapshot(row["task_id"])["resolved"]["repositories"][row["repository"]]
         try:

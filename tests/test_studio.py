@@ -157,7 +157,15 @@ def mockup():
 
 
 def fixture_generator(kind, data, *_):
-    return specifications(data["brief"]) if kind == "specs" else mockup()
+    # Staged spec generation asks for requirements first, then documents in groups.
+    if kind in {"specs", "spec_requirements", "spec_documents"}:
+        full = specifications(data["brief"])
+        if kind == "spec_requirements":
+            return {k: full[k] for k in ("requirements", "screens", "questions")}
+        if kind == "spec_documents":
+            return {"documents": {n: full["documents"][n] for n in data["documents_to_write"]}}
+        return full
+    return mockup()
 
 
 @pytest.fixture

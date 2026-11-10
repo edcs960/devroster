@@ -4,7 +4,7 @@
 <body class="page-messengers">
 <header class="app-header" data-page-title="외부 메신저 연결"><div class="app-header-actions"></div></header>
 <main id="messengers-root">
-<div class="page-intro"><p class="breadcrumb">설정·자료</p><h1>외부 메신저 연결</h1><p>슬랙 채널에 남긴 요청을 DevRoster가 주기적으로 확인해 처리하고, 결과를 같은 스레드에 답합니다. 허용한 사용자·봇의 메시지만 처리합니다.</p></div>
+<div class="page-intro"><p class="breadcrumb">설정·자료</p><h1>외부 메신저 연결</h1><p>슬랙 채널에 남긴 요청을 DevRoster가 주기적으로(Socket Mode를 켜면 바로) 확인해 처리하고, 결과를 같은 스레드에 답합니다. 허용한 사용자·봇의 메시지만 처리합니다.</p></div>
 <div id="messengers-error" class="error-state" hidden role="alert"></div>
 <p id="messengers-result" role="status" aria-live="polite"></p>
 
@@ -15,6 +15,7 @@
     <li>워크스페이스에 설치한 뒤 <b>Bot User OAuth Token</b>(<code>xoxb-</code>로 시작)을 아래에 저장합니다.</li>
     <li>요청을 받을 채널에서 <code>/invite @앱이름</code>으로 봇을 초대하고, 채널 정보의 채널 ID(C… 또는 G…)를 입력합니다.</li>
     <li>요청을 보낼 계정의 사용자 ID(U…) 또는 피클 같은 앱의 봇 ID(B…)를 허용 목록에 넣습니다.</li>
+    <li>(선택) 바로 답하게 하려면 앱 설정의 <b>Socket Mode</b>를 켜고 <code>connections:write</code> 범위의 <b>App-Level Token</b>(<code>xapp-</code>로 시작)을 만들어 아래에 저장합니다. <b>Event Subscriptions</b>를 켜고 봇 이벤트 <code>message.channels</code>(비공개 채널이면 <code>message.groups</code>)를 추가한 뒤 앱을 다시 설치합니다. 공인 IP나 열린 포트는 필요 없습니다.</li>
   </ol>
 </section>
 
@@ -26,7 +27,13 @@
     <button id="token-save" type="button">토큰 저장</button>
     <button id="token-delete" type="button" class="secondary">토큰 삭제</button>
   </div>
-  <p class="messenger-meta">이 컴퓨터의 공통 인증 저장소에만 저장하며 화면·DB·내보내기에 다시 나오지 않습니다.</p>
+  <p id="app-token-state" class="messenger-meta"></p>
+  <div class="messenger-row">
+    <label for="app-token-value">App-Level Token (Socket Mode, 선택)<input id="app-token-value" type="password" autocomplete="off" placeholder="xapp-…"></label>
+    <button id="app-token-save" type="button">앱 토큰 저장</button>
+    <button id="app-token-delete" type="button" class="secondary">앱 토큰 삭제</button>
+  </div>
+  <p class="messenger-meta">이 컴퓨터의 공통 인증 저장소에만 저장하며 화면·DB·내보내기에 다시 나오지 않습니다. 토큰 대신 <code>env:환경변수이름</code>을 입력하면 이름만 저장하고 실행할 때 그 환경변수에서 읽습니다.</p>
 </section>
 
 <section class="messenger-card" aria-labelledby="slack-settings-title">
@@ -45,6 +52,7 @@
       <label class="check"><input type="checkbox" data-command="approve"> 승인 — 설계·계획·Workflow 단계 승인 (승인자는 slack:사용자 ID로 기록)</label>
     </fieldset>
     <label class="check"><input id="notify" type="checkbox"> 작업 상태가 바뀌면 채널에 알림 (슬랙에서 시작한 작업은 그 스레드에)</label>
+    <label class="check"><input id="socket-mode" type="checkbox"> Socket Mode로 바로 받기 (앱 토큰 필요. 연결이 끊기면 조회 주기대로 확인)</label>
     <label class="check"><input id="enabled" type="checkbox"> 사용 (앱을 켤 때 리스너도 시작)</label>
     <div class="messenger-row"><button id="settings-save" type="submit">설정 저장</button><button id="connection-test" type="button" class="secondary">연결 검사</button></div>
   </form>

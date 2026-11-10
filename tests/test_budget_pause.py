@@ -52,7 +52,7 @@ GRAPH = {
 }
 
 
-def runtime_with(tmp_path, policy, graph=None, phases=None):
+def runtime_with(tmp_path, policy, graph=None, phases=None, gate=None):
     source = tmp_path / "source"
     source.mkdir()
     (source / "source.txt").write_text("base", encoding="utf-8")
@@ -74,7 +74,7 @@ def runtime_with(tmp_path, policy, graph=None, phases=None):
                 {"id": "developer2", "capabilities": ["code.write"]},
                 {"id": "developer3", "capabilities": ["code.write"]},
             ],
-            "verification": {"commands": [{"name": "unit", "repository": "source", "command": [sys.executable, "-c", "print(1)"]}], "required_gates": ["unit"]},
+            "verification": {"commands": [{"name": "unit", "repository": "source", "command": gate or [sys.executable, "-c", "print(1)"]}], "required_gates": ["unit"]},
             "usage_policy": policy,
             **({"workflow": {"document": graph}} if graph else {}),
         },

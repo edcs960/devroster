@@ -213,6 +213,9 @@ def test_settings_page_saves_without_echoing_the_token(workspace):
 
         saved = post("/api/messengers/token", {"value": "xoxb-page-secret"})
         assert saved["token_saved"] is True and "xoxb-page-secret" not in json.dumps(saved)
+        saved = post("/api/messengers/app-token", {"value": "xapp-page-secret"})
+        assert saved["app_token_saved"] is True and "xapp-page-secret" not in json.dumps(saved)
+        assert post("/api/messengers/app-token", {"delete": True})["app_token_saved"] is False
         with pytest.raises(urllib.error.HTTPError) as error:
             post("/api/messengers/save", {"settings": {"channel_id": "general"}})
         assert error.value.code == 400

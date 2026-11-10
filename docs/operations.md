@@ -77,7 +77,7 @@ devroster task complete V2-TASK-001 PUBLISH-RECORD-ID --json
 - 커밋 메시지와 PR 제목·본문은 프로젝트 설정의 작업 언어(`output_language`, 기본 한국어)로 개발 역할 AI가 쓴 `commit_message`를 쓴다. PR 본문에는 그 설명 뒤에 마지막 검증 결과와 요구사항 ID가 붙는다.
 - 완료 방식은 프로젝트 설정의 `completion_mode`다. 기본 `local`은 publish가 task 브랜치에 커밋하고, review가 HEAD 일치와 깨끗한 작업 트리를 확인하며, complete가 기본 브랜치를 빠른 병합(fast-forward)한다. push·PR·CI는 쓰지 않는다.
 - `github`를 고르면 아래처럼 PR과 CI가 필요하다. PR 생성은 완료가 아니다. 모든 publish_required repository의 명시된 CI check가 SUCCESS이고, PR head가 기록 SHA와 같아야 한다.
-- 끝난 작업의 작업 폴더(워크트리)는 자동으로 지우지 않는다. `devroster worktree list`로 정리 대상과 이유를 보고, `devroster worktree prune --apply`로 지운다(`--task ID`로 한 작업만). 완료·취소된 작업 중 작업이 기준 브랜치에 들어갔거나 GitHub에서 병합이 확인된(squash 포함) 것만 지우고, 커밋하지 않은 변경이나 병합되지 않은 커밋이 있으면 남긴다. 작업 브랜치와 그 작업의 중단 기준선(`.attempts`)도 함께 지운다.
+- 끝난 작업의 작업 폴더(워크트리)는 자동으로 지우지 않는다. `devroster worktree list`로 정리 대상과 이유를 보고, `devroster worktree prune --apply`로 지운다(`--task ID`로 한 작업만). 완료·취소된 작업 중 작업이 기준 브랜치에 들어갔거나 GitHub에서 병합이 확인된(squash 포함) 것만 지우고, 커밋하지 않은 변경이나 병합되지 않은 커밋이 있으면 남긴다. 작업 브랜치와 그 작업의 중단 기준선(`.attempts`)도 함께 지운다. 웹에서는 **설정 → 공통 설정 → 작업 폴더 정리**에서 **정리 대상 확인**으로 같은 목록을 보고, **정리 실행**을 누르면 확인 대화상자를 거쳐 미리보기에 나온 폴더만 지운다(미리보기 뒤에 새로 끝난 작업은 다시 확인해야 지운다).
 - AI 단계가 도중에 강제 종료되면 다음 실행 전에 그 단계가 남긴 변경을 역할 권한과 대조한다. 권한 안이면 이어서 실행하고, 권한 밖이면 작업 폴더의 `.attempts`에 복사한 뒤 `INTERRUPTED_CHANGES`로 멈춘다. 이어서 실행하면 그 파일들만 단계 시작 시점으로 되돌리고 다시 실행한다.
 - 사용자가 실제 PR을 merge하고 complete를 실행해야 completed가 된다. completed 직후 프로젝트에 Graphify 그래프(`graphify-out/graph.json`)가 있으면 `graphify update`로 코드 그래프를 갱신하고 결과를 `code_graph`로 남긴다(실패해도 완료는 유지). SKIPPED/누락/FAILURE는 required check의 성공으로 인정하지 않는다.
 

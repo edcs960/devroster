@@ -101,7 +101,42 @@ def locate_quote(quote, source):
     return match.group(0) if match else None
 
 
-def validate_specs(value, source):
+# Documents written per call in staged generation (개발기획서 is the user's brief itself).
+DOCUMENT_GROUPS = (
+    ("기획·요구", ("요구사항명세서", "기능명세서", "정책정의서", "비기능요구사항정의서", "용어사전")),
+    ("화면·데이터", ("화면정의서", "API명세서", "데이터정의서", "테이블정의서", "권한정의서", "코드공통코드정의서")),
+    ("설계", ("기술설계서", "프로세스정의서", "시스템다이어그램정의서", "시퀀스다이어그램", "클래스다이어그램", "프로그램목록")),
+    ("검증·관리", ("테스트시나리오", "요구사항추적성매트릭스", "갭분석및보완사항", "산출물목록")),
+)
+GENERATED_DOCUMENTS = tuple(name for _, names in DOCUMENT_GROUPS for name in names)
+assert set(GENERATED_DOCUMENTS) | {"개발기획서"} == set(DOCUMENTS)
+
+
+def failed_document(name, ids=()):
+    """Stand-in for a document whose generation failed, so the rest can still be reviewed."""
+    body = (
+        f"# {name}\n\n이 문서는 AI 생성에 실패했습니다. 명세서 화면에서 이 문서를 선택하고 "
+        "**이 문서 다시 생성**을 눌러주세요.\n"
+    )
+    if ids:
+        body += "\n연결할 ID: " + ", ".join(sorted(ids)) + "\n"
+    return body
+
+
+def validate_documents(value, names):
+    """The ``documents`` of a staged call: exactly ``names``, each a real Markdown document."""
+    docs = value.get("documents") if isinstance(value, dict) else None
+    if not isinstance(docs, dict) or set(docs) != set(names):
+        raise StudioError("요청한 문서만 정확히 작성해야 합니다.")
+    for name, content in docs.items():
+        text(content, name, 60_000)
+        if len(content.strip()) < 60 or not content.lstrip().startswith("#"):
+            raise StudioError(f"{name}의 내용을 구체적으로 작성해주세요.")
+    return docs
+
+
+def validate_core(value, source):
+    """Requirements, screens and questions (the first stage, and the core of every spec)."""
     if not isinstance(value, dict):
         raise StudioError("명세서 형식이 잘못되었습니다.")
     requirements = collection(value.get("requirements"), "요구사항", 200, 1)
@@ -146,6 +181,14 @@ def validate_specs(value, source):
         question_ids.add(item_id)
         text(question.get("question"), "확인 질문", 4000)
         text(question.get("answer", ""), "질문 답변", 8000, False)
+    return seen, screen_ids
+
+
+def validate_specs(value, source):
+    seen, screen_ids = validate_core(value, source)
+    failed = value.get("failed_documents", [])
+    if not isinstance(failed, list) or any(name not in GENERATED_DOCUMENTS for name in failed):
+        raise StudioError("생성에 실패한 문서 목록이 잘못되었습니다.")
     docs = value.get("documents")
     if not isinstance(docs, dict) or set(docs) != set(DOCUMENTS):
         raise StudioError("필수 명세서 22종이 모두 있어야 합니다.")

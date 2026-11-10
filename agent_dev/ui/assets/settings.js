@@ -14,7 +14,7 @@
     'limits.session_timeout_seconds': '세션 제한 초'
   };
   const ORIGINS = {global: '공통값', project: '프로젝트 지정', default: '기본값'};
-  const state = {token: '', shared: null, effective: null, root: '', plan: null};
+  const state = {token: '', shared: null, effective: null, root: '', plan: null, worktrees: null};
   const make = (tag, text, cls) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (cls) el.className = cls; return el; };
   const notice = (text, error = false) => { $('notice').textContent = text; $('notice').classList.toggle('error', error); };
   const list = value => value.split(',').map(item => item.trim()).filter(Boolean);
@@ -195,11 +195,39 @@
     $('recover-id').value = plan.plan_id;
   }
 
+  const size = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  const RESULTS = {removed: '정리함'};
+
+  // Finished tasks' worktrees: the preview decides what may go; apply removes only those shown.
+  function renderWorktrees(plan) {
+    state.worktrees = plan;
+    const rows = plan.worktrees;
+    $('worktree-result').hidden = rows.length === 0;
+    const body = $('worktree-table').tBodies[0];
+    body.replaceChildren();
+    for (const row of rows) {
+      const tr = make('tr');
+      const action = row.result ? (RESULTS[row.result] || '남김') : (row.action === 'remove' ? '정리 대상' : '남김');
+      const tone = row.result === 'removed' || (!row.result && row.action === 'remove') ? 'pass' : 'warn';
+      const badge = make('td');
+      badge.append(make('span', action, 'badge ' + tone));
+      tr.append(make('td', row.task_id), make('td', row.repository), badge, make('td', row.result && row.result !== 'removed' ? 'Git이 지우지 못했거나 미리보기에 없던 폴더입니다.' : row.reason), make('td', row.bytes ? size(row.bytes) : '—'));
+      body.append(tr);
+    }
+    const pending = plan.applied ? 0 : plan.removable;
+    $('worktree-summary').textContent = rows.length === 0 ? '정리할 작업 폴더가 없습니다.' : (plan.applied ? '정리를 마쳤습니다.' : '정리 대상 ' + plan.removable + '개 · ' + size(plan.bytes) + ' 확보 예정, 남김 ' + (rows.length - plan.removable) + '개');
+    $('worktree-apply').disabled = pending === 0;
+  }
+
   async function load() {
     state.shared = await api('/api/settings/global');
     state.token = state.shared.token;
     const root = state.shared.location.workspace.source_root;
-    if (root !== state.root) pendingEdits = {};  // edits belong to the project they were made for
+    if (root !== state.root) {  // edits and the cleanup preview belong to the project they were made for
+      pendingEdits = {};
+      if (state.worktrees) renderWorktrees({worktrees: [], removable: 0, bytes: 0, applied: false});
+      $('worktree-summary').textContent = '아직 확인하지 않았습니다.';
+    }
     state.root = root;
     state.effective = await api('/api/settings/effective?root=' + encodeURIComponent(state.root));
     renderGlobal(); renderEffective(); renderConnections(); renderLocation();
@@ -236,6 +264,18 @@
   });
   $('recover-run').addEventListener('click', () => {
     report('move-status', api('/api/settings/storage/recover', {migration_id: $('recover-id').value.trim(), action: $('recover-action').value}), result => '복구 결과: ' + result.state).then(load).catch(() => {});
+  });
+  $('worktree-preview').addEventListener('click', () => {
+    report('worktree-status', api('/api/settings/worktrees', {root: state.root}), plan => plan.worktrees.length ? '확인했습니다. 정리 대상만 지우고 나머지는 남깁니다.' : '끝난 작업의 작업 폴더가 없습니다.').then(renderWorktrees).catch(() => {});
+  });
+  $('worktree-apply').addEventListener('click', async () => {
+    const plan = state.worktrees;
+    if (!plan || !plan.removable) return;
+    const chosen = plan.worktrees.filter(row => row.action === 'remove').map(row => row.worktree);
+    const ok = await ask('작업 폴더 ' + chosen.length + '개를 정리할까요?', '병합된 작업의 폴더와 작업 브랜치를 지웁니다(' + size(plan.bytes) + '). 원본 저장소와 기준 브랜치는 그대로이고, 되돌릴 수 없습니다.', '정리', {danger: true});
+    if (!ok) return;
+    $('worktree-apply').disabled = true;
+    report('worktree-status', api('/api/settings/worktrees', {root: state.root, apply: true, worktrees: chosen}), result => result.worktrees.filter(row => row.result === 'removed').length + '개를 정리했습니다.').then(renderWorktrees).catch(() => { $('worktree-apply').disabled = false; });
   });
   load().catch(error => notice(errText(error), true));
 })();

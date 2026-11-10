@@ -14,6 +14,7 @@ class MessengerWeb(LocalWeb):
     post_routes: ClassVar = {
         "/api/messengers/save",
         "/api/messengers/token",
+        "/api/messengers/app-token",
         "/api/messengers/test",
         "/api/messengers/listener",
     }
@@ -52,14 +53,25 @@ class MessengerWeb(LocalWeb):
 
     def post(self, action, payload):
         if action == "save":
-            messenger.save_settings(self.root, payload.get("settings"))
-            if not messenger.read_settings(self.root)["enabled"] and self.listener is not None:
+            before = messenger.read_settings(self.root)
+            saved = messenger.save_settings(self.root, payload.get("settings"))
+            if not saved["enabled"] and self.listener is not None:
                 self.listener.stop()
+            elif self.listener is not None and self.listener.running and any(
+                before[key] != saved[key] for key in ("socket_mode", "channel_id")
+            ):
+                self.listener.stop()  # The Socket Mode connection is made when it starts.
+                self.listener.start()
         elif action == "token":
             if payload.get("delete") is True:
                 messenger.delete_token()
             else:
                 messenger.save_token(payload.get("value"))
+        elif action == "app-token":
+            if payload.get("delete") is True:
+                messenger.delete_app_token()
+            else:
+                messenger.save_app_token(payload.get("value"))
         elif action == "test":
             return {"check": messenger.check(self.root), **messenger.status(self.root, self.listener)}
         else:

@@ -107,6 +107,7 @@ class ClaudeCliRunner:
             "--print",
             "--output-format",
             self.output_format,
+            *(["--verbose"] if self.output_format == "stream-json" else []),
             "--permission-mode",
             self.permission_mode,
         ]
@@ -151,7 +152,13 @@ class ClaudeCliRunner:
             kind="claude_cli",
         )
         try:
-            stdout, stderr = process.communicate(input=instruction, timeout=self.timeout_seconds)
+            live = getattr(self, "live_log", None)
+            if live is not None:
+                from agent_dev.runners.common import stream_communicate
+
+                stdout, stderr = stream_communicate(process, instruction, self.timeout_seconds, live.write)
+            else:
+                stdout, stderr = process.communicate(input=instruction, timeout=self.timeout_seconds)
         except subprocess.TimeoutExpired:
             # Give the lease supervisor a chance to terminate the provider tree.
             process.terminate()

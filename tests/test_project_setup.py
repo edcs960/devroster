@@ -338,7 +338,8 @@ def test_saved_defaults_reach_studio_job_config(tmp_path):
             if called:
                 break
             time.sleep(0.02)
-        assert called == [("claude_cli", "configured-model", "configured-claude")]
+        # The first call is enough: staged specs make more calls with the same configuration.
+        assert called[0] == ("claude_cli", "configured-model", "configured-claude")
     finally:
         jobs.close()
 

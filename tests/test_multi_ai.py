@@ -333,11 +333,13 @@ def test_real_api_studio_specs_and_mock_follow_saved_defaults(tmp_path, api_serv
     jobs.start(pid, item["project"]["version"], "specs")
     item = wait_done(studio, pid)
     assert item["spec"] and item["jobs"][0]["state"] == "done"
+    spec_calls = len(api_server.calls)  # requirements, then document groups (staged)
+    assert spec_calls >= 2
     item = studio.approve_specs(pid, item["project"]["version"])
     api_server.payload = response("compatible_api", json.dumps(mockup()))
     jobs.start(pid, item["project"]["version"], "mock")
     item = wait_done(studio, pid)
-    assert item["mock"] and len(api_server.calls) == 2
+    assert item["mock"] and len(api_server.calls) == spec_calls + 1
     queued = next(e for e in item["events"] if e["kind"] == "job.queued")
     assert json.loads(queued["payload"])["selection"]["provider"] == "compatible_api"
     jobs.close()

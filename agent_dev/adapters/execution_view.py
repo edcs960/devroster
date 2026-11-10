@@ -238,6 +238,8 @@ def view(root, task_id, cursor=0, now=None):
         (task_id,),
     )
     selected = _safe(json.loads(latest_usage[0]["payload_json"]), secrets) if latest_usage else {}
+    # Prompt composition of the latest AI call: sizes only, never prompt text.
+    prompt = json.loads(latest_usage[0]["payload_json"]).get("context_chars") if latest_usage else None
     lease = db.rows("SELECT expires_at FROM leases WHERE resource=?", ("task:" + task_id,))
     lease_expires = lease[0]["expires_at"] if lease and lease[0]["expires_at"] > now else None
     started = db.rows("SELECT MIN(started_at) AS s FROM phase_attempts WHERE task_id=?", (task_id,))[0]["s"]
@@ -250,6 +252,7 @@ def view(root, task_id, cursor=0, now=None):
         "started_at": started,
         "elapsed_seconds": round(now - started, 1) if started else None,
         "stages": counts,
+        "prompt": prompt if isinstance(prompt, dict) else None,
         "stage_items": stages,
         "sessions": _sessions(stages),
         "current": {
@@ -271,4 +274,46 @@ def view(root, task_id, cursor=0, now=None):
         "usage": usage.get("usage"),
         "limits": usage.get("limits"),
         "cost": cost(db, task_id) if task["snapshot_id"] else None,
+    }
+
+
+def live_log(root, task_id, offset=0, attempt_id=""):
+    """New lines of the task's latest attempt log.
+
+    ``attempt_id`` and ``offset`` are what the caller has read so far; when a newer attempt
+    has started, its log is returned from the beginning instead.
+    """
+    from agent_dev.adapters import live_log as logs
+    from agent_dev.adapters.task_queries import TaskQueries
+
+    queries = TaskQueries(root)
+    if not queries.db:
+        raise DomainError(ErrorCode.INVALID_INPUT, "프로젝트 작업 공간을 먼저 준비해주세요.")
+    if type(offset) is not int or offset < 0:
+        raise DomainError(ErrorCode.INVALID_INPUT, "offset을 확인해주세요.")
+    db = queries.db
+    if not db.rows("SELECT id FROM tasks WHERE id=?", (task_id,)):
+        raise DomainError(ErrorCode.INVALID_INPUT, "작업을 찾을 수 없습니다.")
+    attempts = db.rows(
+        "SELECT id,phase_id,state FROM phase_attempts WHERE task_id=? ORDER BY started_at DESC, id DESC LIMIT 1",
+        (task_id,),
+    )
+    empty = {"attempt_id": "", "phase_id": "", "running": False, "text": "", "offset": 0}
+    if not attempts:
+        return empty
+    attempt = attempts[0]
+    if attempt["id"] != attempt_id:
+        offset = 0  # A new step started: its own log, from the start.
+    try:
+        bindings = WorkflowRepository(db).snapshot(task_id)["resolved"].get("repositories", {})
+    except DomainError:
+        return empty
+    text, next_offset = logs.read(logs.log_path(bindings, attempt["id"]), offset) if bindings else ("", 0)
+    return {
+        "attempt_id": attempt["id"],
+        "phase_id": attempt["phase_id"],
+        "running": attempt["state"] == "running",
+        # Lines were masked when written; mask again in case secrets were added since.
+        "text": redact(text, queries.secrets),
+        "offset": next_offset,
     }

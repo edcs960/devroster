@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from agent_dev.adapters.workflow_definitions import preset
+from agent_dev.adapters.workflow_definitions import PRESET_ROLES, preset
 from agent_dev.ui.workflow_server import WorkflowWeb
 
 
@@ -49,7 +49,7 @@ def call(web, method, path, body=None, headers=None):
 
 def test_bootstrap_save_conflict_apply_and_reload(web):
     code, bootstrap = call(web, "GET", "/api/workflows/bootstrap")
-    assert code == 200 and len(bootstrap["presets"]) == 7
+    assert code == 200 and len(bootstrap["presets"]) == len(PRESET_ROLES)
     headers = {"Content-Type": "application/json", "X-Workflow-Token": bootstrap["token"]}
     graph = preset("quick-fix")
     graph["id"] = "edited"

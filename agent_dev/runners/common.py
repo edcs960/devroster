@@ -142,3 +142,53 @@ def ensure_mcp_servers(
             f"Missing: {', '.join(missing)}\n"
             f"{fix_hint}"
         )
+
+
+def stream_communicate(process, input_text, timeout, on_line):
+    """Like ``process.communicate`` but passes each output line to ``on_line(stream, line)``.
+
+    Returns (stdout, stderr). On timeout the process is terminated (then killed) before
+    TimeoutExpired is raised, so callers' cleanup only has to wait for it.
+    """
+    import contextlib
+    import threading
+
+    chunks = {"stdout": [], "stderr": []}
+
+    def pump(name, pipe):
+        for line in iter(pipe.readline, ""):
+            chunks[name].append(line)
+            # A live-log failure must never break the run.
+            with contextlib.suppress(Exception):
+                on_line(name, line)
+
+    readers = [
+        threading.Thread(target=pump, args=(name, pipe), daemon=True)
+        for name, pipe in (("stdout", process.stdout), ("stderr", process.stderr))
+        if pipe is not None
+    ]
+    for reader in readers:
+        reader.start()
+    if process.stdin is not None:
+        try:
+            if input_text:
+                process.stdin.write(input_text)
+            process.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        for reader in readers:
+            reader.join(timeout=5)
+        raise subprocess.TimeoutExpired(process.args, timeout) from None
+    # A grandchild that keeps the pipe open must not hang the run after the CLI exited.
+    for reader in readers:
+        reader.join(timeout=30)
+    return "".join(chunks["stdout"]), "".join(chunks["stderr"])

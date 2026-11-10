@@ -176,6 +176,25 @@ def approved_skills(resolved):
     }
 
 
+def project_checks(resolved):
+    """The approved verification commands, bound to the task worktrees, for check_server."""
+    bindings = resolved.get("repositories", {})
+    checks = []
+    for item in resolved.get("verification", {}).get("commands", []):
+        binding = bindings.get(item.get("repository"))
+        command = item.get("command")
+        if not binding or not isinstance(command, list) or not command:
+            continue
+        root = Path(binding["worktree"]).resolve()
+        cwd = (root / item.get("cwd", ".")).resolve()
+        if not cwd.is_relative_to(root):
+            continue
+        checks.append(
+            {"name": item["name"], "command": command, "cwd": str(cwd), "timeout": int(item.get("timeout_seconds", 900))}
+        )
+    return checks
+
+
 class WorkflowRuntime:
     def __init__(self, root: Path, db_path=None, secrets=()):
         from agent_dev.adapters.workspace import configuration_root, engine_configuration
@@ -519,6 +538,7 @@ class WorkflowRuntime:
         return bind(self.root, resolved)
 
     def runners(self, task_id, lease=None):
+        """Runner candidates for the task's approved AI tools."""
         from agent_dev.adapters.ai_providers import API_PROVIDERS, PROVIDERS, credential_ready
         from agent_dev.adapters.api_runner import ApiRunnerAdapter
         from agent_dev.adapters.environment import process_environment
@@ -588,6 +608,7 @@ class WorkflowRuntime:
                                 .get("items", {})
                                 .values()
                             ],
+                            project_checks=project_checks(resolved) if provider == "claude_cli" else [],
                         ),
                         workspace,
                         dict(lease, db=str(self.store.db.path)) if lease else None,

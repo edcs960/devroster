@@ -154,7 +154,15 @@ class CodexCliRunner:
             kind="codex_cli",
         )
         try:
-            stdout, stderr = process.communicate(timeout=self.timeout_seconds, **({"input": instruction} if self.stdin_prompt else {}))
+            live = getattr(self, "live_log", None)
+            if live is not None:
+                from agent_dev.runners.common import stream_communicate
+
+                stdout, stderr = stream_communicate(
+                    process, instruction if self.stdin_prompt else None, self.timeout_seconds, live.write
+                )
+            else:
+                stdout, stderr = process.communicate(timeout=self.timeout_seconds, **({"input": instruction} if self.stdin_prompt else {}))
         except subprocess.TimeoutExpired:
             # Give the lease supervisor a chance to terminate the provider tree.
             process.terminate()

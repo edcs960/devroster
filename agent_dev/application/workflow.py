@@ -5,6 +5,7 @@ import time
 from dataclasses import replace
 
 from agent_dev.domain.content import digest
+from agent_dev.domain.context_policy import profile as context_profile
 from agent_dev.domain.contracts import PhaseRequest
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.execution_limits import limits, safe_usage
@@ -144,6 +145,7 @@ class WorkflowCoordinator:
                 continue
             started = time.monotonic()
             result = None
+            request = None
             try:
                 role_context = json.loads(self.artifacts.context(task_id, phase_id))
                 role_context["role_policy"] = (
@@ -270,6 +272,7 @@ class WorkflowCoordinator:
                         "provider": result.provider if result else "",
                         "usage": safe_usage(result.usage) if result else {},
                         "selection": result.selection if result else {},
+                        "context_chars": context_profile(request.context) if request else None,
                     },
                 )
                 record_thresholds = getattr(self.store, "record_usage_thresholds", None)

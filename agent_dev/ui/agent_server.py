@@ -40,6 +40,16 @@ class AgentWeb(LocalWeb):
 
             cursor = query.get("cursor", "0")
             return view(self.root, query.get("task", ""), int(cursor) if cursor.isdigit() else -1)
+        if action == "log":
+            from agent_dev.adapters.execution_view import live_log
+
+            offset = query.get("offset", "0")
+            return live_log(
+                self.root,
+                query.get("task", ""),
+                int(offset) if offset.isdigit() else -1,
+                query.get("attempt", ""),
+            )
         raise DomainError(ErrorCode.INVALID_INPUT, "조회 기능을 찾을 수 없습니다.")
 
     def post(self, action, payload):

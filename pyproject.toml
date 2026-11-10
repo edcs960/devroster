@@ -1,6 +1,6 @@
 [project]
 name = "devroster"
-version = "0.4.4"
+version = "0.4.5"
 description = "Local AI development workbench: plan documents to specs, mockups and approved, verified tasks run by your AI CLIs"
 requires-python = ">=3.11"
 readme = "README.md"

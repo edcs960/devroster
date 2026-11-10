@@ -551,7 +551,9 @@ def create_bundle(root: Path, destination: Path, *, self_request=None, capture_g
                     runtime = {"system_name": workspace.name}
                     add(".agent-dev/config/runtime.json", json.dumps(runtime).encode())
                 else:
-                    reject("Canonical workspace runtime configuration is missing.")
+                    # A plain raise: newer pyright treats code inside this with-block as
+                    # reachable after a NoReturn call.
+                    raise DomainError(ErrorCode.POLICY_VIOLATION, "Canonical workspace runtime configuration is missing.")
                 marker = metadata(root) or {
                     "format_version": 1,
                     "project_id": slugify(runtime.get("system_name") or workspace.name),

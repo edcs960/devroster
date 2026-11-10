@@ -103,6 +103,9 @@
 .page-studio .markdown p { color: var(--c-text); white-space: pre-wrap; }
 .page-studio .markdown h1 { font-size: 22px; } .page-studio .markdown h2 { font-size: 17px; margin-top: 26px; } .page-studio .markdown h3 { margin-top: 20px; }
 .page-studio .markdown pre { padding: 14px 16px; overflow: auto; white-space: pre; }
+.page-studio .mermaid-block { margin: 14px 0; border: 1px solid var(--c-border); border-radius: var(--r-md); overflow: hidden; }
+.page-studio .mermaid-block figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--c-surface-2); border-bottom: 1px solid var(--c-border); font-size: var(--fs-sm); color: var(--c-text-2); }
+.page-studio .mermaid-block pre { margin: 0; border: 0; border-radius: 0; }
 .page-studio .markdown-table { overflow: auto; margin: 14px 0; border: 1px solid var(--c-border); border-radius: var(--r-md); }
 .page-studio .markdown table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
 .page-studio .markdown-table tr:last-child td { border-bottom: 0; }
@@ -230,3 +233,9 @@
   .page-studio .canvas-area { padding: 12px; }
   .page-studio .markdown { padding: 16px; }
 }
+
+.document-regenerate { margin-top: var(--sp-3); }
+.document-regenerate-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.document-regenerate-row input { flex: 1 1 240px; min-width: 0; }
+#documents button[data-failed="true"] { color: var(--c-danger); }
+#documents button[data-failed="true"]::after { content: " · 생성 실패"; font-size: var(--fs-xs); }

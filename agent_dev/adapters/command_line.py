@@ -206,6 +206,7 @@ def parser():
             "complete": ["task_id", "publish_id"],
             "cancel": ["task_id"],
             "checkpoint": ["task_id"],
+            "quick": ["module", "title", "source"],
         },
         "feedback": {
             "add": ["task_id", "source"],
@@ -359,6 +360,9 @@ def parser():
                 command.add_argument("--backup", type=Path)
             if name == "doctor":
                 command.add_argument("--check-auth", action="store_true")
+                command.add_argument(
+                    "--fix-permissions", action="store_true", help="인증 파일 권한을 0600/0700으로 되돌림"
+                )
             if name == "setup":
                 mode = command.add_mutually_exclusive_group()
                 mode.add_argument("--web", action="store_true")
@@ -411,6 +415,8 @@ def parser():
                     command.add_argument("--limit", type=int, default=100)
                     command.add_argument("--offset", type=int, default=0)
                     command.add_argument("--state", default="")
+            if name == "task" and action == "quick":
+                command.add_argument("--project", default="", help="프로젝트가 여러 개일 때")
             if name == "task" and action in {"list", "explain"}:
                 command.add_argument("--limit", type=int, default=100)
                 if action == "list":
@@ -590,7 +596,7 @@ def dispatch(args):
     if namespace == "doctor":
         from agent_dev.adapters.diagnostics import diagnose
 
-        return diagnose(root, check_auth=args.check_auth)
+        return diagnose(root, check_auth=args.check_auth, fix_permissions=args.fix_permissions)
     if namespace == "backup":
         from agent_dev.adapters.backup import create_bundle, inspect_bundle, restore_bundle
 
@@ -789,6 +795,26 @@ def dispatch(args):
     if namespace == "task":
         if action == "show":
             return asdict(store.task(args.task_id))
+        if action == "quick":
+            from agent_dev.adapters import quick_fix
+
+            description = Path(args.source).read_text(encoding="utf-8")
+            if args.dry_run:
+                plan = quick_fix.preview(store, args.module, args.title, description, args.project)
+                return {k: v for k, v in plan.items() if k not in {"graph", "scope"}}
+            from agent_dev.adapters.preparation import require_ai
+
+            require_ai(root)  # Refuse before anything is created when AI runs are not allowed.
+            created = quick_fix.create(runtime, args.module, args.title, description, args.actor, args.project)
+            request_id = args.request_id or uuid.uuid4().hex
+            run = runtime.execute(
+                created["task_id"],
+                request_id + ":run",
+                tools=__import__("agent_dev.adapters.integrations", fromlist=["Integrations"])
+                .Integrations(root)
+                .call,
+            )
+            return dict(created, run=run)
         if action in {"run", "resume", "verify"}:
             return runtime.execute(
                 args.task_id,

@@ -280,6 +280,7 @@ SETTINGS_WRITES = {
     "/api/settings/storage/plan",
     "/api/settings/storage/apply",
     "/api/settings/storage/recover",
+    "/api/settings/worktrees",
 }
 
 
@@ -319,7 +320,8 @@ def ai_write(path, payload, owner=None):
     if path == "/api/settings/ai/auth-check":
         return {"auth": service.check_auth()}
     if path == "/api/settings/ai/key":
-        return {"keys": service.set_key(payload["name"], payload.get("value"), delete=payload.get("delete") is True)}
+        keys = service.set_key(payload["name"], payload.get("value"), delete=payload.get("delete") is True)
+        return {"keys": keys, "key_sources": service.key_sources()}
     if path == "/api/settings/ai/import":
         return service.import_project(Path(payload["root"]), apply=payload.get("apply") is True)
     operation = {"login": "start", "login-status": "status", "login-cancel": "cancel"}[
@@ -375,6 +377,8 @@ def settings_write(path, payload):
         )
     if path == "/api/settings/storage/recover":
         return storage_migration.recover_move(payload["migration_id"], payload["action"])
+    if path == "/api/settings/worktrees":
+        return worktree_cleanup(Path(payload["root"]), payload.get("apply") is True, payload.get("worktrees"))
     if path == "/api/settings/connections/bind":
         root = Path(payload["root"])
         shared = SharedIntegrations(root)
@@ -394,6 +398,21 @@ def settings_write(path, payload):
     return shared.register(
         payload["connection_id"], payload["config"], payload.get("expected_version", 0)
     )
+
+
+def worktree_cleanup(root, apply, selected):
+    """Finished tasks' worktree folders: preview, or remove the ones the preview showed."""
+    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workflow_runtime import WorkflowRuntime
+    from agent_dev.adapters.worktrees import cleanup
+
+    db = workspace_locations(root).state_db
+    if not db.is_file():
+        return {"worktrees": [], "removable": 0, "bytes": 0, "applied": False}
+    if apply and not (isinstance(selected, list) and all(isinstance(p, str) for p in selected)):
+        raise ValueError("worktrees must list the previewed folders")
+    runtime = WorkflowRuntime(root, db)
+    return cleanup(runtime.store, runtime.safety, apply=apply, only=selected if apply else None)
 
 
 def cli_login_request(service, operation, payload, owner=None):

@@ -64,8 +64,11 @@ LABELS = {
     "preset": "템플릿",
     "mode": "전환 모드",
     "release_id": "릴리스 태그",
+    "module": "모듈",
+    "title": "제목",
 }
 ACTION_LABELS = {
+    "quick": "빠른 수정",
     "run": "실행",
     "resume": "이어서 실행",
     "verify": "검증",
@@ -133,6 +136,7 @@ ALLOWED = {
         "complete",
         "cancel",
         "checkpoint",
+        "quick",
     },
     "project": {"register", "profile", "show"},
     "design": {"refine", "approve"},
@@ -211,7 +215,9 @@ def commands():
                     fields.append(
                         {
                             "name": field.dest,
-                            "label": LABELS.get(field.dest, field.dest),
+                            "label": "고칠 내용"
+                            if key == "task.quick" and field.dest == "source"
+                            else LABELS.get(field.dest, field.dest),
                             "type": kind,
                             "required": True,
                         }
@@ -365,7 +371,7 @@ class AgentConsole:
             ):
                 invalid("입력 길이와 형식을 확인해주세요: " + field["label"])
             if field["type"] == "document":
-                markdown = op["id"] in {"design.refine", "feedback.add", "knowledge.candidate"}
+                markdown = op["id"] in {"design.refine", "feedback.add", "knowledge.candidate", "task.quick"}
                 document: Any = value if markdown else json.loads(value)
                 if not markdown and not isinstance(
                     document, list if op["id"] == "plan.create" else dict
@@ -502,6 +508,26 @@ class AgentConsole:
                 )
         if hasattr(args, "task_id"):
             result["task"] = TaskQueries(self.root).explain(args.task_id)
+        if op["id"] == "task.quick":
+            from types import SimpleNamespace
+
+            from agent_dev.adapters import quick_fix
+
+            if not self.db_path.is_file():
+                invalid("프로젝트 설정을 먼저 저장해주세요.")
+            fields = payload.get("fields", {})
+            plan = quick_fix.preview(
+                SimpleNamespace(db=Database(self.db_path, read_only=True)),
+                fields.get("module", ""),
+                fields.get("title", ""),
+                fields.get("source", ""),
+            )
+            result["quick_fix"] = {k: plan[k] for k in ("design", "roles", "allowed_paths", "verification_gates", "module")}
+            result["notes"] = [
+                "확인하면 아래 설계와 작업 1개짜리 계획을 만들고, 이 확인을 설계·계획 승인으로 기록한 뒤 바로 실행합니다.",
+                "흐름: " + " → ".join(plan["role_names"]) + " → 검증 (" + (", ".join(plan["verification_gates"]) or "검증 명령 없음") + ")",
+                "수정 허용 경로: " + ", ".join(plan["allowed_paths"]),
+            ]
         if op["id"] == "task.publish":
             result["notes"].append(
                 "선택한 저장소에 게시합니다. 프로젝트 게시 권한과 검증 완료 조건이 필요합니다."

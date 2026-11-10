@@ -17,6 +17,25 @@ from agent_dev.runners.common import (
 from agent_dev.runners.gemini_cli import GeminiCliRunner
 
 
+def _live_log_for(provider, bindings, attempt_id):
+    """The attempt's live log, or None when it cannot be written (the run goes on without)."""
+    from agent_dev.adapters.live_log import LiveLog, log_path
+
+    if not bindings or not attempt_id:
+        return None
+    try:
+        from agent_dev.adapters.secrets import registered_secrets
+        from agent_dev.core.paths import PROJECT_ROOT
+
+        secrets = registered_secrets(PROJECT_ROOT)
+    except Exception:  # noqa: BLE001 - masking falls back to the generic secret patterns
+        secrets = ()
+    try:
+        return LiveLog(log_path(bindings, attempt_id), provider, secrets)
+    except OSError:
+        return None
+
+
 class CliRunnerAdapter:
     def __init__(self, provider: str, config: dict, workspace: Path, lease_config=None):
         approved_dirs = [Path(path).resolve() for path in config.get("approved_add_dirs", [])]
@@ -48,7 +67,9 @@ class CliRunnerAdapter:
             extra_args=[],
             load_env_files=False,
             collect_usage=True,
-            output_format="json",
+            # Events while running (tool calls, messages) for the live log; the final result
+            # is the stream's last "result" event (runners/usage.py).
+            output_format="stream-json",
             process_registry_path=str(
                 Path(lease_config["db"]).parent / "data/process_registry.json"
             )
@@ -65,6 +86,8 @@ class CliRunnerAdapter:
         }
         if provider not in factories:
             raise DomainError(ErrorCode.CAPABILITY_UNAVAILABLE, "Unknown runner adapter.")
+        # Approved verification commands a Claude code role may run while working (check_server).
+        self.project_checks = list(config.pop("project_checks", []) or [])
         self.provider, self.runner = provider, factories[provider](config)
         # Codex reads outside the workspace already and --add-dir would grant writes there.
         self.runner.add_dirs = approved_dirs + ([] if provider == "codex_cli" else skill_dirs)
@@ -92,7 +115,57 @@ class CliRunnerAdapter:
                     for argument in ["-c", "mcp_servers." + name + ".enabled=false"]
                 ]
 
+    CHECK_TOOL = "mcp__devroster__run_project_check"
+
+    def _attach_checks(self, code_allowed):
+        """Give a Claude code role the approved checks as an MCP tool for this call only."""
+        if self.provider != "claude_cli" or not code_allowed or not self.project_checks:
+            return None
+        import json
+        import sys
+        import tempfile
+
+        folder = Path(tempfile.mkdtemp(prefix="devroster-checks-"))
+        config, servers = folder / "checks.json", folder / "mcp.json"
+        config.write_text(json.dumps({"checks": self.project_checks, "max_calls": 10}), encoding="utf-8")
+        servers.write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "devroster": {
+                            "type": "stdio",
+                            "command": sys.executable,
+                            "args": ["-m", "agent_dev.adapters.check_server", str(config)],
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._saved = (list(self.runner.mcp_config), list(self.runner.extra_args))
+        self.runner.mcp_config = [*self.runner.mcp_config, str(servers)]
+        self.runner.extra_args = [*self.runner.extra_args, "--allowedTools", self.CHECK_TOOL]
+        return folder
+
+    def _detach_checks(self, folder):
+        if folder is None:
+            return
+        import shutil
+
+        self.runner.mcp_config, self.runner.extra_args = self._saved
+        shutil.rmtree(folder, ignore_errors=True)
+
+    def _live_log(self, request, bindings):
+        return _live_log_for(self.provider, bindings, request.attempt_id)
+
     def execute(self, request):
+        self._checks_folder = None
+        try:
+            return self._execute(request)
+        finally:
+            self._detach_checks(self._checks_folder)
+
+    def _execute(self, request):
         import json
 
         from agent_dev.adapters.role_execution import capture, enforce
@@ -136,6 +209,7 @@ class CliRunnerAdapter:
             # Settings are not loaded, so "dontAsk" would deny every Edit/Write call. Code roles
             # auto-accept edits; their paths are still checked against the role policy below.
             self.runner.permission_mode = "acceptEdits" if code_allowed else "dontAsk"
+        self._checks_folder = self._attach_checks(code_allowed)
         if hasattr(self.runner, "sandbox"):
             self.runner.sandbox = "workspace-write" if code_allowed else "read-only"
         # Only this provider's own session ids are resumable; anything else starts fresh.
@@ -148,6 +222,7 @@ class CliRunnerAdapter:
         )
         if resumable:
             self.runner.resume_session_id = resume_id
+        self.runner.live_log = self._live_log(request, bindings)
         try:
             try:
                 prompt = resumed_context(request.context) if resume_id else request.context

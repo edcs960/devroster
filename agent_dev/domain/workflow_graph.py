@@ -32,7 +32,7 @@ FIELDS = {
     },
     "condition": {"field", "equals"},
     "approval": {"actor"},
-    "verification": {"gate_ids"},
+    "verification": {"gate_ids", "expect"},
     "merge": set(),
     "tool": {
         "connection_id",
@@ -192,6 +192,9 @@ def _normalize(document, *, modules=None, gates=None, roles=ROLES):
                     )
             elif kind == "verification":
                 strings(node.get("gate_ids"), "gate_ids")
+                # "fail": a red check before development (the new tests must fail first).
+                if node.get("expect", "pass") not in {"pass", "fail"}:
+                    invalid("Verification expect must be pass or fail.", field="expect")
                 if gates is not None and set(node["gate_ids"]) - set(gates):
                     invalid(
                         "Unknown verification gate: " + ", ".join(sorted(set(node["gate_ids"]) - set(gates)))[:200],

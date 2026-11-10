@@ -98,6 +98,13 @@ async function waitOrigin(page, label, origin) {
       await status(page, 'connection-status', /비활성화했습니다/);
       await page.waitForFunction(id => /비활성화됨/.test([...document.querySelectorAll('#connection-list li')].find(li => li.textContent.includes(id)).textContent), id);
 
+      // Worktree cleanup: with no finished task there is nothing to remove, and apply stays off.
+      assert.equal(await page.locator('#worktree-apply').isDisabled(), true);
+      await page.locator('#worktree-preview').click();
+      await status(page, 'worktree-status', /작업 폴더가 없습니다/);
+      assert.match(await page.locator('#worktree-summary').textContent(), /정리할 작업 폴더가 없습니다/);
+      assert.equal(await page.locator('#worktree-apply').isDisabled(), true);
+
       // Storage: a nested destination is refused before anything runs; a valid move is reversible.
       await page.locator('#move-destination').fill(path.join(root, 'src', 'config'));
       await page.locator('#move-plan').click();
@@ -121,7 +128,7 @@ async function waitOrigin(page, label, origin) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       assert.deepEqual(errors, []);
       await page.screenshot({path: path.join(out, 'settings-' + width + '.png'), fullPage: true});
-      checks.push({width, inherit: true, override: true, conflict: true, sharedBind: true, sharedDisable: true, permissionError: true, moveRefused: true, moveApplied: true, rollback: true, recoveryError: true, keyboard: true, overflow: false, pageErrors: errors});
+      checks.push({width, inherit: true, override: true, conflict: true, sharedBind: true, sharedDisable: true, permissionError: true, moveRefused: true, moveApplied: true, rollback: true, recoveryError: true, worktreePreview: true, keyboard: true, overflow: false, pageErrors: errors});
       await page.close();
     }
   } finally {

@@ -213,7 +213,8 @@ def test_studio_resolves_at_queue_time_and_supports_manual_override(tmp_path):
         service.save(settings)
         release.set()
         detail = wait_done(studio, pid)
-        assert captured == [("deep", "high")]
+        # Staged specs call the generator once per step; every step uses the queue-time choice.
+        assert captured and set(captured) == {("deep", "high")}
         event = next(e for e in detail["events"] if e["kind"] == "job.queued")
         assert json.loads(event["payload"])["selection"]["model"] == "deep"
         jobs.start(pid, detail["project"]["version"], "specs", model="manual", effort="low")

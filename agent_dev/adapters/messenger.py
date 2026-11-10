@@ -7,6 +7,7 @@ Studio paths, so approval, snapshot and verification rules stay those of the web
 
 import copy
 import json
+import os
 import re
 import threading
 import time
@@ -18,6 +19,8 @@ from agent_dev.domain.errors import DomainError, ErrorCode
 
 CONNECTION = "messenger-slack"
 TOKEN_KEY = "SLACK_BOT_TOKEN"
+APP_TOKEN_KEY = "SLACK_APP_TOKEN"  # Socket Mode only (connections:write)
+SAFETY_POLL = 300  # With Socket Mode connected, history is still read this often.
 COMMANDS = ("request", "status", "run", "approve")
 DEFAULTS = {
     "enabled": False,
@@ -29,6 +32,8 @@ DEFAULTS = {
     "commands": {"request": True, "status": True, "run": True, "approve": False},
     # Post every task state change to the channel (thread of the Slack command when known).
     "notify": True,
+    # Socket Mode: Slack pushes a signal for each new message, so replies start at once.
+    "socket_mode": False,
 }
 NOTIFY_LIMIT = 20
 CHANNEL = re.compile(r"[CG][A-Z0-9]{6,20}")
@@ -129,7 +134,7 @@ def normalize_settings(value):
     result = copy.deepcopy(DEFAULTS)
     result.update({k: v for k, v in value.items() if k != "commands"})
     result["commands"].update(value.get("commands", {}))
-    if type(result["enabled"]) is not bool or type(result["notify"]) is not bool:
+    if any(type(result[k]) is not bool for k in ("enabled", "notify", "socket_mode")):
         invalid("사용 여부를 확인해주세요.")
     channel = result["channel_id"]
     if not isinstance(channel, str) or (channel and not CHANNEL.fullmatch(channel)):
@@ -169,14 +174,38 @@ def token_saved():
     return bool(CredentialStore.shared_entry(CONNECTION).get(TOKEN_KEY))
 
 
+def _token_input(value, prefixes, message):
+    """A token, or ``env:NAME`` to read it from that environment variable at use."""
+    from agent_dev.adapters.credential_store import env_reference
+
+    text = value.strip() if isinstance(value, str) else ""
+    name = env_reference(text)
+    current = os.environ.get(name, "") if name else text
+    if (current or not name) and not current.startswith(prefixes):
+        invalid(message)
+    return text
+
+
 def save_token(value):
-    if not isinstance(value, str) or not value.strip().startswith(("xoxb-", "xoxp-")):
-        invalid("슬랙 봇 토큰은 xoxb-로 시작합니다.")
-    CredentialStore.save_shared(CONNECTION, TOKEN_KEY, value.strip())
+    text = _token_input(value, ("xoxb-", "xoxp-"), "슬랙 봇 토큰은 xoxb-로 시작합니다.")
+    CredentialStore.save_shared(CONNECTION, TOKEN_KEY, text)
 
 
 def delete_token():
     CredentialStore.remove_shared_key(CONNECTION, TOKEN_KEY)
+
+
+def app_token_saved():
+    return bool(CredentialStore.shared_entry(CONNECTION).get(APP_TOKEN_KEY))
+
+
+def save_app_token(value):
+    text = _token_input(value, ("xapp-",), "슬랙 앱 수준 토큰은 xapp-로 시작합니다.")
+    CredentialStore.save_shared(CONNECTION, APP_TOKEN_KEY, text)
+
+
+def delete_app_token():
+    CredentialStore.remove_shared_key(CONNECTION, APP_TOKEN_KEY)
 
 
 def client():
@@ -283,7 +312,10 @@ class MessengerListener:
         self.clock = clock
         self.owner = uuid.uuid4().hex
         self._stop = threading.Event()
+        self._wake = threading.Event()
         self._thread = None
+        self._socket_thread = None
+        self.socket_state = "off"
         self._lock = threading.Lock()
 
     # state ----------------------------------------------------------------------------
@@ -319,28 +351,62 @@ class MessengerListener:
         if self.running:
             return
         self._stop.clear()
+        self._wake.clear()
         self._thread = threading.Thread(target=self.run, daemon=True, name="devroster-slack")
         self._thread.start()
 
     def stop(self):
         self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=20)
+        self._wake.set()
+        for thread in (self._thread, self._socket_thread):
+            if thread is not None:
+                thread.join(timeout=20)
         with self._lock:
             state = self.state()
             if state.get("owner") == self.owner:
-                state.update(owner="", heartbeat=0)
+                state.update(owner="", heartbeat=0, socket={"state": "off", "error": "", "at": self.clock()})
                 self._save(state)
+        self.socket_state = "off"
 
     def run(self):
+        self._start_socket()
+        woke, last_read = True, float("-inf")
         while not self._stop.is_set():
+            # Without a live Socket Mode connection every tick reads the channel (polling).
+            # With one, a tick only follows tasks, unless Slack rang or the safety interval passed.
+            fetch = woke or self.socket_state != "connected" or self.clock() - last_read >= SAFETY_POLL
             try:
-                self.poll_once()
+                self.poll_once(fetch=fetch)
+                if fetch:
+                    last_read = self.clock()
             except DomainError as error:
                 self._error(str(error))
             except Exception as error:  # noqa: BLE001 -- keep listening; record the type only
                 self._error(f"리스너 오류: {type(error).__name__}")
-            self._stop.wait(read_settings(self.root)["poll_seconds"])
+            woke = self._wake.wait(read_settings(self.root)["poll_seconds"])
+            self._wake.clear()
+
+    def _start_socket(self):
+        settings = read_settings(self.root)
+        self.socket_state = "off"
+        if not settings["socket_mode"]:
+            return
+        app_token = CredentialStore.shared_entry(CONNECTION).get(APP_TOKEN_KEY, "")
+        if not app_token:
+            self._socket_report("retrying", "앱 수준 토큰(xapp-)이 없어 폴링으로 확인합니다.")
+            return
+        from agent_dev.adapters.slack_socket import SocketMode
+
+        mode = SocketMode(app_token, settings["channel_id"], self._wake.set, self._stop, self._socket_report)
+        self._socket_thread = threading.Thread(target=mode.run, daemon=True, name="devroster-slack-socket")
+        self._socket_thread.start()
+
+    def _socket_report(self, state, error):
+        self.socket_state = state
+        with self._lock:
+            current = self.state()
+            current["socket"] = {"state": state, "error": error, "at": self.clock()}
+            self._save(current)
 
     def _error(self, message):
         with self._lock:
@@ -350,7 +416,7 @@ class MessengerListener:
 
     # polling --------------------------------------------------------------------------
 
-    def poll_once(self):
+    def poll_once(self, fetch=True):
         settings = read_settings(self.root)
         if not settings["enabled"]:
             return {"skipped": "disabled"}
@@ -364,7 +430,7 @@ class MessengerListener:
                 return {"started": state["cursor"]}
             slack = self.client_factory()
             handled = 0
-            for message in slack.history(settings["channel_id"], state["cursor"]):
+            for message in slack.history(settings["channel_id"], state["cursor"]) if fetch else ():
                 ts = message.get("ts", "")
                 state["cursor"] = max(state["cursor"], ts, key=float)
                 if ts in state["processed"] or not self._accepted(message, settings):
@@ -652,6 +718,9 @@ def status(root, listener=None):
     return {
         "settings": settings,
         "token_saved": token_saved(),
+        "app_token_saved": app_token_saved(),
+        "token_sources": CredentialStore.shared_sources(CONNECTION),
+        "socket": state.get("socket", {"state": "off", "error": ""}) if settings["socket_mode"] else {"state": "off", "error": ""},
         "running": bool(listener and listener.running),
         "owner_active": bool(
             state.get("owner") and time.time() - state.get("heartbeat", 0) < 3 * settings["poll_seconds"] + 5

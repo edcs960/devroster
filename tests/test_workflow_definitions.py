@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from agent_dev.adapters.workflow_definitions import WorkflowDefinitions, preset
+from agent_dev.adapters.workflow_definitions import PRESET_ROLES, WorkflowDefinitions, preset
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.workflow_graph import normalize
@@ -23,8 +23,8 @@ def service(tmp_path):
     return WorkflowDefinitions(runtime=runtime)
 
 
-def test_all_seven_presets_immutable_and_clone_versioned(service):
-    assert len(service.presets()) == 7
+def test_all_presets_immutable_and_clone_versioned(service):
+    assert len(service.presets()) == len(PRESET_ROLES) == 8
     for graph in service.presets():
         normalize({k: v for k, v in graph.items() if k not in {"builtin", "version"}})
     with pytest.raises(DomainError):

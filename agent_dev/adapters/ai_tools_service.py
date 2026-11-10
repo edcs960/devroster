@@ -39,6 +39,8 @@ def state() -> dict:
         "values": shared["values"] or normalize_tools({}),
         "auth": store.auth(),
         "keys": {name: bool(keys.get(name)) for name in _key_names(shared["values"])},
+        # Keys kept as an environment variable name instead of a value (no value on disk).
+        "key_sources": key_sources(),
         "providers": metadata(),
         "projects": projects_using(),
     }
@@ -83,6 +85,13 @@ def login(operation, payload, owner=None) -> dict:
         if provider in CLI_PROVIDERS and type(job["logged_in"]) is bool:
             GlobalAi().record_auth({provider: job["logged_in"]})
     return job
+
+
+def key_sources() -> dict:
+    try:
+        return CredentialStore.shared_sources(CREDENTIAL_CONNECTION)
+    except (DomainError, OSError, ValueError):
+        return {}
 
 
 def set_key(name, value=None, *, delete=False) -> dict:

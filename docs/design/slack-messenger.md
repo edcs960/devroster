@@ -12,6 +12,7 @@
 ```
 
 - 로컬 앱은 공개 주소가 없어 슬랙 Events API(밀어 넣기)를 받을 수 없다. 리스너가 Web API로 채널을 주기적으로 조회한다(기본 15초). 표준 라이브러리 HTTP만 쓴다.
+- (2026-11-10 추가) **Socket Mode**를 켜면 리스너가 `apps.connections.open`으로 받은 `wss://…slack.com` 주소에 WebSocket(RFC 6455, 표준 라이브러리로 구현한 `adapters/slack_socket.py`)으로 연결한다. 이벤트는 **초인종**으로만 쓴다. 설정한 채널의 새 메시지 이벤트가 오면 envelope를 ack하고 리스너를 깨워, 평소처럼 `conversations.history`로 읽는다. 그래서 허용 목록·중복 방지·기준점·순서는 한곳(폴링 경로)에 남고 이벤트 본문은 쓰지 않는다. 연결된 동안 주기 조회는 작업 상태 알림만 하고 채널 읽기는 이벤트가 오거나 5분이 지났을 때만 한다. 연결이 끊기면 1초부터 60초까지 늘려가며 다시 연결하고, 그동안 주기 조회로 채널을 읽는다. 슬랙의 `disconnect`(갱신 요청)에는 바로 다시 연결한다.
 - 명령은 새 실행 경로를 만들지 않고 기존 CLI 명령(`command_line.execute`)과 에이전트 작업실 백그라운드 실행(`AgentConsole`), Studio 작업(`StudioJobs`)을 그대로 호출한다. 승인·snapshot·검증 규칙은 웹·CLI와 같다.
 
 ## 2. 신뢰 경계
@@ -26,7 +27,7 @@
 | 명령별 허용 | 요청·상태·실행·승인을 따로 켜고 끔. 승인은 기본 꺼짐 |
 | 승인 기록 | 승인자를 `slack:<사용자 ID>`로 남김. 슬랙 승인도 DevRoster 승인 기록과 같은 규칙(근거·버전 확인)을 거침 |
 | 메시지 내용 | 신뢰하지 않는 데이터. 명령 문법에 맞는 부분만 인수로 쓰고, 요청 본문은 Studio 기획서 초안으로만 들어감 |
-| 토큰 | 이 컴퓨터의 공통 인증 저장소(`credentials/shared`, 0600)에만 저장. 화면·DB·내보내기·답글에 나오지 않음 |
+| 토큰 | 이 컴퓨터의 공통 인증 저장소(`credentials/shared`, 0600)에만 저장. 화면·DB·내보내기·답글에 나오지 않음. Socket Mode 주소에는 1회용 ticket이 있어 기록·저장하지 않음 |
 | 동시 실행 | 리스너 하나만 동작. 상태 파일의 heartbeat로 두 번째 리스너(앱과 터미널 동시 실행)를 거부 |
 
 ## 3. 명령
@@ -57,6 +58,7 @@
 | 설정(비밀 아님) | `<설정 폴더>/config/messenger.json` |
 | 처리 상태(기준점, 처리한 ts, 진행 중 작업, 작업별 마지막 상태·스레드, 최근 기록, heartbeat) | `<설정 폴더>/data/messenger-state.json` |
 | 봇 토큰 | 공통 인증 저장소 연결 `messenger-slack`, 키 `SLACK_BOT_TOKEN` |
+| 앱 수준 토큰(Socket Mode) | 같은 연결, 키 `SLACK_APP_TOKEN` |
 
 DB 스키마는 바꾸지 않는다. 실행 명령의 중복 방지는 기존 command 기록을 쓴다.
 
@@ -74,6 +76,6 @@ DB 스키마는 바꾸지 않는다. 실행 명령의 중복 방지는 기존 co
 
 ## 7. 범위 밖
 
-- 슬랙 Events API·Socket Mode(공개 주소·WebSocket 의존성 필요).
+- 슬랙 Events API(HTTP 요청 주소, 공개 주소 필요). Socket Mode는 2026-11-10에 추가했다.
 - 기존 알림 대기열(Discord)은 그대로.
 - 피클 쪽 설정.

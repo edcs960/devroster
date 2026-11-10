@@ -5,6 +5,7 @@ import time
 from dataclasses import replace as with_fields
 
 from agent_dev.domain.content import digest
+from agent_dev.domain.context_policy import profile as context_profile
 from agent_dev.domain.contracts import PhaseRequest, PhaseResult
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.execution_limits import limits, safe_usage
@@ -235,6 +236,41 @@ class DagExecution:
                 continue
             try:
                 record("running", {"started_at": self.store.clock()})
+                if kind == "verification" and node.get("expect") == "fail":
+                    # Red check: the tests written from the acceptance criteria must fail before
+                    # development; tests that already pass cannot show the work was done.
+                    results = self.c.catalog.verify_node(task_id, node.get("gate_ids", []), lease)
+                    if not results["passed"]:
+                        record("passed", dict(results, red_check="tests failed before development, as expected"))
+                        continue
+                    record("failed", results)
+                    target = next(
+                        (n["id"] for n in graph["nodes"] if n.get("role_id") == "test-automation"), ""
+                    )
+                    if not target:
+                        return self.block(task_id, lease, "RED_CHECK_PASSED", ErrorCode.VERIFICATION_FAILED)
+                    decision = {
+                        "handoff_status": "issue",
+                        "issue_type": "verification",
+                        "owning_agent_id": target,
+                        "reentry_step_id": target,
+                        "root_cause": "개발 전에 테스트가 이미 모두 통과합니다. 수용 기준을 실제로 확인해 "
+                        "지금은 실패하는 테스트를 써야 합니다.",
+                    }
+                    fingerprint = digest([task_id, node_id, target, "red-check"])
+                    self.store.event(task_id, "FindingDetected", {"fingerprint": fingerprint, "decision": decision})
+                    try:
+                        self.store.reenter(
+                            task_id,
+                            [target] + sorted(descendants(graph, target) - {target}),
+                            fingerprint,
+                            maximum,
+                            lease,
+                        )
+                    except DomainError:
+                        return self.block(task_id, lease, "RED_CHECK_PASSED", ErrorCode.VERIFICATION_FAILED)
+                    self.checkpoint(task_id, lease, "reentry: " + target)
+                    continue
                 if kind == "verification":
                     results = self.c.catalog.verify_node(task_id, node.get("gate_ids", []), lease)
                     if not results["passed"]:
@@ -613,6 +649,7 @@ class DagExecution:
                     "usage": safe_usage(result.usage) if result else {},
                     "selection": result.selection if result else {},
                     "ai_call": ai_call,
+                    "context_chars": context_profile((batch or request).context) if ai_call else None,
                 },
             )
 
