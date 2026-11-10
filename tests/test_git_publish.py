@@ -94,6 +94,7 @@ def test_publish_rejects_dirty_files_outside_explicit_task_paths(tmp_path):
     target = RepositoryTarget("frontend", repo, "origin", "main", "task")
 
     import pytest
+
     from agent_dev.domain.errors import DomainError, ErrorCode
 
     with pytest.raises(DomainError) as exc:

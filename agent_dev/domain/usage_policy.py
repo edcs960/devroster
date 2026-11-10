@@ -20,7 +20,7 @@ CURRENCIES = {"USD", "KRW"}
 RATE_KEYS = ("input_per_million", "cached_input_per_million", "output_per_million")
 # Providers whose input_tokens already include cached_input_tokens (OpenAI style).
 CACHED_INSIDE_INPUT = {
-    "codex_cli", "openai_api", "xai_api", "compatible_api", "gemini_cli", "gemini_api"
+    "codex_cli", "openai_api", "xai_api", "exaone_api", "compatible_api", "gemini_cli", "gemini_api"
 }
 # Providers that report cached reads separately from input_tokens (Anthropic style).
 CACHED_SEPARATE = {"claude_cli", "anthropic_api"}

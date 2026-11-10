@@ -63,10 +63,7 @@ def environment_python(requested, workdir):
             "install",
             "-q",
             "-e",
-            f"{ROOT}[dev]",
-            "ruff",
-            "pyright",
-            "build",
+            f"{ROOT}[dev,ci]",
         ],
         check=True,
     )

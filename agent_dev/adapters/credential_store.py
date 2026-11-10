@@ -77,6 +77,21 @@ def env_reference(value):
     return name
 
 
+def missing_hint(name, platform=None, frozen=None):
+    """How to give DevRoster's process the variable, for the way it was most likely started."""
+    import sys
+
+    platform = platform or sys.platform
+    frozen = getattr(sys, "frozen", False) if frozen is None else frozen
+    if platform == "darwin" and frozen:
+        # An app opened from Finder or the Dock never sees the shell profile.
+        return (f"Finder로 연 앱은 셸 환경변수를 받지 않습니다. 터미널에서 `launchctl setenv {name} <값>`을 "
+                "실행한 뒤 앱을 다시 열거나, 터미널에서 `devroster app`으로 실행해주세요.")
+    if platform.startswith("win"):
+        return f"`setx {name} <값>`으로 사용자 환경변수를 등록한 뒤 앱을 다시 실행해주세요."
+    return f"`export {name}=<값>`을 셸 설정에 넣고, 그 셸에서 `devroster app`을 다시 실행해주세요."
+
+
 def _resolved(row):
     """Literal values plus referenced environment values that are set right now."""
     values = dict(row.get("values", {}))
@@ -124,9 +139,13 @@ class CredentialStore:
 
     @staticmethod
     def shared_sources(connection_id) -> dict:
-        """``{KEY: {"env": NAME, "present": bool}}`` for keys kept as variable names (no values)."""
+        """``{KEY: {"env", "present", "hint"}}`` for keys kept as variable names (no values)."""
         row = _read_shared(connection_id) or {}
-        return {key: {"env": name, "present": bool(os.environ.get(name))} for key, name in row.get("env", {}).items()}
+        result = {}
+        for key, name in row.get("env", {}).items():
+            present = bool(os.environ.get(name))
+            result[key] = {"env": name, "present": present, "hint": "" if present else missing_hint(name)}
+        return result
 
     @staticmethod
     def remove_shared_key(connection_id, key):

@@ -46,6 +46,16 @@ PROVIDERS = {
         "base_url": "https://api.x.ai/v1",
         "credential_ref": "XAI_API_KEY",
     },
+    # LG AI Research K-EXAONE: OpenAI chat-completions contract (docs.exaone.ai).
+    "exaone_api": {
+        "label": "K-EXAONE API (LG)",
+        "kind": "api",
+        "base_url": "https://api.exaone.ai/v1",
+        "credential_ref": "EXAONE_API_KEY",
+        "model": "k-exaone_v2.5",
+        # max_tokens counts the reasoning the model always does, so leave it more room.
+        "max_output_tokens": 32768,
+    },
     "compatible_api": {
         "label": "OpenAI 호환·로컬 API",
         "kind": "api",
@@ -67,14 +77,14 @@ def metadata():
 
 def defaults(provider):
     row = PROVIDERS[provider]
-    config = {"enabled": False, "model": "", "effort": "", "routing": routing_policy()}
+    config = {"enabled": False, "model": row.get("model", ""), "effort": "", "routing": routing_policy()}
     if row["kind"] == "cli":
         config["command"] = row["command"]
     else:
         config.update(
             base_url=row["base_url"],
             credential_ref=row["credential_ref"],
-            max_output_tokens=16384,
+            max_output_tokens=row.get("max_output_tokens", 16384),
             reasoning="none" if provider == "compatible_api" else "native",
         )
     return config
@@ -185,6 +195,10 @@ def normalize(provider, value):
     if provider == "xai_api" and any(e in {"xhigh", "max"} for e in efforts):
         invalid(
             "Grok API의 reasoning_effort는 low/medium/high 중 모델 지원 범위로 지정해주세요. 지원하지 않는 모델은 강도를 비워주세요."
+        )
+    if provider == "exaone_api" and any(e in {"medium", "xhigh"} for e in efforts):
+        invalid(
+            "K-EXAONE API의 reasoning_effort는 low/high/max 중에서 지정해주세요. 비우면 서비스 기본값(max)을 사용합니다."
         )
     if provider == "anthropic_api" and "xhigh" in efforts:
         invalid("Claude API의 effort는 low/medium/high/max 중 모델 지원 범위로 지정해주세요.")

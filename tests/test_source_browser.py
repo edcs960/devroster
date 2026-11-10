@@ -1,6 +1,7 @@
 import pytest
-from agent_dev.adapters.workspace import initialize
+
 from agent_dev.adapters.source_explorer import SourceExplorer
+from agent_dev.adapters.workspace import initialize
 from agent_dev.domain.errors import DomainError
 
 

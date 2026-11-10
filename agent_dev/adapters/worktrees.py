@@ -7,6 +7,7 @@ import stat
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from agent_dev.domain.errors import DomainError, ErrorCode
 
@@ -336,7 +337,7 @@ def _contained(binding):
     return False
 
 
-def cleanup_plan(store, task_id=""):
+def cleanup_plan(store, task_id="") -> dict[str, Any]:
     """Worktrees of finished tasks: which can go (work merged, nothing uncommitted) and why not."""
     query = "SELECT id,state FROM tasks WHERE state IN (?,?)" + (" AND id=?" if task_id else "") + " ORDER BY id"
     rows = []
@@ -379,7 +380,7 @@ def cleanup_plan(store, task_id=""):
     return {"worktrees": rows, "removable": len(removable), "bytes": sum(r.get("bytes", 0) for r in removable)}
 
 
-def cleanup(store, safety, task_id="", apply=False, only=None):
+def cleanup(store, safety, task_id="", apply=False, only=None) -> dict[str, Any]:
     """Preview by default; with apply, remove the worktrees and task branches the plan allows.
 
     ``only`` limits removal to the worktree folders the user saw in a preview, so a task that
@@ -408,6 +409,9 @@ def cleanup(store, safety, task_id="", apply=False, only=None):
             continue
         task_folder = Path(binding["worktree"]).parent
         if not any(p.name != ".attempts" for p in task_folder.iterdir()):
+            from agent_dev.adapters import live_log
+
+            live_log.archive(task_folder / ".attempts")  # Logs stay readable for 30 more days.
             shutil.rmtree(task_folder / ".attempts", ignore_errors=True)  # Crash baselines of this task.
             with contextlib.suppress(OSError):
                 task_folder.rmdir()

@@ -8,7 +8,7 @@ DevRoster는 Python 표준 라이브러리만으로 동작하는 로컬 앱입�
 git clone https://github.com/edcs960/devroster.git
 cd devroster
 python3 -m venv .venv                      # Python 3.11 이상
-.venv/bin/python -m pip install -e ".[dev]" ruff pyright
+.venv/bin/python -m pip install -e ".[dev,ci]"
 ```
 
 ## 확인 명령
@@ -16,8 +16,8 @@ python3 -m venv .venv                      # Python 3.11 이상
 | 확인 | 명령 |
 |---|---|
 | 전체 테스트 | `.venv/bin/python -m pytest -q -p no:cacheprovider` |
-| lint | `.venv/bin/ruff check <범위>`. 범위는 `.github/workflows/refactor-quality.yml`에 적힌 그대로 씁니다. |
-| 타입 | `.venv/bin/pyright --pythonplatform Linux <범위>` |
+| lint | `.venv/bin/ruff check agent_dev tests scripts` |
+| 타입 | `.venv/bin/pyright --pythonplatform Linux <범위>`. 범위는 `.github/workflows/refactor-quality.yml`에 적힌 그대로 씁니다. ruff·pyright·build 버전은 `pyproject.toml`의 `ci` 묶음에 고정되어 있습니다. |
 | CI와 같은 순서로 한 번에 | `python3 scripts/ci_local.py --python .venv/bin/python` |
 | 브라우저 테스트 | `AGENT_DEV_TEST_PLAYWRIGHT_MODULE`(Playwright 모듈 경로)과 `AGENT_DEV_TEST_BROWSER_EXECUTABLE`(Chrome 실행 파일)을 지정하면 실행되고, 없으면 건너뜁니다. 화면을 바꿨다면 지정해서 실행해 주세요. |
 

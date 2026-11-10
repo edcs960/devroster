@@ -11,6 +11,7 @@
 | `anthropic_api` | Claude Messages API | Studio, 명시적인 `text.generate` 단계 |
 | `gemini_api` | Gemini generateContent API | Studio, 명시적인 `text.generate` 단계 |
 | `xai_api` | Grok(xAI) Chat Completions, `XAI_API_KEY` | Studio, 명시적인 `text.generate` 단계 |
+| `exaone_api` | LG K-EXAONE Chat Completions, `EXAONE_API_KEY` | Studio, 명시적인 `text.generate` 단계 |
 | `compatible_api` | OpenAI 호환 Chat Completions·Ollama | Studio, 명시적인 `text.generate` 단계 |
 
 API 연결은 파일을 직접 읽거나 수정하지 않는다. 실제 개발을 이어가려면 개발 CLI도 활성화한다. 기존 프로젝트의 Codex/Claude 설정은 유지하며 새 제공자는 비활성화 상태로 추가된다. 자동 모델 선택은 선택한 도구의 등록 모델 안에서 수행한다.
@@ -34,7 +35,10 @@ devroster setup --root /path/to/my-project
 | OpenAI | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | Claude | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta` | `GEMINI_API_KEY` |
+| K-EXAONE (LG) | `https://api.exaone.ai/v1` | `EXAONE_API_KEY` |
 | Ollama | `http://127.0.0.1:11434/v1` | 기본적으로 없음 |
+
+K-EXAONE API 키는 [EXAONE API 플랫폼](https://docs.exaone.ai)에서 발급한다. 모델은 `k-exaone_v2.5`가 기본으로 들어 있다. 이 모델은 항상 추론한 뒤 답하고, 추론 토큰도 출력 토큰 상한(`max_tokens`)에 포함되므로 기본 상한을 32768로 둔다. 응답이 잘렸다는 오류가 나면 상한을 올린다. 추론 강도는 `low`·`high`·`max`만 지원하고(`medium`·`xhigh`는 저장을 거부), 비우면 서비스 기본값 `max`를 쓴다. 추론 과정(`reasoning_content`)은 결과에 넣지 않는다.
 
 Ollama는 먼저 별도 설치하고 서버를 실행한 뒤 모델을 내려받는다. 모델 입력란에는 설치한 모델 이름을 지정한다. 원격 호환 API는 서비스가 제공하는 HTTPS base URL과 인증 환경변수 이름을 사용한다. URL에는 API 키·계정 정보·쿼리를 넣지 않는다. HTTP는 loopback 주소만 허용하며 리다이렉트는 따라가지 않는다.
 

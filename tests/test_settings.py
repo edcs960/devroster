@@ -1,14 +1,6 @@
 from agent_dev.config import settings
 
 
-
-
-
-
-
-
-
-
 def test_masked_settings_round_trip_preserves_secrets(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, 'ENV_PATH', tmp_path/'.env')
     monkeypatch.setattr(settings, 'MCP_CONFIG_PATH', tmp_path/'.mcp.json')

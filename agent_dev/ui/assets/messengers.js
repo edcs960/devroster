@@ -25,7 +25,7 @@
 
   function render(data) {
     const s = data.settings;
-    const from = key => { const source = (data.token_sources || {})[key]; return source ? ` 환경변수 ${source.env}에서 읽습니다${source.present ? '' : ' · 지금 설정되지 않음'}.` : ''; };
+    const from = key => { const source = (data.token_sources || {})[key]; return source ? ` 환경변수 ${source.env}에서 읽습니다${source.present ? '.' : ' · 지금 설정되지 않음. ' + source.hint}` : ''; };
     $('token-state').textContent = (data.token_saved ? '봇 토큰이 저장되어 있습니다.' : '봇 토큰이 아직 없습니다.') + from('SLACK_BOT_TOKEN');
     $('app-token-state').textContent = (data.app_token_saved ? '앱 수준 토큰이 저장되어 있습니다(Socket Mode).' : '앱 수준 토큰이 없습니다. Socket Mode를 쓸 때만 필요합니다.') + from('SLACK_APP_TOKEN');
     $('channel-id').value = s.channel_id; $('allowed-users').value = s.allowed_user_ids.join(', '); $('allowed-bots').value = s.allowed_bot_ids.join(', ');

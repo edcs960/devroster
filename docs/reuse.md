@@ -1,6 +1,6 @@
 # 다른 프로젝트에서 사용하기
 
-DevRoster 0.4.5. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
+DevRoster 0.4.6. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
 
 ## 1. 설치와 초기화
 
@@ -11,7 +11,7 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 # Windows는 .venv/Scripts/activate 사용
-python -m pip install /path/to/devroster-0.4.5-py3-none-any.whl
+python -m pip install /path/to/devroster-0.4.6-py3-none-any.whl
 devroster init --root /path/to/my-project --name MyProject --preset python
 cd /path/to/my-project
 devroster doctor
@@ -23,7 +23,7 @@ devroster dashboard
 기존 wheel 설치를 업데이트할 때는 같은 버전의 실행 파일도 갱신되도록 다시 설치한다.
 
 ```sh
-python -m pip install --force-reinstall --no-deps /path/to/devroster-0.4.5-py3-none-any.whl
+python -m pip install --force-reinstall --no-deps /path/to/devroster-0.4.6-py3-none-any.whl
 ```
 
 다른 프로젝트의 설정 파일을 복사할 필요가 없다. `init`은 기존 `.agent-dev`를 덮어쓰지 않는다.

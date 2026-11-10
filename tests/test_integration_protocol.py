@@ -1,7 +1,7 @@
 import pytest
 
-from agent_dev.adapters.integrations import Integrations
 from agent_dev.adapters.integration_catalog import catalog
+from agent_dev.adapters.integrations import Integrations
 from agent_dev.domain.errors import DomainError
 
 
@@ -35,8 +35,9 @@ def test_catalog_read_fixture_and_unknown_write_denied(tmp_path, monkeypatch, pr
 
 
 def test_oauth_pkce_state_private_token(tmp_path,monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
     from agent_dev.adapters.integration_oauth import IntegrationOAuth
-    from urllib.parse import parse_qs,urlsplit
     calls=[]
     def request(url,**kwargs):
         calls.append((url,kwargs))

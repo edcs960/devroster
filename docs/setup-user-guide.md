@@ -73,7 +73,7 @@ API 도구는 **AI 도구** 카드에서 주소·모델·인증 환경변수 이
 
 지원 강도는 쉼표로 입력한다(예: `low, medium, high`). 목표·상한 이하에서 지원하는 가장 높은 강도를 선택한다. 선택 가능한 강도가 없으면 저장을 거부한다. 목록을 빈칸으로 남기면 CLI 기본 강도를 사용하며 미리보기·이유에 표시한다. **이 경우 CLI 기본 강도에 설정 상한을 강제할 수 없으므로, 상한을 적용하려면 지원 강도를 등록해야 한다.** 계정/조직의 강도 제한은 CLI에서 추가로 적용될 수 있다.
 
-`xhigh`·`max`는 지원하는 도구·모델의 고정 모드에서만 지정할 수 있다. Claude API는 `xhigh`, Gemini API·Grok API는 `xhigh`·`max`를 거부한다. Gemini CLI는 강도와 지원 강도 목록을 비우고 모델만 자동 선택한다. 호환 API에서 강도를 전달하려면 지원 여부를 확인하고 추론 옵션 `native`를 선택한다. 균형형 자동 선택은 최대 `high`이다. `ultra`·`ultracode`는 별도 자동 위임 동작을 포함하므로 이 설정에서 지원하지 않는다. 시간·시도 예산은 기존대로 적용되며, 실패만으로 더 높은 모델/강도에 자동 재시도하는 정책은 추가하지 않는다.
+`xhigh`·`max`는 지원하는 도구·모델의 고정 모드에서만 지정할 수 있다. Claude API는 `xhigh`, Gemini API·Grok API는 `xhigh`·`max`, K-EXAONE API는 `medium`·`xhigh`를 거부한다. Gemini CLI는 강도와 지원 강도 목록을 비우고 모델만 자동 선택한다. 호환 API에서 강도를 전달하려면 지원 여부를 확인하고 추론 옵션 `native`를 선택한다. 균형형 자동 선택은 최대 `high`이다. `ultra`·`ultracode`는 별도 자동 위임 동작을 포함하므로 이 설정에서 지원하지 않는다. 시간·시도 예산은 기존대로 적용되며, 실패만으로 더 높은 모델/강도에 자동 재시도하는 정책은 추가하지 않는다.
 
 ```sh
 devroster setup --preview-task "README 문구 수정" --root /path/to/my-project
@@ -175,7 +175,7 @@ devroster skills sync --root PROJECT      # 저장한 선택대로 설치·정�
 | 동작 | 설명 |
 |---|---|
 | 규칙 파일 첨부 | Markdown(.md, 64KiB 이하)을 `.ai/rules/`에 저장한다. 같은 이름이면 바꿀지 묻는다. 비밀값으로 보이는 내용은 저장하지 않는다 |
-| 개발 실행 | 작업을 승인할 때 규칙을 고정해 모든 AI(Claude·Codex·Gemini CLI, OpenAI·Claude·Gemini·Grok·호환 API)에 같은 내용으로 전달한다. 이후 규칙을 고쳐도 승인된 작업은 그대로이고 다음 작업부터 적용된다 |
+| 개발 실행 | 작업을 승인할 때 규칙을 고정해 모든 AI(Claude·Codex·Gemini CLI, OpenAI·Claude·Gemini·Grok·K-EXAONE·호환 API)에 같은 내용으로 전달한다. 이후 규칙을 고쳐도 승인된 작업은 그대로이고 다음 작업부터 적용된다 |
 | 프로젝트 스킬 | `.ai/skills/<이름>/SKILL.md`(이름은 영문 소문자·숫자·-). 앞부분에 `description`(언제 쓰는지)과 선택 사항 `roles: [developer, qa]`를 적는다. 승인 시 고정되고, 각 역할 단계에는 `roles`가 맞거나 비어 있는 스킬만 본문과 함께 전달된다(본문 합계 48KiB까지, 넘으면 설명만). 스킬은 20개, `SKILL.md`는 32KiB, 폴더는 1MiB까지 |
 | Studio | 명세서·목업 생성에도 프로젝트 규칙과 스킬을 적용한다. 스킬은 명세서 생성에 `planner`·`studio`, 목업 생성에 `ux-ui`·`designer`·`studio` 역할(또는 `roles` 없음)인 것만 쓴다 |
 | 동기화 | `CLAUDE.md`·`GEMINI.md`에는 `@.ai/rules/...` 불러오기 줄을, `AGENTS.md`에는 규칙 내용을 넣는다. `<!-- devroster:ai begin -->`과 `end` 사이만 다시 쓰고, 그 밖에 직접 쓴 내용은 그대로 둔다. 표시가 깨진 파일은 쓰지 않는다. 프로젝트 스킬은 `.claude/skills/<이름>`·`.agents/skills/<이름>`에 링크로 연결하고(링크를 못 만드는 Windows에서는 표시 파일이 든 복사본), git에는 잡히지 않게 `.git/info/exclude`에 적는다. 같은 이름의 다른 스킬이 있으면 건드리지 않고 충돌로 알린다 |
@@ -227,7 +227,7 @@ devroster rules check --root PROJECT   # 최신이 아니면 실패 (팀 CI에 �
 |---|---|
 | 도구별 설정 | Codex·Claude·Gemini CLI와 API 도구의 사용 여부, 실행파일(이름 또는 절대 경로), 모델, 추론 강도. CLI는 DevRoster 전용 로그인과 "로그인 상태 확인" |
 | 기본 순서 | 새 프로젝트가 도구를 고를 때의 순서 |
-| API 키 | OpenAI·Claude·Gemini·Grok(xAI) API 키. 값은 `<관리 폴더>/credentials/shared/ai-providers.json`(0600)에만 저장하고 화면·DB·내보내기에 나오지 않는다. 프로젝트 환경변수에 같은 이름이 있으면 그 프로젝트는 자기 키를 쓴다. 값 대신 `env:환경변수이름`을 입력하면 이름만 저장하고, 실행할 때 그 환경변수에서 읽는다(아래 참고) |
+| API 키 | OpenAI·Claude·Gemini·Grok(xAI)·K-EXAONE(LG) API 키. 값은 `<관리 폴더>/credentials/shared/ai-providers.json`(0600)에만 저장하고 화면·DB·내보내기에 나오지 않는다. 프로젝트 환경변수에 같은 이름이 있으면 그 프로젝트는 자기 키를 쓴다. 값 대신 `env:환경변수이름`을 입력하면 이름만 저장하고, 실행할 때 그 환경변수에서 읽는다(아래 참고) |
 | 사용 중인 프로젝트 | 공통 AI 도구를 쓰는 등록 프로젝트 |
 
 **키를 파일에 두지 않기(`env:` 참조)**: API 키·슬랙 토큰 입력란에 값 대신 `env:OPENAI_API_KEY`처럼 적으면 DevRoster는 환경변수 이름만 저장한다. 값은 DevRoster를 실행한 프로세스의 환경변수에서 그때그때 읽고, 로그·결과에서는 다른 비밀값처럼 가린다. 셸 설정(`~/.zshrc`)·`launchctl setenv`(macOS 앱으로 실행할 때)·비밀 관리 도구(`op run -- devroster app` 등)로 값을 넣는다. 환경변수가 없으면 화면에 "지금 설정되지 않음"으로 보이고 그 키를 쓰는 실행은 인증 오류로 멈춘다. 운영체제 키체인에 직접 저장하는 기능은 플랫폼마다 수동 확인이 필요해 넣지 않았다.

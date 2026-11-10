@@ -82,8 +82,8 @@ class ApiRunnerAdapter:
             }
             if effort:
                 body["reasoning_effort"] = effort
-        # xAI (Grok) serves the OpenAI chat-completions contract.
-        if self.provider in {"openai_api", "xai_api", "compatible_api"} and key:
+        # xAI (Grok) and LG K-EXAONE serve the OpenAI chat-completions contract.
+        if self.provider in {"openai_api", "xai_api", "exaone_api", "compatible_api"} and key:
             headers["Authorization"] = "Bearer " + key
         raw = json.dumps(body, ensure_ascii=False).encode()
         if len(raw) > LIMIT:

@@ -446,7 +446,7 @@
   $('save-brief').addEventListener('click',()=>mutate(state.data?'brief':'create',{title:$('title').value,brief:$('brief').value},{brief:true,message:'기획서를 저장했습니다. ‘명세서 생성’으로 다음 단계를 시작하세요.'}));
   function syncRouting() {
     const provider=$('provider').value,selected=state.ai?.runners[provider];
-    const levels=provider==='gemini_cli'||selected?.reasoning==='none'?[]:provider==='gemini_api'||provider==='xai_api'?['low','medium','high']:provider==='anthropic_api'?['low','medium','high','max']:['low','medium','high','xhigh','max'];
+    const levels=provider==='gemini_cli'||selected?.reasoning==='none'?[]:provider==='gemini_api'||provider==='xai_api'?['low','medium','high']:provider==='exaone_api'?['low','high','max']:provider==='anthropic_api'?['low','medium','high','max']:['low','medium','high','xhigh','max'];
     $('effort').replaceChildren();['',...levels].forEach(level=>{const option=make('option',level||'도구 기본값');option.value=level;$('effort').append(option);});
     $('model').value=selected?.model||'';$('effort').value=selected?.effort||'';
     const automatic=$('auto-routing').checked;

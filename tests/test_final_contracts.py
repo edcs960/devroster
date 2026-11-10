@@ -1,5 +1,4 @@
 """Regression evidence for review findings across CLI, transport and workflow boundaries."""
-import json
 import sys
 import threading
 import time
@@ -129,11 +128,12 @@ def test_public_policy_survives_redaction_but_secret_cannot_hide():
 
 
 def test_dns_deadline_and_gate_output_budget(tmp_path,monkeypatch):
+    import subprocess
+
     from agent_dev.adapters.guarded_verification import run_gate
     from agent_dev.adapters.state.sqlite.database import Database
-    from agent_dev.adapters.state.sqlite.store import WorkflowRepository
     from agent_dev.adapters.state.sqlite.safety import ExecutionSafety
-    import subprocess
+    from agent_dev.adapters.state.sqlite.store import WorkflowRepository
     def delayed(*args,**kwargs):time.sleep(.2);return []
     with monkeypatch.context() as scoped:
         scoped.setattr('agent_dev.adapters.mcp_client.socket.getaddrinfo',delayed)
@@ -149,8 +149,9 @@ def test_dns_deadline_and_gate_output_budget(tmp_path,monkeypatch):
 
 
 def test_integrated_routes_readonly_and_oauth_top_level_callback(tmp_path,monkeypatch):
-    from agent_dev.ui.studio_server import make_server
     import http.client
+
+    from agent_dev.ui.studio_server import make_server
     server=make_server(tmp_path,0)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     try:

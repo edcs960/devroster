@@ -163,7 +163,7 @@ try:
         assert '프로젝트 폴더' in response.read().decode('utf-8')
     with urllib.request.urlopen(url+'/api/setup/bootstrap') as response:
         boot=json.loads(response.read())
-    assert len(boot['providers'])==8 and {'gemini_cli','xai_api'} <= set(boot['providers'])
+    assert len(boot['providers'])==9 and {'gemini_cli','xai_api','exaone_api'} <= set(boot['providers'])
     assert set(boot['settings']['ai']['runners'])==set(boot['providers'])
     value=boot['settings'];value['ai']['runners']['codex_cli']['model']='installed-fixture-model'
     request=urllib.request.Request(url+'/api/setup/save',data=json.dumps({'root':str(root),'settings':value}).encode(),headers={'Content-Type':'application/json','X-Setup-Token':boot['token']})
@@ -188,7 +188,7 @@ try:
         assert '기획서 작성' in response.read().decode('utf-8')
     with urllib.request.urlopen(url+'/api/studio/bootstrap') as response:
         data=json.loads(response.read());assert len(data['documents'])==22
-    assert len(data['providers'])==8 and {'compatible_api','xai_api'} <= set(data['providers'])
+    assert len(data['providers'])==9 and {'compatible_api','xai_api','exaone_api'} <= set(data['providers'])
     from agent_dev.adapters.api_runner import ApiRunnerAdapter
     request=urllib.request.Request(url+'/api/studio/create',data=json.dumps({'title':'Installed Studio','brief':'A user can create and search a memo.'}).encode(),headers={'Content-Type':'application/json','X-Studio-Token':data['token']})
     with urllib.request.urlopen(request) as response:

@@ -1,11 +1,14 @@
 """Per-attempt live log of what an AI CLI is doing, read by the operator console.
 
 Lines come from domain.live_log.summarize (no model reasoning), secrets are masked, the file
-is capped, and logs older than RETENTION_DAYS in the same task folder are removed. The file
-sits next to the attempt baselines (<task folder>/.attempts), outside every repository and
-outside backups, and goes away with `devroster worktree prune`.
+is capped, and logs older than RETENTION_DAYS are removed. While the task runs the file sits
+next to the attempt baselines (<task folder>/.attempts), outside every repository and outside
+backups. When the task folder is removed (completion, `devroster worktree prune`) the logs
+move to <worktree root>/.logs/<task> and stay there for RETENTION_DAYS more.
 """
 
+import contextlib
+import os
 import threading
 import time
 from pathlib import Path
@@ -16,12 +19,67 @@ from agent_dev.domain.live_log import summarize
 LIMIT_BYTES = 2_000_000
 RETENTION_DAYS = 30
 READ_CHUNK = 65_536
+ARCHIVE = ".logs"
 
 
 def log_path(bindings, attempt_id):
+    """Where a running attempt writes."""
     from agent_dev.adapters.role_execution import _attempts_dir
 
     return _attempts_dir(bindings) / f"{attempt_id}.log"
+
+
+def archive_dir(attempts_dir):
+    """<worktree root>/.logs/<task>: outside the task folder, still outside repositories and backups."""
+    task_folder = Path(attempts_dir).parent
+    return task_folder.parent / ARCHIVE / task_folder.name
+
+
+def find(bindings, attempt_id):
+    """The attempt's log to read: in the task folder while that exists, in the archive afterwards."""
+    live = log_path(bindings, attempt_id)
+    return live if live.is_file() else archive_dir(live.parent) / live.name
+
+
+def _drop_old(logs, cutoff):
+    for old in logs:
+        try:
+            if old.stat().st_mtime < cutoff:
+                old.unlink()
+        except OSError:
+            pass
+
+
+def sweep_archive(root, clock=time.time):
+    """Remove archived logs older than RETENTION_DAYS and the task folders they leave empty."""
+    root = Path(root)
+    if not root.is_dir():
+        return
+    _drop_old(root.glob("*/*.log"), clock() - RETENTION_DAYS * 86400)
+    for folder in root.iterdir():
+        with contextlib.suppress(OSError):
+            folder.rmdir()  # Only succeeds when empty.
+
+
+def archive(attempts_dir, clock=time.time):
+    """Move a task's logs out of a folder that is about to be removed; returns how many moved.
+
+    Retention restarts here, so a completed task's logs stay readable for RETENTION_DAYS
+    after completion. A log that cannot be moved is left to go with the folder.
+    """
+    target = archive_dir(attempts_dir)
+    now = clock()
+    moved = 0
+    for log in sorted(Path(attempts_dir).glob("*.log")):
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            os.replace(log, target / log.name)
+            os.utime(target / log.name, (now, now))
+            moved += 1
+        except OSError:
+            pass
+    sweep_archive(target.parent, clock)
+    return moved
 
 
 class LiveLog:
@@ -37,13 +95,8 @@ class LiveLog:
         self.path.write_text("", encoding="utf-8")
 
     def _sweep(self):
-        cutoff = self.clock() - RETENTION_DAYS * 86400
-        for old in self.path.parent.glob("*.log"):
-            try:
-                if old.stat().st_mtime < cutoff:
-                    old.unlink()
-            except OSError:
-                pass
+        _drop_old(self.path.parent.glob("*.log"), self.clock() - RETENTION_DAYS * 86400)
+        sweep_archive(archive_dir(self.path.parent).parent, self.clock)
 
     def write(self, stream, raw_line):
         line = summarize(self.provider, stream, raw_line)

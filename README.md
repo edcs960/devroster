@@ -24,7 +24,7 @@
 | 기획 | 기획서 템플릿, 명세서 22종 자동 생성, 목업 생성, 요소별 코멘트·화면 확정, 개발 인계 |
 | 실행 | 승인 snapshot, 역할 기반 Workflow(편집 가능한 DAG), 세션 묶음 실행, 작업 전용 worktree, 다중 저장소(프론트·백엔드) 분할 |
 | 검증 | 모듈별 검증 명령, 실패 시 자동 재진입, 변경 검토 화면(코드·화면 캡처), 요구사항↔테스트 추적, 요구사항 변경 영향 분석 |
-| AI 도구 | Codex·Claude·Gemini CLI(앱 전용 로그인), OpenAI·Claude·Gemini·Grok API, OpenAI 호환·로컬 모델(Ollama), 작업 난이도별 모델·추론 강도 자동 선택 |
+| AI 도구 | Codex·Claude·Gemini CLI(앱 전용 로그인), OpenAI·Claude·Gemini·Grok·K-EXAONE API, OpenAI 호환·로컬 모델(Ollama), 작업 난이도별 모델·추론 강도 자동 선택 |
 | 지식·연동 | 승인 기반 프로젝트 위키, 역할별 스킬 묶음, MCP 도구 연결 카탈로그, Stitch·Figma 디자인 참고, 슬랙 요청·승인·상태 알림 |
 | 프로젝트 AI 규칙 | `.ai/`의 규칙·스킬·훅을 모든 AI 도구(CLI·API)와 Studio에 같게 적용, CLAUDE.md·AGENTS.md·GEMINI.md 자동 동기화, 승인한 훅만 실행 |
 | 운영 | 사용량·예상 비용 집계, 백업·복원, 저장 위치 이전, 데스크톱 앱 빌드 |
@@ -130,6 +130,7 @@ devroster app --root /path/to/my-project
 |---|---|---|
 | Codex / Claude / Gemini CLI | 설치, 앱 전용 로그인 | 개발 역할(파일 읽기·수정), Studio 생성 |
 | OpenAI / Claude / Gemini / Grok API | 모델 이름, API 키 | Studio 생성, 텍스트 단계 |
+| K-EXAONE API (LG) | `EXAONE_API_KEY` (모델 `k-exaone_v2.5` 기본 입력) | Studio 생성, 텍스트 단계 |
 | OpenAI 호환 API · Ollama | 주소, 모델 이름 | Studio 생성, 텍스트 단계 |
 
 API는 파일을 직접 수정하지 않습니다. 실제 개발에는 CLI 도구가 하나 이상 필요합니다. 자세한 연결 방법은 [다중 AI 가이드](docs/multi-ai-user-guide.md)를 참고하세요.
@@ -159,7 +160,7 @@ API는 파일을 직접 수정하지 않습니다. 실제 개발에는 CLI 도�
 ## 개발에 참여하기
 
 ```sh
-.venv/bin/python -m pip install -e ".[dev]" ruff pyright build
+.venv/bin/python -m pip install -e ".[dev,ci]"
 .venv/bin/python -m pytest -q                 # 전체 테스트
 .venv/bin/python scripts/ci_local.py          # CI와 같은 검사(ruff·pyright·테스트·wheel)
 ```

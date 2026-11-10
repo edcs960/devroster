@@ -8,8 +8,6 @@ import pytest
 from agent_dev.core.io import locked, read_json, write_json
 
 
-
-
 def test_concurrent_json_updates_do_not_lose_writes(tmp_path):
     store = tmp_path / "counter.json"
     write_json(store, {"count": 0})

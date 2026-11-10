@@ -2,8 +2,6 @@
 from agent_dev.core import io as core_io
 
 
-
-
 def test_write_json_is_atomic_and_leaves_no_tmp_file(tmp_path):
     path = tmp_path / "state.json"
     core_io.write_json(path, {"a": 1})

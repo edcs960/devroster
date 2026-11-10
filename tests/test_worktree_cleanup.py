@@ -5,6 +5,7 @@ from pathlib import Path
 
 from test_budget_pause import Runner, runtime_with
 
+from agent_dev.adapters import execution_view, live_log
 from agent_dev.adapters.worktrees import cleanup, cleanup_plan
 
 POLICY = {"estimated_budget": 100.0, "price_book": []}
@@ -48,6 +49,9 @@ def test_merged_work_is_removed_only_with_apply(tmp_path):
     runtime, binding = finished(tmp_path)
     git(binding["worktree"], "commit", "-qam", "task work")
     git(binding["path"], "merge", "--ff-only", "-q", binding["branch"])
+    attempt = runtime.store.db.rows("SELECT id FROM phase_attempts WHERE task_id='T' ORDER BY started_at DESC, id DESC")[0]["id"]
+    bindings = runtime.store.snapshot("T")["resolved"]["repositories"]
+    live_log.LiveLog(live_log.log_path(bindings, attempt), "codex_cli").write("stderr", "what the tool did\n")
     preview = cleanup(runtime.store, runtime.safety)
     assert preview["applied"] is False and preview["removable"] == 1 and preview["bytes"] > 0
     assert Path(binding["worktree"]).is_dir()
@@ -55,6 +59,9 @@ def test_merged_work_is_removed_only_with_apply(tmp_path):
     assert only(done)["result"] == "removed"
     assert not Path(binding["worktree"]).exists()
     assert not Path(binding["worktree"]).parent.exists()  # The crash baselines (.attempts) go too.
+    # The live log outlives the folder: moved next to the worktrees and still shown in the console.
+    assert (Path(binding["worktree"]).parent.parent / ".logs" / "T" / f"{attempt}.log").is_file()
+    assert "what the tool did" in execution_view.live_log(runtime.root, "T")["text"]
     assert binding["branch"] not in git(binding["path"], "branch", "--list")
     assert (Path(binding["path"]) / "source.txt").read_text(encoding="utf-8").startswith("step")
 

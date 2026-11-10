@@ -308,7 +308,8 @@ def live_log(root, task_id, offset=0, attempt_id=""):
         bindings = WorkflowRepository(db).snapshot(task_id)["resolved"].get("repositories", {})
     except DomainError:
         return empty
-    text, next_offset = logs.read(logs.log_path(bindings, attempt["id"]), offset) if bindings else ("", 0)
+    # After the task folder is cleaned up the log is read from the archive.
+    text, next_offset = logs.read(logs.find(bindings, attempt["id"]), offset) if bindings else ("", 0)
     return {
         "attempt_id": attempt["id"],
         "phase_id": attempt["phase_id"],

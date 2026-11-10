@@ -20,9 +20,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e '.[dev]' ruff pyright build
+      - run: python -m pip install -e '.[dev,ci]'
       - name: Domain, application and adapter lint
-        run: ruff check agent_dev/domain agent_dev/ports agent_dev/application agent_dev/adapters agent_dev/migration agent_dev/entrypoints.py agent_dev/ui/dashboard.py agent_dev/ui/studio_server.py agent_dev/ui/setup_server.py agent_dev/ui/source_server.py agent_dev/ui/feature_routes.py agent_dev/ui/workflow_server.py agent_dev/ui/review_server.py tests/test_source_search.py tests/test_platform_web.py scripts/smoke_wheel.py scripts/smoke_live.py agent_dev/runners/usage.py agent_dev/runners/gemini_cli.py tests/test_reuse_next.py tests/test_workflow_sqlite.py tests/test_refactor_migration.py tests/test_tool_boundaries.py tests/test_workflow_runtime.py tests/test_reusable_workspace.py tests/test_studio.py tests/test_project_setup.py tests/test_model_routing.py tests/test_multi_ai.py tests/test_mcp_modern.py
+        run: ruff check agent_dev tests scripts
       - name: Changed architecture typing
         run: pyright agent_dev/domain agent_dev/ports agent_dev/application agent_dev/adapters agent_dev/migration agent_dev/entrypoints.py agent_dev/ui/dashboard.py agent_dev/ui/studio_server.py agent_dev/ui/setup_server.py agent_dev/ui/source_server.py agent_dev/ui/feature_routes.py agent_dev/ui/workflow_server.py agent_dev/ui/review_server.py
       - name: Unit, regression, crash, security, migration and rollback
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e '.[dev]' build
+      - run: python -m pip install -e '.[dev,ci]'
       - name: Portable locking, workspace, upgrades, budgets and HTTP
         timeout-minutes: 20
         run: python -m pytest -v -o faulthandler_timeout=240 tests/test_core_io.py tests/test_reusable_workspace.py tests/test_reuse_next.py tests/test_workflow_sqlite.py tests/test_studio.py tests/test_project_setup.py tests/test_model_routing.py tests/test_multi_ai.py tests/test_mcp_client.py tests/test_mcp_modern.py tests/test_integrated_backup.py tests/test_platform_web.py tests/test_windows_launch.py tests/test_worktree_windows.py tests/test_source_windows_reads.py tests/test_interrupted_changes.py tests/test_worktree_cleanup.py --junitxml=portable-results.xml

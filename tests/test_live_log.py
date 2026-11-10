@@ -76,6 +76,26 @@ def test_old_logs_in_the_task_folder_are_removed(tmp_path):
     assert not old.exists() and (folder / "NEW.log").exists()
 
 
+def test_logs_move_out_of_a_folder_being_removed_and_expire_later(tmp_path):
+    import os
+
+    attempts = tmp_path / "worktrees" / "T" / ".attempts"
+    logs.LiveLog(attempts / "A1.log", "codex_cli").write("stderr", "kept line\n")
+    (attempts / "A1.json").write_text("{}", encoding="utf-8")  # A baseline: stays behind.
+    stale = time.time() - 40 * 86400
+    os.utime(attempts / "A1.log", (stale, stale))  # Written long ago; retention restarts at the move.
+    assert logs.archive(attempts) == 1
+    kept = tmp_path / "worktrees" / ".logs" / "T" / "A1.log"
+    assert kept == logs.archive_dir(attempts) / "A1.log" and "kept line" in logs.read(kept)[0]
+    assert not (attempts / "A1.log").exists() and (attempts / "A1.json").exists()
+    # The next attempt anywhere in the project sweeps the archive.
+    logs.LiveLog(tmp_path / "worktrees" / "U" / ".attempts" / "B1.log", "codex_cli")
+    assert kept.exists()
+    os.utime(kept, (stale, stale))
+    logs.LiveLog(tmp_path / "worktrees" / "U" / ".attempts" / "B2.log", "codex_cli")
+    assert not kept.exists() and not kept.parent.exists()
+
+
 def test_lines_arrive_while_the_process_runs():
     script = "import sys,time\nfor i in range(3):\n    print('line', i, flush=True)\n    time.sleep(0.2)\nprint('err', file=sys.stderr)"
     process = subprocess.Popen(

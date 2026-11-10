@@ -6,12 +6,12 @@ import threading
 from pathlib import Path
 
 import pytest
-from test_reusable_workspace import approved, workspace
+from test_reusable_workspace import approved, workspace  # noqa: F401 -- pytest fixture
 
 from agent_dev.ui.studio_server import make_server
 
 
-def test_logic_audit_browser(workspace, tmp_path, monkeypatch):
+def test_logic_audit_browser(workspace, tmp_path, monkeypatch):  # noqa: F811
     module = os.environ.get('AGENT_DEV_TEST_PLAYWRIGHT_MODULE')
     executable = os.environ.get('AGENT_DEV_TEST_BROWSER_EXECUTABLE')
     if not module or not executable or not shutil.which('node'):
@@ -27,7 +27,7 @@ def test_logic_audit_browser(workspace, tmp_path, monkeypatch):
     try:
         result = subprocess.run(['node', str(Path(__file__).with_name('logic_audit_browser.cjs')), module, executable,
                                  f'http://127.0.0.1:{server.server_port}', studio['project']['id']],
-                                capture_output=True,text=True, encoding="utf-8", errors="replace",timeout=90)
+                                capture_output=True,text=True, encoding="utf-8", errors="replace",timeout=90, check=False)
         assert result.returncode == 0, result.stdout + result.stderr
         print(result.stdout)
     finally:

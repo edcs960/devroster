@@ -30,7 +30,8 @@ def test_only_the_variable_name_is_written_and_the_value_is_read_at_use(monkeypa
     CredentialStore.save_shared(CONNECTION, "OPENAI_API_KEY", "env:FIXTURE_API_KEY")
     assert "FIXTURE_API_KEY" in stored()
     assert CredentialStore.shared_entry(CONNECTION) == {}
-    assert CredentialStore.shared_sources(CONNECTION) == {"OPENAI_API_KEY": {"env": "FIXTURE_API_KEY", "present": False}}
+    source = CredentialStore.shared_sources(CONNECTION)["OPENAI_API_KEY"]
+    assert source["env"] == "FIXTURE_API_KEY" and source["present"] is False and "FIXTURE_API_KEY" in source["hint"]
     monkeypatch.setenv("FIXTURE_API_KEY", "sk-from-environment")
     assert CredentialStore.shared_entry(CONNECTION) == {"OPENAI_API_KEY": "sk-from-environment"}
     assert "sk-from-environment" not in stored()
@@ -67,7 +68,8 @@ def test_a_reference_names_the_missing_variable(tmp_path, monkeypatch):
 def test_slack_tokens_accept_a_reference_and_check_a_set_value(monkeypatch, tmp_path):
     monkeypatch.delenv("FIXTURE_SLACK", raising=False)
     messenger.save_token("env:FIXTURE_SLACK")  # Not set yet: accepted, checked when it is used.
-    assert messenger.status(tmp_path)["token_sources"]["SLACK_BOT_TOKEN"] == {"env": "FIXTURE_SLACK", "present": False}
+    source = messenger.status(tmp_path)["token_sources"]["SLACK_BOT_TOKEN"]
+    assert source["env"] == "FIXTURE_SLACK" and source["present"] is False
     monkeypatch.setenv("FIXTURE_SLACK", "not-a-slack-token")
     with pytest.raises(DomainError):
         messenger.save_token("env:FIXTURE_SLACK")
@@ -84,7 +86,7 @@ def test_ai_tools_screen_reports_where_a_key_comes_from(monkeypatch):
     ai_tools_service.set_key(name, "env:FIXTURE_OPENAI")
     try:
         state = ai_tools_service.state()
-        assert state["key_sources"][name] == {"env": "FIXTURE_OPENAI", "present": True}
+        assert state["key_sources"][name] == {"env": "FIXTURE_OPENAI", "present": True, "hint": ""}
         assert "sk-env" not in json.dumps(state)
     finally:
         ai_tools_service.set_key(name, delete=True)
@@ -104,3 +106,13 @@ def test_loose_credential_files_are_reported_and_repaired(tmp_path):
     assert fixed["credential_permissions"]["status"] == "pass"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert permission_report()["loose"] == []
+
+
+@pytest.mark.parametrize(
+    ("platform", "frozen", "expected"),
+    [("darwin", True, "launchctl setenv TOKEN"), ("darwin", False, "export TOKEN="), ("win32", True, "setx TOKEN"), ("linux", False, "export TOKEN=")],
+)
+def test_the_hint_matches_how_the_app_was_started(platform, frozen, expected):
+    from agent_dev.adapters.credential_store import missing_hint
+
+    assert expected in missing_hint("TOKEN", platform, frozen)

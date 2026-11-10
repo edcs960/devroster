@@ -2,7 +2,6 @@
 
 import re
 
-
 from agent_dev import defaults
 
 DOMAIN_TERMS = re.compile(r"FMEA|AIAG|fe-fmea|be-fmea|GoJS|Spring Boot|MobX|DFMEA|PFMEA")

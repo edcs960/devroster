@@ -92,24 +92,26 @@ def api_server():
 
 
 @pytest.mark.parametrize(
-    "provider", ["openai_api", "anthropic_api", "gemini_api", "xai_api", "compatible_api"]
+    "provider",
+    ["openai_api", "anthropic_api", "gemini_api", "xai_api", "exaone_api", "compatible_api"],
 )
 def test_api_actual_http_contract_and_effort(api_server, provider):
     api_server.payload = response(provider)
+    effort = "high" if provider == "exaone_api" else "medium"  # K-EXAONE has no medium.
     cfg = dict(
         defaults(provider),
         enabled=True,
         model="fixture-model",
         base_url=api_server.url,
         credential_ref="FIXTURE_AUTH",
-        effort="medium",
+        effort=effort,
         reasoning="native",
         process_env={"FIXTURE_AUTH": "fixture-private"},
     )
     runner = ApiRunnerAdapter(provider, cfg)
     result = runner.generate("한글 기획서", {"title": "기능 개발"}, "developer")
     assert result.output == "안녕하세요" and result.usage["total_tokens"] == 8
-    assert result.selection["effort"] == "medium"
+    assert result.selection["effort"] == effort
     path, headers, body = api_server.calls[0]
     assert "tools" not in body and "fixture-private" not in json.dumps(body)
     if provider == "anthropic_api":
@@ -123,9 +125,51 @@ def test_api_actual_http_contract_and_effort(api_server, provider):
         assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "MEDIUM"
     else:
         assert headers["authorization"] == "Bearer fixture-private"
+        assert path == ("/v1/responses" if provider == "openai_api" else "/v1/chat/completions")
         assert (
             body["reasoning"]["effort"] if provider == "openai_api" else body["reasoning_effort"]
-        ) == "medium"
+        ) == effort
+
+
+def test_exaone_defaults_and_reasoning_stay_out_of_output(api_server):
+    """K-EXAONE always reasons: reasoning_content and the leading blank lines are not output."""
+    row = defaults("exaone_api")
+    assert row["base_url"] == "https://api.exaone.ai/v1"
+    assert row["credential_ref"] == "EXAONE_API_KEY" and row["model"] == "k-exaone_v2.5"
+    assert row["max_output_tokens"] == 32768 and row["reasoning"] == "native"
+    api_server.payload = {
+        "object": "chat.completion",
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\n안녕하세요",
+                    "reasoning_content": "사용자가 인사를 했다.",
+                    "tool_calls": None,
+                },
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 22,
+            "completion_tokens": 218,
+            "total_tokens": 240,
+            "reasoning_tokens": 209,
+        },
+    }
+    cfg = dict(
+        row,
+        base_url=api_server.url,
+        process_env={"EXAONE_API_KEY": "fixture-private"},
+    )
+    result = ApiRunnerAdapter("exaone_api", cfg).generate("인사", {"title": "기능"}, "developer")
+    assert result.output == "안녕하세요" and "인사를 했다" not in result.output
+    assert result.usage == {"input_tokens": 22, "output_tokens": 218, "total_tokens": 240}
+    path, headers, body = api_server.calls[0]
+    assert path == "/v1/chat/completions"
+    assert headers["authorization"] == "Bearer fixture-private"
+    assert body["model"] == "k-exaone_v2.5" and body["max_tokens"] == 32768
+    assert "reasoning_effort" not in body  # Empty effort keeps the service default.
 
 
 @pytest.mark.parametrize(
@@ -302,6 +346,8 @@ def test_unsupported_reasoning_is_not_silently_ignored():
         ("gemini_cli", {"effort": "high"}),
         ("gemini_api", {"effort": "xhigh"}),
         ("xai_api", {"effort": "max"}),
+        ("exaone_api", {"effort": "medium"}),
+        ("exaone_api", {"effort": "xhigh"}),
         ("compatible_api", {"effort": "high"}),
     ]:
         with pytest.raises(DomainError):

@@ -9,7 +9,7 @@
   const state = {token: '', data: null, dirty: false};
   const make = (tag, text, cls) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (cls) el.className = cls; return el; };
   const notice = (text, error = false) => { $('notice').textContent = text; $('notice').classList.toggle('error', error); };
-  const EFFORTS = provider => provider === 'gemini_cli' ? [] : provider === 'gemini_api' || provider === 'xai_api' ? ['low', 'medium', 'high'] : provider === 'anthropic_api' ? ['low', 'medium', 'high', 'max'] : ['low', 'medium', 'high', 'xhigh', 'max'];
+  const EFFORTS = provider => provider === 'gemini_cli' ? [] : provider === 'gemini_api' || provider === 'xai_api' ? ['low', 'medium', 'high'] : provider === 'exaone_api' ? ['low', 'high', 'max'] : provider === 'anthropic_api' ? ['low', 'medium', 'high', 'max'] : ['low', 'medium', 'high', 'xhigh', 'max'];
   const loginLabel = row => !row ? '로그인 상태 미확인' : row.authenticated ? '로그인됨' : '로그인 필요';
 
   async function api(path, payload) {
@@ -119,7 +119,9 @@
       save.type = remove.type = 'button'; remove.disabled = !kept;
       save.addEventListener('click', async () => { if (!input.value) { $('key-status').textContent = '키 값을 입력해주세요.'; return; } try { const reference = input.value.startsWith('env:'); state.data = Object.assign(state.data, await api('/key', {name, value: input.value})); input.value = ''; renderKeys(); $('key-status').textContent = name + (reference ? ' 키를 환경변수 이름으로 저장했습니다. 값은 저장하지 않습니다.' : ' 키를 저장했습니다.'); return; $('key-status').textContent = name + ' 키를 저장했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
       remove.addEventListener('click', async () => { if (!(await ask(name + ' 키를 삭제할까요?', '이 키를 쓰는 모든 프로젝트의 API 실행이 다음 실행부터 인증에 실패합니다. 되돌릴 수 없습니다.', '키 삭제'))) return; try { state.data = Object.assign(state.data, await api('/key', {name, delete: true})); renderKeys(); $('key-status').textContent = name + ' 키를 삭제했습니다.'; } catch (e) { $('key-status').textContent = errText(e); } });
-      const wrap = make('div'); wrap.append(label, row); row.append(input, save, remove); $('key-rows').append(wrap);
+      const wrap = make('div'); wrap.append(label, row); row.append(input, save, remove);
+      if (source && source.hint) wrap.append(make('p', source.hint, 'hint'));
+      $('key-rows').append(wrap);
     }
   }
 

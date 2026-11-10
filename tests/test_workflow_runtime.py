@@ -627,6 +627,23 @@ def test_local_completion_fast_forwards_the_default_branch(runtime, checkout):
     assert git(source, "rev-parse", "main") == record["commit_sha"]
     if checkout == "clean":
         assert (source / "source.txt").read_text(encoding="utf-8") == "implemented"
+    # The merged task's worktree and branch go with completion (`devroster worktree prune` rules).
+    assert [row["result"] for row in completed["worktrees"]] == ["removed"]
+    assert not Path(binding["worktree"]).exists()
+    assert not git(source, "branch", "--list", binding["branch"])
+
+
+def test_local_completion_can_keep_the_worktree(runtime):
+    binding = verified(runtime)
+    git(Path(binding["path"]), "branch", "-M", "main")
+    (runtime.root / "config/runtime.json").write_text(
+        json.dumps({"orchestrator_v2": {"execute": True, "publish": True}}), encoding="utf-8"
+    )
+    publishing = PublishAdapter(runtime, external=lambda arguments: pytest.fail("no GitHub call"))
+    record = publishing.publish("T", "source", "local-1")
+    completed = publishing.complete("T", record["id"], "user", clean_worktree=False)
+    assert completed["state"] == "completed" and "worktrees" not in completed
+    assert Path(binding["worktree"]).is_dir()
 
 
 def test_named_ci_checks_keep_github_completion():

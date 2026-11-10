@@ -4,7 +4,7 @@
 
 | 항목 | 기준 |
 |---|---|
-| 기준 | 버전 0.4.5의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
+| 기준 | 버전 0.4.6의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
 | 대상 | `agent_dev/`, `config/`, `tests/`, 패키지 진입점 및 관련 운영 문서 |
 | 확인 방법 | Python 소스·SQL·테스트 계약 대조 |
 | 문서 책임 | 아키텍처 경계 변경 시 Architect, 저장 구조 변경 시 DBA, 최종 문서 반영 시 Tech Writer |
@@ -295,7 +295,7 @@ DevRoster CLI 홈은 모든 프로젝트가 공유하므로 홈에 스킬을 넣
 
 | 영역 | 책임 / 구현 |
 |---|---|
-| 제공자 연결 | [ai_providers.py](../agent_dev/adapters/ai_providers.py): `codex_cli`, `claude_cli`, `gemini_cli`, `openai_api`, `anthropic_api`, `gemini_api`, `xai_api`(Grok), `compatible_api` |
+| 제공자 연결 | [ai_providers.py](../agent_dev/adapters/ai_providers.py): `codex_cli`, `claude_cli`, `gemini_cli`, `openai_api`, `anthropic_api`, `gemini_api`, `xai_api`(Grok), `exaone_api`(LG K-EXAONE), `compatible_api` |
 | 공통 AI 도구 | 구현. 첫 프로젝트 저장 시 그 AI 설정이 공통 AI 도구가 됨 |
 | 실행기 선택 | [runner_registry.py](../agent_dev/adapters/runner_registry.py): enabled/auth/capability·요청 조건 확인. canonical 파일 수정은 그 capability가 있는 CLI 실행기로 연결 |
 | CLI 어댑터 | `CliRunnerAdapter`가 phase/session 요청·출력·usage·resume를 공통 계약으로 변환. 실제 제공자 프로세스는 [runners/](../agent_dev/runners/) |

@@ -493,7 +493,7 @@ class PublishAdapter:
                 "merged": merged,
             }
 
-    def complete(self, task_id, publish_id, actor):
+    def complete(self, task_id, publish_id, actor, clean_worktree=True):
         self.store.assert_change_allowed(task_id)
         self.runtime.validate_snapshot_paths(task_id)
         if not actor:
@@ -554,8 +554,22 @@ class PublishAdapter:
         # Merged code is the new baseline; refresh the code graph outside the task lease.
         from agent_dev.adapters import code_graph
 
-        return {
+        result = {
             "task_id": task_id,
             "state": task.state.value,
             "code_graph": code_graph.refresh(self.runtime.project_root),
         }
+        if clean_worktree:
+            # Same rules as `devroster worktree prune`: only merged work with nothing
+            # uncommitted goes; anything else stays with its reason.
+            from agent_dev.adapters.worktrees import cleanup
+
+            try:
+                done = cleanup(self.store, self.runtime.safety, task_id=task_id, apply=True)
+                result["worktrees"] = [
+                    {"repository": row["repository"], "result": row.get("result", "kept"), "reason": row["reason"]}
+                    for row in done["worktrees"]
+                ]
+            except (DomainError, OSError) as error:
+                result["worktrees"] = [{"result": "kept", "reason": f"정리하지 못했습니다: {error}"}]
+        return result

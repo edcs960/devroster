@@ -415,6 +415,10 @@ def parser():
                     command.add_argument("--limit", type=int, default=100)
                     command.add_argument("--offset", type=int, default=0)
                     command.add_argument("--state", default="")
+            if name == "task" and action == "complete":
+                command.add_argument(
+                    "--keep-worktree", action="store_true", help="완료 후에도 작업 폴더(worktree)를 남김"
+                )
             if name == "task" and action == "quick":
                 command.add_argument("--project", default="", help="프로젝트가 여러 개일 때")
             if name == "task" and action in {"list", "explain"}:
@@ -863,7 +867,9 @@ def dispatch(args):
                 args.request_id or uuid.uuid4().hex,
                 dry_run=args.dry_run,
             )
-        return publishing.complete(args.task_id, args.publish_id, args.actor)
+        return publishing.complete(
+            args.task_id, args.publish_id, args.actor, clean_worktree=not args.keep_worktree
+        )
     if namespace == "feedback":
         if action == "add":
             return {

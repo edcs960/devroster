@@ -1,6 +1,6 @@
 [project]
 name = "devroster"
-version = "0.4.5"
+version = "0.4.6"
 description = "Local AI development workbench: plan documents to specs, mockups and approved, verified tasks run by your AI CLIs"
 requires-python = ">=3.11"
 readme = "README.md"
@@ -12,6 +12,12 @@ openai = ["openai>=1.0.0"]
 dev = [
   "jsonschema>=4.0.0",
   "pytest>=8.0.0"
+]
+# Checks CI runs, pinned so a new upstream release cannot fail CI without a code change.
+ci = [
+  "ruff==0.17.4",
+  "pyright==1.1.414",
+  "build==1.6.1"
 ]
 app = ["pyinstaller>=6.16"]
 

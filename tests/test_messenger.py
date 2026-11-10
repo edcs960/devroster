@@ -381,7 +381,7 @@ class FlakySlack(FakeSlack):
 def test_a_failed_reply_does_not_resend_earlier_replies(workspace):
     slack, clock = FlakySlack(fail_on=2), [1000.0]
     app = listener(workspace, slack, FakeConsole(), clock)
-    app._tasks = lambda: []
+    app._tasks = list
     app.poll_once()
     slack.messages = [
         {"ts": "1001.0", "user": USER, "text": "도움말"},
