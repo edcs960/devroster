@@ -72,10 +72,25 @@ def esc(value):
     return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def state_label(value):
-    from agent_dev.ui.presentation import STATES
+class StudioService:
+    """Studio and its generation jobs for one workspace, without the web layer."""
 
-    return STATES.get(value, (value,))[0] if value else "새 작업"
+    def __init__(self, root):
+        from importlib.resources import files
+
+        from agent_dev.adapters.studio_generation import StudioJobs
+        from agent_dev.adapters.studio_store import StudioStore
+        from agent_dev.application.studio import Studio
+
+        # Package data (export templates), not a code import of the ui layer.
+        self.studio = Studio(StudioStore(root), files("agent_dev.ui").joinpath("assets"))
+        self.jobs = StudioJobs(self.studio, config_root=root)
+
+
+def state_label(value):
+    from agent_dev.domain.status import STATE_TEXT
+
+    return STATE_TEXT.get(value, (value,))[0] if value else "새 작업"
 
 
 def task_title(task_id, title):
@@ -602,16 +617,14 @@ class MessengerListener:
 
     def _studio(self):
         if self.studio_web is None:
-            from agent_dev.ui.studio_server import StudioWeb
-
-            self.studio_web = StudioWeb(config_folder(self.root))
+            self.studio_web = StudioService(config_folder(self.root))
         return self.studio_web
 
     def _request(self, command):
         web = self._studio()
         detail = web.studio.create(command["title"], command["brief"])
         project = detail["project"]
-        web.jobs.start(project["id"], project["version"], "spec")
+        web.jobs.start(project["id"], project["version"], "specs")
         return (
             (
                 f"📝 Studio 프로젝트 *{esc(project['id'])}* 를 만들고 명세 생성을 시작했습니다.\n"

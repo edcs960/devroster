@@ -71,6 +71,7 @@ def _read_bundle(conn, studio_id):
     latest_mock = conn.execute("SELECT MAX(revision) FROM mocks WHERE project_id=?", (studio_id,)).fetchone()[0]
     if project["spec_revision"] != latest_spec or project["mock_revision"] != latest_mock:
         fail("최신 명세서·목업 revision과 프로젝트 포인터가 일치해야 합니다.", ErrorCode.STALE_VERSION)
+
     spec = conn.execute(
         "SELECT * FROM specs WHERE project_id=? AND revision=?",
         (studio_id, project["spec_revision"]),
@@ -519,10 +520,30 @@ def runs_per_task(profile):
     )
 
 
+def review_gate(conn, studio_id):
+    """Open high-severity independent-review findings stop the handoff (spec_review GATES).
+
+    Kept out of _read_bundle, which traceability also uses to compare the source.
+    """
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='findings'").fetchone():
+        return
+    from agent_dev.domain.spec_review import blocking
+
+    findings = [dict(r) for r in conn.execute("SELECT * FROM findings WHERE project_id=?", (studio_id,))]
+    open_high = blocking(findings, "handoff")
+    if open_high:
+        fail(
+            f"독립 검토의 심각한 지적 {len(open_high)}건이 열려 있습니다. Studio에서 반영하거나 이유를 적어 "
+            "수용·반박한 뒤 개발 인계해주세요.",
+            ErrorCode.APPROVAL_REQUIRED,
+        )
+
+
 def preview(canonical_db, studio_root, params):
     with contextlib.closing(_open(_studio_db_path(studio_root))) as studio:
         studio.execute("BEGIN")
         bundle = _read_bundle(studio, params.get("source_studio_id"))
+        review_gate(studio, bundle["project"]["id"])
     with contextlib.closing(canonical_db.connect()) as conn:
         conn.execute("BEGIN")
         return _prepare(conn, bundle, params)
@@ -546,6 +567,7 @@ def commit(canonical_db, studio_root, params):
             studio = _open(_studio_db_path(studio_root), writable=True)
             studio.execute("BEGIN IMMEDIATE")
             bundle = _read_bundle(studio, params.get("source_studio_id"))
+            review_gate(studio, bundle["project"]["id"])
             prepared = _prepare(conn, bundle, params)
             if prepared["preview_digest"] != params["preview_digest"]:
                 fail("미리보기 이후 원본·대상·매핑이 변경되었습니다.", ErrorCode.STALE_VERSION)

@@ -145,3 +145,11 @@ body.app-shell.page-setup #setup-steps a[aria-current] span{background:var(--ui-
 .rules-panel pre { max-height: 320px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-xs); }
 #rules-title { margin-top: 28px; }
 .rules-panel h4 { margin: 12px 0 0; font-size: var(--fs-md); }
+
+/* Trust review for settings that arrived with the folder. */
+.page-setup .trust-panel { display: grid; gap: var(--sp-3); margin: var(--sp-4) 0; padding: var(--sp-4) var(--sp-5); border: 1px solid var(--c-warning-border); border-radius: var(--r-md); background: var(--c-warning-bg); }
+.page-setup .trust-panel h2 { margin: 0; }
+.page-setup .trust-items { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-2); }
+.page-setup .trust-items li { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--c-border); border-radius: var(--r-sm); background: var(--c-surface); min-width: 0; }
+.page-setup .trust-items small { color: var(--c-text-3); font-size: var(--fs-xs); }
+.page-setup .trust-items code { overflow-wrap: anywhere; }

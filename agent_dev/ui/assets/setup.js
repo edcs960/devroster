@@ -152,7 +152,7 @@
     cancel.addEventListener('click',async()=>{try{show(await api('cli-login-cancel',{root:sourceRoot(),job_id:job}));}catch(e){notice(errText(e),true);}});
     return box;
   }
-  async function refreshCliAuth() {try{const data=await api('cli-auth',{root:sourceRoot()});for(const el of document.querySelectorAll('[data-cli-status]'))el.textContent=loginLabel(data[el.dataset.cliStatus]);}catch(e){for(const el of document.querySelectorAll('[data-cli-status]'))el.textContent='앱 전용 로그인 상태를 확인하지 못했습니다.';}}
+  async function refreshCliAuth() {try{const data=await api('cli-auth',{root:sourceRoot()});for(const el of document.querySelectorAll('[data-cli-status]'))el.textContent=data.trust_required?'설정을 신뢰한 뒤 확인합니다':loginLabel(data[el.dataset.cliStatus]);}catch(e){for(const el of document.querySelectorAll('[data-cli-status]'))el.textContent='앱 전용 로그인 상태를 확인하지 못했습니다.';}}
   function render(settings) {
     state.settings=settings;state.dirty=false;$('context-token').value=settings.context_policy?.token_mode||'balanced';$('context-ponytail').value=settings.context_policy?.ponytail||'off';$('root').value=settings.root;$('name').value=settings.name;$('project-id').value=settings.project_id;$('project-id').disabled=settings.profile_version>0;
     $('modules').replaceChildren();$('gates').replaceChildren();$('preview-services').replaceChildren();settings.modules.forEach(moduleCard);settings.verification.forEach(gateCard);(settings.preview_services||[]).forEach(previewCard);renderPolicy(settings.usage_policy);
@@ -257,7 +257,7 @@
       verification_scope:$('verification-scope').value,completion_mode:$('completion-mode').value,output_language:$('output-language').value.trim(),test_paths:splitPaths($('test-paths').value),document_paths:splitPaths($('document-paths').value),wiki_dir:$('wiki-dir').value.trim(),limits:Object.fromEntries([...$('limits').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)])),ports:Object.fromEntries([...$('ports').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)]))};
   }
   function busy(value) {state.pending=value;workspaceStatus();DevRosterProgress.busyAfter($('notice'),value,'설정 작업 처리 중');document.querySelectorAll('#settings-form input,#settings-form select,#settings-form textarea,#settings-form button').forEach(el=>el.disabled=value||el.dataset.catalogUnavailable==='true'||(el.id==='project-id'&&state.settings?.profile_version>0));}
-  async function load(root) {const data=await api('bootstrap'+(root?'?root='+encodeURIComponent(root):''));state.token=data.token;state.presets=data.presets;state.catalog=data.model_catalog||{};state.providers=data.providers;state.roleCatalog=data.role_catalog||[];state.skillCatalog=data.skill_catalog||{bundles:{}};await loadSharedAi();render(data.settings);refreshCliAuth();notice('설정을 확인하고 저장해주세요.');}
+  async function load(root) {const data=await api('bootstrap'+(root?'?root='+encodeURIComponent(root):''));state.token=data.token;state.presets=data.presets;state.catalog=data.model_catalog||{};state.providers=data.providers;state.roleCatalog=data.role_catalog||[];state.skillCatalog=data.skill_catalog||{bundles:{}};await loadSharedAi();render(data.settings);await loadTrust();refreshCliAuth();notice('설정을 확인하고 저장해주세요.');}
   $('settings-form').addEventListener('input',e=>{if(!['routing-task','routing-phase'].includes(e.target.id))state.dirty=true;});
   $('settings-form').addEventListener('submit',async e=>{e.preventDefault();try{const settings=collect();busy(true);notice('설정을 저장하고 있습니다. 로그인 확인을 선택했다면 잠시 기다려주세요.');const result=await api('save',{root:sourceRoot(),settings,check_auth:authCheck()});if(result.shared_ai)await loadSharedAi();render(result.settings);await refreshWorkspaces(result.settings.root);notice(result.warnings.length?result.warnings.join(' '):result.shared_ai?'설정을 저장했습니다. 이 프로젝트의 AI 도구가 공통 AI 도구가 되었습니다. 로그인은 AI 도구 메뉴에서 진행하고, 환경 진단으로 준비 상태를 확인해주세요.':'설정을 저장했습니다. 환경 진단으로 준비 상태를 확인해주세요.',!!result.warnings.length);}catch(err){notice(errText(err),true);}finally{busy(false);}});
   $('load-root').addEventListener('click',async()=>{if(state.dirty&&!(await ask('저장하지 않은 설정이 있습니다','선택한 폴더의 설정을 불러오면 지금 수정한 내용이 사라집니다.','변경 버리고 불러오기',{cancel:'계속 편집'})))return;try{busy(true);await load($('root').value);}catch(e){notice(errText(e),true);}finally{busy(false);}});
@@ -303,6 +303,12 @@
     $('hooks-status').textContent=!events.length?'':data.approved?'승인된 훅입니다. 새로 승인하는 작업부터 실행됩니다.':'승인 전입니다. 승인하기 전에는 작업을 승인할 수 없습니다.';
     const last=(data.recent||[])[0];if(last)$('hooks-status').textContent+=` 최근 Studio 훅: ${last.results.every(r=>r.ok)?'성공':'실패'} (${new Date(last.at*1000).toLocaleString('ko-KR')})`;
   }
+  async function loadTrust(){
+    try{const data=await api('trust',{root:sourceRoot()});const show=data.needs_trust&&!data.trusted;$('trust').hidden=!show;if(!show)return;
+      const list=$('trust-items');list.replaceChildren();for(const item of data.items||[]){const li=make('li');li.append(make('small',item.kind+(item.name?' · '+item.name:'')),make('code',(item.command||[]).join(' ')||'(명령 없음)'));list.append(li);}
+      $('trust-empty').hidden=(data.items||[]).length>0;}
+    catch(e){$('trust').hidden=true;}}
+  $('trust-approve').addEventListener('click',async()=>{try{busy(true);const data=await api('trust/approve',{root:sourceRoot()});$('trust').hidden=!(data.needs_trust&&!data.trusted);notice('이 프로젝트의 설정을 신뢰했습니다. 이제 설정의 명령을 실행할 수 있습니다. 훅은 아래에서 따로 승인해주세요.');refreshCliAuth();loadHooks();}catch(e){notice(errText(e),true);}finally{busy(false);}});
   async function loadHooks(){try{renderHooks(await api('hooks',{root:sourceRoot()}));}catch(e){$('ai-hooks-list').replaceChildren();$('hooks-approve').hidden=true;$('hooks-status').textContent='';}}
   $('hooks-approve').addEventListener('click',async()=>{if(!hooksData)return;const lines=Object.entries(hooksData.events).flatMap(([event,hooks])=>hooks.map(h=>`${hookLabels[event]||event}: ${h.run.join(' ')}`));
     if(!await ask('이 명령들을 실행해도 될까요?','저장소의 .ai/hooks에 있는 명령입니다. 승인하면 정해진 순간에 이 컴퓨터에서 실행됩니다.\n\n'+lines.join('\n'),'승인'))return;

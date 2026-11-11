@@ -31,6 +31,17 @@ ASSETS = {
 }
 
 
+def start_path(root) -> str:
+    """Setup until the project is saved, then the workroom (the launcher opens the same page)."""
+    from agent_dev.adapters.project_setup import ProjectSetup
+
+    try:
+        configured = ProjectSetup(root).read()["revision"] > 0
+    except Exception:  # noqa: BLE001 - an unreadable workspace still opens the setup screen
+        configured = False
+    return "/agent" if configured else "/setup"
+
+
 class StudioWeb:
     def __init__(self, root, generator=None):
         self.root = Path(root).expanduser().resolve()
@@ -151,11 +162,20 @@ class StudioWeb:
                     self.send(handler, self.assets.joinpath(name).read_bytes(), kind)
                     return
                 if parsed.path == "/api/app/status":
+                    from agent_dev.adapters import workspace_trust
                     from agent_dev.ui.code_stamp import code_stamp
 
+                    try:
+                        trust = workspace_trust.status(self.root)
+                    except (DomainError, OSError, ValueError):
+                        trust = None
                     self.send(
                         handler,
-                        {"restart_required": code_stamp() != self.code_stamp, "can_quit": self.quit is not None},
+                        {
+                            "restart_required": code_stamp() != self.code_stamp,
+                            "can_quit": self.quit is not None,
+                            "workspace_trusted": bool(trust is None or trust["trusted"]),
+                        },
                     )
                     return
                 if parsed.path in {"/api/tasks", "/api/task", "/api/doctor"}:
@@ -287,6 +307,10 @@ class StudioWeb:
             )
         if action == "cancel":
             return service.cancel_job(project, version, p["job_id"])
+        if action == "review":
+            return self.jobs.start_review(project, version, p.get("lenses"), p.get("reviewers"))
+        if action == "finding":
+            return service.process_finding(project, version, p["finding_id"], p["state"], p.get("note", ""))
         revision = p["revision"]
         if action == "mock-save":
             return service.save_mock(project, version, revision, p.get("payload"))
@@ -319,8 +343,6 @@ def make_server(root, port=8767, generator=None):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/":
-                from agent_dev.app import start_path
-
                 # Same entry as the app launcher: setup until the project is saved.
                 self.send_response(302)
                 self.send_header("Location", start_path(web.root))

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>사용량·진행 현황</title><link rel="icon" href="/brand-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/ui-tokens.css"><link rel="stylesheet" href="/ui-base.css"><link rel="stylesheet" href="/ui-components.css"><link rel="stylesheet" href="/usage.css"><link rel="stylesheet" href="/navigation.css"><script src="/ui-feedback.js" defer></script><script src="/branding.js" defer></script><script src="/navigation.js" defer></script><script src="/usage.js" defer></script></head>
+<body class="page-usage">
+<header class="app-header" data-page-title="사용량·진행 현황"><div class="app-header-actions"><label class="sr-only" for="usage-period">기간</label><select id="usage-period"><option value="7">최근 7일</option><option value="30" selected>최근 30일</option><option value="90">최근 90일</option><option value="0">전체 기간</option></select><button id="usage-refresh" class="sm" type="button">새로고침</button></div></header>
+<main>
+<div class="page-intro"><div><p class="breadcrumb">개발·검토</p><h1>사용량·진행 현황</h1><p class="page-lead">이 프로젝트의 작업 진행 상태와, 작업 실행에 쓴 AI 토큰·예상 비용을 모아 봅니다. 진행 상태는 현재 기준이고, 사용량은 선택한 기간 기준입니다.</p></div></div>
+<div id="usage-loading" class="usage-status" role="status" aria-live="polite">현황을 불러오는 중…</div>
+<div id="usage-error" class="usage-error" role="alert" hidden></div>
+<p id="usage-empty" class="usage-status" hidden>작업 공간이 아직 준비되지 않았습니다. <a href="/setup">프로젝트 설정</a>을 저장하면 작업과 사용량이 여기에 모입니다.</p>
+
+<div id="usage-content" hidden>
+<section class="usage-section" aria-labelledby="progress-title">
+  <div class="usage-head"><h2 id="progress-title">작업 진행</h2><p id="progress-summary" class="usage-meta"></p></div>
+  <div id="progress-groups" class="usage-tiles"></div>
+  <div class="usage-rate"><div class="ui-progress" role="progressbar" aria-labelledby="progress-rate-label" aria-valuemin="0" aria-valuemax="100" id="progress-rate"><div class="ui-progress-fill" id="progress-rate-fill"></div></div><p id="progress-rate-label" class="usage-meta"></p></div>
+  <h3>열린 작업</h3>
+  <p id="open-empty" class="usage-meta" hidden>진행 중이거나 기다리는 작업이 없습니다.</p>
+  <div class="usage-table-wrap"><table id="open-table" hidden><thead><tr><th scope="col">상태</th><th scope="col">작업</th><th scope="col" class="num">마지막 활동</th></tr></thead><tbody id="open-rows"></tbody></table></div>
+  <p id="open-more" class="usage-meta" hidden></p>
+</section>
+
+<section class="usage-section" aria-labelledby="usage-title">
+  <div class="usage-head"><h2 id="usage-title">AI 사용량</h2><p id="usage-period-label" class="usage-meta"></p></div>
+  <div id="usage-tiles" class="usage-tiles"></div>
+  <p id="cost-hint" class="usage-hint" hidden></p>
+  <p id="usage-none" class="usage-meta" hidden>이 기간에 기록된 AI 실행이 없습니다.</p>
+  <div id="usage-detail">
+    <h3>일별 토큰</h3>
+    <div id="daily-chart" class="usage-chart" role="img"></div>
+    <div class="usage-chart-axis"><span id="daily-first"></span><span id="daily-last"></span></div>
+    <details><summary>일별 값 보기</summary><div class="usage-table-wrap"><table><thead><tr><th scope="col">날짜</th><th scope="col" class="num">호출</th><th scope="col" class="num">토큰</th><th scope="col" class="num">예상 비용</th></tr></thead><tbody id="daily-rows"></tbody></table></div></details>
+    <div class="usage-split">
+      <div><h3>도구·모델별</h3><div class="usage-table-wrap"><table><thead><tr><th scope="col">도구·모델</th><th scope="col" class="num">호출</th><th scope="col" class="num">입력</th><th scope="col" class="num">출력</th><th scope="col" class="num">예상 비용</th></tr></thead><tbody id="model-rows"></tbody></table></div></div>
+      <div><h3>역할별</h3><div class="usage-table-wrap"><table><thead><tr><th scope="col">역할·단계</th><th scope="col" class="num">호출</th><th scope="col" class="num">토큰</th><th scope="col" class="num">예상 비용</th></tr></thead><tbody id="role-rows"></tbody></table></div></div>
+    </div>
+    <div id="feature-block" hidden>
+      <h3>기획별 (Studio 생성 + 연결된 작업 실행)</h3>
+      <p class="usage-meta">Studio에서 기획서·명세서·화면을 생성한 사용량과, 그 기획을 개발 인계해 만든 작업의 실행 사용량을 합쳐 기능 하나에 든 전체 사용량을 봅니다.</p>
+      <div class="usage-table-wrap"><table><thead><tr><th scope="col">기획</th><th scope="col" class="num">기획 생성</th><th scope="col">연결된 작업</th><th scope="col" class="num">작업 실행</th><th scope="col" class="num">합계</th></tr></thead><tbody id="feature-rows"></tbody></table></div>
+    </div>
+    <h3>작업별</h3>
+    <div class="usage-table-wrap"><table><thead><tr><th scope="col">작업</th><th scope="col">상태</th><th scope="col" class="num">호출</th><th scope="col" class="num">토큰</th><th scope="col" class="num">예상 비용</th><th scope="col" class="num">마지막 호출</th></tr></thead><tbody id="task-rows"></tbody></table></div>
+  </div>
+  <p id="usage-notes" class="usage-meta"></p>
+</section>
+</div>
+</main>
+</body>
+</html>

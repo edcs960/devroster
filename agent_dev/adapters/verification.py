@@ -32,11 +32,14 @@ class VerificationAdapter:
             raise DomainError(ErrorCode.POLICY_VIOLATION, "Task phases have not completed.")
         resolved = self.repository.snapshot(task_id)["resolved"]
         from agent_dev.adapters.environment import process_environment
+        from agent_dev.adapters.process_launcher import environment
 
-        process_env = (
-            process_environment(self.config_root, resolved.get("environment_keys", []))
-            if self.config_root
-            else None
+        keys = resolved.get("environment_keys", [])
+        # Gates run project code: the "check" policy, never the user's whole shell (S-04).
+        process_env = environment(
+            "check",
+            allowed=keys,
+            source=process_environment(self.config_root, keys) if self.config_root else None,
         )
         bindings = resolved.get("repositories", {})
         commands = resolved.get("verification", {}).get("commands", [])

@@ -40,6 +40,18 @@ STUDIO_ROLES = {
 }
 
 
+def price_policy(config_root):
+    """The project's usage_policy when a generation is queued; later edits do not reprice it."""
+    from agent_dev.adapters.project_setup import ProjectSetup
+    from agent_dev.domain.usage_policy import normalize_policy
+
+    try:
+        profile = ProjectSetup(config_root).current_profile()[2] or {}
+        return normalize_policy(profile.get("usage_policy"))
+    except (DomainError, OSError, ValueError):
+        return None
+
+
 def project_guidance(config_root, kind):
     """The project's .ai rules and matching skills, read once when the job is queued."""
     from agent_dev.adapters.ai_rules import read_rules, read_skills, rules_text, skills_for
@@ -95,6 +107,15 @@ def diagram_rule(names):
 
 def prompt_for(kind, data):
     from agent_dev.domain.output_language import DEFAULT
+
+    if kind == "review":
+        from agent_dev.domain.spec_review import prompt
+
+        return prompt(data)
+    if kind == "drift":
+        from agent_dev.domain.drift import prompt as drift_prompt
+
+        return drift_prompt(data)
 
     data = dict(data)
     guidance = dict(data.pop("project_guidance", None) or {})
@@ -310,6 +331,9 @@ def regenerate_documents(data, current, names, note, call):
 
 
 def cli_generate(kind, data, provider, model, workspace, grant):
+    # The job passes a callable for token usage; it never reaches runner or process-guard config.
+    report = grant.get("usage_sink")
+    grant = {k: v for k, v in grant.items() if k != "usage_sink"}
     prompt = prompt_for(kind, data)
     config = dict(
         grant.get("runner_config", {}),
@@ -323,11 +347,12 @@ def cli_generate(kind, data, provider, model, workspace, grant):
     if provider in API_PROVIDERS:
         from agent_dev.adapters.api_runner import ApiRunnerAdapter
 
-        return decode_output(
-            ApiRunnerAdapter(provider, dict(grant.get("runner_config", {}), model=model))
-            .generate(prompt, {"title": "Studio " + kind}, "studio-" + kind)
-            .output
+        result = ApiRunnerAdapter(provider, dict(grant.get("runner_config", {}), model=model)).generate(
+            prompt, {"title": "Studio " + kind}, "studio-" + kind
         )
+        if report:
+            report(provider, result.selection.get("model") or model, result.usage)
+        return decode_output(result.output)
     runner = CliRunnerAdapter(provider, config, workspace, grant)
     if provider == "claude_cli":
         runner.runner.extra_args[-1] = ""  # Planning is text generation with no file-reading tools.
@@ -386,7 +411,46 @@ def cli_generate(kind, data, provider, model, workspace, grant):
         output = runner.runner.run(Task.from_dict(task.definition), agent, step, prompt)
     except (ClaudeUsageLimitError, CodexUsageLimitError, GeminiUsageLimitError):
         raise DomainError(ErrorCode.CAPACITY_EXHAUSTED, "Runner quota exhausted.") from None
+    if report:
+        selected = getattr(runner.runner, "last_selection", {}) or {}
+        report(provider, model or selected.get("model") or "", getattr(runner.runner, "last_usage", {}))
     return decode_output(output)
+
+
+def runner_config(config_root, ai, provider, model=None, effort=None):
+    """One tool's runner settings for a Studio call, with its private keys resolved."""
+    from agent_dev.adapters.ai_providers import PROVIDERS, defaults, normalize
+    from agent_dev.adapters.environment import process_environment, read_environment
+
+    if provider not in PROVIDERS:
+        raise StudioError("지원하는 AI 도구를 선택해주세요.")
+    selected = ai["runners"][provider] if ai else dict(defaults(provider), enabled=True)
+    if not selected["enabled"]:
+        raise StudioError("환경 설정에서 선택한 AI 도구를 활성화해주세요.")
+    config = {k: v for k, v in selected.items() if k != "enabled"}
+    if model is not None or effort is not None:
+        config["routing"] = {"mode": "fixed"}
+        if model is not None:
+            config["model"] = text(model, "모델 이름", 100, False)
+        if effort is not None:
+            config["effort"] = effort
+    config = {
+        k: v
+        for k, v in normalize(provider, dict(config, enabled=True)).items()
+        if k != "enabled"
+    }
+    if config_root:
+        auth_keys = {
+            "OPENAI_API_KEY",
+            "CODEX_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            config.get("credential_ref", ""),
+        }
+        keys = [key for key in read_environment(config_root) if key in auth_keys]
+        config["process_env"] = process_environment(config_root, keys)
+    return config
 
 
 class StudioJobs:
@@ -399,47 +463,19 @@ class StudioJobs:
 
     def start(self, project_id, version, kind, provider=None, model=None, effort=None, documents=None, note=""):
         if self.config_root:
+            from agent_dev.adapters import workspace_trust
             from agent_dev.adapters.preparation import require_ai
 
+            # The runner command comes from the project settings: never from an unreviewed clone.
+            workspace_trust.require(self.config_root, "AI 생성")
             require_ai(self.config_root)
-        from agent_dev.adapters.environment import process_environment, read_environment
         from agent_dev.adapters.project_setup import ai_defaults
 
         ai = ai_defaults(self.config_root) if self.config_root else None
         provider = provider or (ai["provider"] if ai else "codex_cli")
-        from agent_dev.adapters.ai_providers import PROVIDERS, defaults, normalize
-
-        if provider not in PROVIDERS:
-            raise StudioError("지원하는 AI 도구를 선택해주세요.")
-        selected = ai["runners"][provider] if ai else dict(defaults(provider), enabled=True)
-        if not selected["enabled"]:
-            raise StudioError("환경 설정에서 선택한 AI 도구를 활성화해주세요.")
         from agent_dev.domain.model_routing import select_model
 
-        config = {k: v for k, v in selected.items() if k != "enabled"}
-        if model is not None or effort is not None:
-            config["routing"] = {"mode": "fixed"}
-            if model is not None:
-                config["model"] = text(model, "모델 이름", 100, False)
-            if effort is not None:
-                config["effort"] = effort
-
-        config = {
-            k: v
-            for k, v in normalize(provider, dict(config, enabled=True)).items()
-            if k != "enabled"
-        }
-        if self.config_root:
-            auth_keys = {
-                "OPENAI_API_KEY",
-                "CODEX_API_KEY",
-                "ANTHROPIC_API_KEY",
-                "GEMINI_API_KEY",
-                "GOOGLE_API_KEY",
-                config.get("credential_ref", ""),
-            }
-            keys = [key for key in read_environment(self.config_root) if key in auth_keys]
-            config["process_env"] = process_environment(self.config_root, keys)
+        config = self._runner_config(ai, provider, model, effort)
         data = self.studio.generation_input(project_id, version, "specs" if kind == "spec_documents" else kind)
         if kind == "spec_documents":
             # Rewrite chosen documents of the current spec; requirements and screens stay as they are.
@@ -449,10 +485,12 @@ class StudioJobs:
             if not data.get("previous"):
                 raise StudioError("먼저 명세서를 생성해주세요.", 409)
             data.update(current=data.pop("previous"), regenerate=list(dict.fromkeys(names)), note=text(note or "", "고칠 점", 2000, False))
+        policy = None
         if self.config_root:
             guidance = project_guidance(self.config_root, kind)
             if guidance:
                 data["project_guidance"] = guidance
+            policy = price_policy(self.config_root)
         from agent_dev.adapters.design_references import DesignReferences
 
         references = DesignReferences.studio_bundle(self.studio.store, project_id)
@@ -493,10 +531,126 @@ class StudioJobs:
             self.owned.add(job_id)
         threading.Thread(
             target=self._run,
-            args=(job_id, project_id, kind, data, provider, model, config),
+            args=(job_id, project_id, kind, data, provider, model, config, policy),
             daemon=True,
         ).start()
         return store.detail(project_id)
+
+    def _runner_config(self, ai, provider, model=None, effort=None):
+        return runner_config(self.config_root, ai, provider, model, effort)
+
+    def start_review(self, project_id, version, lenses=None, reviewers=None):
+        """Queue an independent review: every lens on up to three model families, fresh calls."""
+        from agent_dev.adapters.project_setup import ai_defaults
+        from agent_dev.domain import spec_review
+        from agent_dev.domain.model_routing import select_model
+        from agent_dev.domain.output_language import DEFAULT
+        from agent_dev.domain.role_policy import independent_family
+
+        policy, language = None, DEFAULT
+        if self.config_root:
+            from agent_dev.adapters import workspace_trust
+            from agent_dev.adapters.preparation import require_ai
+
+            workspace_trust.require(self.config_root, "독립 검토")
+            require_ai(self.config_root)
+            policy = price_policy(self.config_root)
+            language = project_guidance(self.config_root, "specs").get("language") or DEFAULT
+        ai = ai_defaults(self.config_root) if self.config_root else None
+        enabled = [
+            (p, independent_family(p)) for p, row in (ai["runners"] if ai else {}).items() if row.get("enabled")
+        ] or [("codex_cli", "openai")]
+        if reviewers:
+            if not isinstance(reviewers, list) or len(reviewers) > 4 or any(p not in dict(enabled) for p in reviewers):
+                raise StudioError("검토에 쓸 AI 도구는 사용 중인 도구에서 최대 4개까지 고를 수 있습니다.")
+            chosen = list(dict.fromkeys(reviewers))
+        else:
+            chosen = spec_review.choose_reviewers(enabled, ai["provider"] if ai else "codex_cli")
+        probe = self.studio.review_input(project_id, version, "comprehension", language)
+        lenses = spec_review.lenses_for(lenses, probe["has_mock"])
+        team = []
+        for provider in chosen:
+            config = self._runner_config(ai, provider)
+            selection = select_model(config, {"title": "Studio review", "scope": []}, "studio-review")
+            config.update(model=selection["model"], effort=selection["effort"], routing={"mode": "fixed"})
+            team.append({"provider": provider, "model": selection["model"], "family": independent_family(provider), "config": config})
+        public = {"lenses": lenses, "reviewers": [{k: r[k] for k in ("provider", "model", "family")} for r in team]}
+        store, job_id = self.studio.store, new_id("JOB-")
+        with store.transaction() as db:
+            store.project(db, project_id, version)
+            if db.execute("SELECT COUNT(*) FROM jobs WHERE state IN('queued','running')").fetchone()[0] >= 2:
+                raise StudioError("다른 생성 작업이 진행 중입니다. 잠시 후 다시 시도해주세요.", 409)
+            store.bump(db, project_id, "job.queued", {"id": job_id, "kind": "review", **public})
+            current = store.project(db, project_id, idle=False)
+            db.execute(
+                "INSERT INTO jobs VALUES(?,?,?,'queued',?,'',?)",
+                (job_id, project_id, "review", current["version"], time.time()),
+            )
+            db.execute("INSERT INTO leases VALUES(?,?,1,?)", ("studio:" + job_id, job_id, time.time() + 45))
+            reviewed_version = current["version"]  # Queueing bumped it; reviewers read this one.
+        with self.lock:
+            self.owned.add(job_id)
+        data = {"lenses": lenses, "team": team, "language": language, "version": reviewed_version}
+        threading.Thread(
+            target=self._run,
+            args=(job_id, project_id, "review", data, team[0]["provider"], team[0]["model"], {}, policy),
+            daemon=True,
+        ).start()
+        return store.detail(project_id)
+
+    def _review(self, job_id, project_id, data, workspace, grant, policy, progress):
+        """Run every reviewer call, then store the merged findings for the reviewed revision."""
+        from agent_dev.domain import spec_review
+
+        results, failed, revision = [], 0, None
+        calls = [(lens, member) for lens in data["lenses"] for member in data["team"]]
+        for index, (lens, member) in enumerate(calls, 1):
+            progress(f"독립 검토 중 ({index}/{len(calls)}): {spec_review.LENSES[lens]['label']} · {member['provider']}")
+            source = self.studio.review_input(project_id, data["version"], lens, data["language"], running=True)
+            revision = source["revision"]
+            started, reports = time.monotonic(), []
+
+            def report(used_provider, used_model, usage, reports=reports):
+                reports.append((used_provider, used_model, usage))
+
+            try:
+                output = self.generator(
+                    "review",
+                    source["data"],
+                    member["provider"],
+                    member["model"],
+                    workspace,
+                    dict(grant, runner_config=member["config"], usage_sink=report),
+                )
+                results.append(
+                    {
+                        "lens": lens,
+                        "family": member["family"],
+                        "provider": member["provider"],
+                        "model": member["model"],
+                        "findings": spec_review.parse(output, source["anchors"]),
+                    }
+                )
+            except (DomainError, StudioError, OSError, ValueError, subprocess.SubprocessError):
+                failed += 1  # One reviewer failing does not discard the others.
+            finally:
+                self._record_usage(
+                    job_id, project_id, "review:" + lens, reports, time.monotonic() - started, policy
+                )
+        if not results:
+            raise StudioError("모든 검토 호출이 실패했습니다. AI 도구 로그인·키를 확인해주세요.")
+        store = self.studio.store
+        with store.transaction() as db:
+            job = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            project = store.project(db, project_id, idle=False)
+            lease = db.execute("SELECT expires_at FROM leases WHERE resource=?", ("studio:" + job_id,)).fetchone()
+            if job["state"] != "running" or project["version"] != job["version"] or not lease or lease[0] <= time.time():
+                return  # The spec changed (or the job was cancelled) while reviewing.
+            review_id = self.studio.record_review(db, project_id, revision, data["lenses"], results, failed)
+            message = "독립 검토가 끝났습니다. 지적을 확인해주세요." + (f" (실패한 검토 호출 {failed}건)" if failed else "")
+            db.execute("UPDATE jobs SET state='done',message=? WHERE id=?", (message, job_id))
+            db.execute("UPDATE leases SET expires_at=0 WHERE resource=?", ("studio:" + job_id,))
+            store.bump(db, project_id, "job.completed", {"id": job_id, "review": review_id})
 
     def _heartbeat(self, job_id, stop):
         while not stop.wait(10):
@@ -519,7 +673,54 @@ class StudioJobs:
         except (DomainError, OSError, ValueError):
             return False
 
-    def _run(self, job_id, project_id, kind, data, provider, model, runner_config):
+    def _record_usage(self, job_id, project_id, step, reports, seconds, policy=None):
+        """One job.usage event per AI call, kept even when the job later fails.
+
+        Studio jobs are not workflow tasks, so this is the only record of what planning
+        cost; the usage dashboard links it to the tasks a handoff of this project made.
+        The cost is computed now with the price book captured when the job was queued,
+        like a task's approved snapshot, so later price edits never reprice it.
+        """
+        if not reports:
+            return
+        from agent_dev.domain.execution_limits import safe_usage
+        from agent_dev.domain.usage_policy import call_cost
+
+        now = time.time()
+        with self.studio.store.transaction() as db:
+            for used_provider, used_model, usage in reports:
+                clean = safe_usage(usage)
+                cost, reason = (
+                    call_cost(
+                        policy,
+                        {"provider": used_provider, "model": used_model or "", "usage": clean, "created_at": now},
+                    )
+                    if policy
+                    else (None, "price_book_missing")
+                )
+                db.execute(
+                    "INSERT INTO events(project_id,kind,payload,created) VALUES(?,?,?,?)",
+                    (
+                        project_id,
+                        "job.usage",
+                        serialize(
+                            {
+                                "id": job_id,
+                                "step": step,
+                                "provider": used_provider,
+                                "model": str(used_model or "")[:200],
+                                "usage": clean,
+                                "runner_seconds": round(seconds / len(reports), 3),
+                                "cost": None if cost is None else round(cost, 6),
+                                "currency": policy["currency"] if policy else None,
+                                "cost_reason": reason,
+                            }
+                        ),
+                        now,
+                    ),
+                )
+
+    def _run(self, job_id, project_id, kind, data, provider, model, runner_config, policy=None):
         store, stop = self.studio.store, threading.Event()
         heartbeat = threading.Thread(target=self._heartbeat, args=(job_id, stop), daemon=True)
         heartbeat.start()
@@ -541,12 +742,27 @@ class StudioJobs:
                 "runner_config": runner_config,
             }
             def call(step_kind, step_data):
-                return self.generator(step_kind, step_data, provider, model, workspace, grant)
+                started, reports = time.monotonic(), []
+
+                def report(used_provider, used_model, usage):
+                    reports.append((used_provider, used_model, usage))
+
+                try:
+                    return self.generator(
+                        step_kind, step_data, provider, model, workspace, dict(grant, usage_sink=report)
+                    )
+                finally:
+                    self._record_usage(
+                        job_id, project_id, step_kind, reports, time.monotonic() - started, policy
+                    )
 
             def progress(message):
                 with store.transaction() as db:
                     db.execute("UPDATE jobs SET message=? WHERE id=? AND state='running'", (message, job_id))
 
+            if kind == "review":
+                self._review(job_id, project_id, data, workspace, grant, policy, progress)
+                return
             payload: Any
             if kind == "specs":
                 payload = staged_specs(data, call, progress)

@@ -46,11 +46,15 @@ def tool_definition(checks):
 
 def run_check(check):
     from agent_dev.adapters.bounded_process import run_bounded
+    from agent_dev.adapters.process_launcher import environment
     from agent_dev.domain.content import redact
 
+    # The code role wrote what this runs: only system, toolchain and the project's approved
+    # variables reach it, never the rest of the user's shell (cloud keys, tokens).
+    env = environment("check", allowed=check.get("environment_keys", []))
     try:
         process = run_bounded(
-            check["command"], cwd=check["cwd"], env=None, timeout=max(1, int(check.get("timeout", 900))),
+            check["command"], cwd=check["cwd"], env=env, timeout=max(1, int(check.get("timeout", 900))),
             limit=2_000_000, tail=OUTPUT_TAIL,
         )
         code = 125 if process.overflow else process.returncode

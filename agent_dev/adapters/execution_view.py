@@ -108,6 +108,9 @@ def usage_calls(db, task_id):
     calls = []
     for row in rows:
         payload = json.loads(row["payload_json"])
+        if payload.get("ai_call") is False:
+            # A session member shares another node's call; counting it would add an unpriced call.
+            continue
         selection = payload.get("selection") if isinstance(payload.get("selection"), dict) else {}
         calls.append(
             {

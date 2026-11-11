@@ -160,6 +160,9 @@ def test_preparation_browser(workspace, tmp_path, monkeypatch):
     if not module or not executable or not shutil.which('node'):
         pytest.skip('Opt in to installed Playwright/browser; no installation.')
     monkeypatch.setenv('DEVROSTER_HOME', str(tmp_path / 'app-home'))
+    # A fresh management folder knows no workspace yet; trust the fixture explicitly.
+    from agent_dev.adapters import workspace_trust
+    workspace_trust.trust(workspace)
     approved(workspace)
     save_mode(workspace, False)
     server = make_server(workspace, port=0)

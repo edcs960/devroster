@@ -14,7 +14,6 @@ after approval does not run.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -43,7 +42,6 @@ DEFAULT_TIMEOUT = 120
 MAX_TIMEOUT = 600
 OUTPUT_TAIL = 4000
 # Only what a build tool needs to start; secrets and provider keys are never passed on.
-_ENV_KEEP = ("PATH", "HOME", "USERPROFILE", "SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "SHELL")
 
 
 def _fail(message: str) -> DomainError:
@@ -109,11 +107,16 @@ def read_hooks(root) -> dict:
 
 
 def approved_digest(config_root) -> str:
-    path = Path(config_root) / APPROVAL_FILE
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get("digest", "")
-    except (OSError, ValueError, AttributeError):
+    """The approved hook digest, kept in the management folder (workspace_trust).
+
+    An approval file inside the project (APPROVAL_FILE, written by older versions) is
+    ignored: a repository could ship one. An untrusted workspace has no approval.
+    """
+    from agent_dev.adapters import workspace_trust
+
+    if not workspace_trust.is_trusted(config_root):
         return ""
+    return workspace_trust.hook_approval(config_root)
 
 
 def approve(config_root, project_root, digest_value: str, actor: str = "local-user") -> dict:
@@ -126,12 +129,10 @@ def approve(config_root, project_root, digest_value: str, actor: str = "local-us
         raise _fail("승인할 훅이 없습니다.")
     if digest_value != current["digest"]:
         raise DomainError(ErrorCode.STALE_VERSION, "확인한 뒤 훅이 바뀌었습니다. 다시 확인해주세요.")
-    path = Path(config_root) / APPROVAL_FILE
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"digest": digest_value, "actor": actor, "approved_at": time.time()}),
-        encoding="utf-8",
-    )
+    from agent_dev.adapters import workspace_trust
+
+    workspace_trust.require(config_root, "훅 승인")
+    workspace_trust.approve_hooks(config_root, digest_value, actor)
     return {"digest": digest_value}
 
 
@@ -180,13 +181,15 @@ def run(event: str, bundle: dict | None, project_root, cwd, context: dict, secre
             "seconds": 0,
             "output": "승인한 뒤 .ai/hooks가 바뀌어 훅을 실행하지 않았습니다. 다시 승인한 뒤 새 작업에서 사용됩니다.",
         }]
-    env = {key: os.environ[key] for key in _ENV_KEEP if key in os.environ}
-    env.update(
-        {
+    from agent_dev.adapters.process_launcher import environment
+
+    env = environment(
+        "hook",
+        extra={
             "DEVROSTER_EVENT": event,
             "DEVROSTER_PROJECT_ROOT": str(project_root),
             **{f"DEVROSTER_{k.upper()}": str(v) for k, v in context.items() if v is not None},
-        }
+        },
     )
     results = []
     for hook in bundle["events"][event]:

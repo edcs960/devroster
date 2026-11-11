@@ -225,6 +225,12 @@ class SetupWeb:
                             "표시 영역이 깨진 파일은 쓰지 않았습니다: " + ", ".join(synced["stale"]),
                         )
                 result = ai_rules.overview(service.root)
+            elif parsed.path in {"/api/setup/trust", "/api/setup/trust/approve"}:
+                from agent_dev.adapters import workspace_trust
+
+                if parsed.path.endswith("approve"):
+                    workspace_trust.trust(service.config)
+                result = workspace_trust.review(service.config)
             elif parsed.path in {"/api/setup/hooks", "/api/setup/hooks/approve"}:
                 from agent_dev.adapters import ai_hooks
 
@@ -417,10 +423,16 @@ def worktree_cleanup(root, apply, selected):
 
 def cli_login_request(service, operation, payload, owner=None):
     """App-private CLI login: commands come from the saved runner settings only."""
-    from agent_dev.adapters import cli_login
+    from agent_dev.adapters import cli_login, workspace_trust
     from agent_dev.adapters.project_setup import auth_probe
 
     runners = service.read()["ai"]["runners"]
+    folder = getattr(service, "config", getattr(service, "root", None))
+    if operation in {"cli-auth", "cli-login"} and folder is not None and not workspace_trust.is_trusted(folder):
+        # The commands come from settings that arrived with the folder: never run them unreviewed.
+        if operation == "cli-auth":
+            return {"trust_required": True, **dict.fromkeys(cli_login.LOGIN_ARGS)}
+        workspace_trust.require(folder, "CLI 로그인")
     owner_scope = (
         (owner, str(service.root.resolve())) if owner is not None and hasattr(service, "root") else owner
     )

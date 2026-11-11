@@ -17,6 +17,9 @@ def test_logic_audit_browser(workspace, tmp_path, monkeypatch):  # noqa: F811
     if not module or not executable or not shutil.which('node'):
         pytest.skip('Opt in to installed Playwright/browser; no installation.')
     monkeypatch.setenv('DEVROSTER_HOME', str(tmp_path / 'app-home'))
+    # A fresh management folder knows no workspace yet; trust the fixture explicitly.
+    from agent_dev.adapters import workspace_trust
+    workspace_trust.trust(workspace)
     runtime = approved(workspace)
     runtime.store.create_plan('EXAMPLE', 'PLAN2', 'D', 1, [{'id':'T2','title':'Second audit task','system_name':'Example'}])
     runtime.store.approve('plan', 'PLAN2', 1, 'user')

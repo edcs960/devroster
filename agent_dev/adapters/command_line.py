@@ -108,6 +108,24 @@ class _Parser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: {message}\n`{self.prog} --help`로 사용할 수 있는 명령을 확인하세요.\n")
 
 
+# Web screens the CLI can start ("studio", "dashboard", "setup"). The ui layer sits outside
+# adapters, so the entry point (bootstrap) registers them instead of this module importing ui.
+WEB_SERVERS: dict = {}
+
+
+def register_web_servers(servers) -> None:
+    WEB_SERVERS.update(servers)
+
+
+def web_server(name):
+    serve = WEB_SERVERS.get(name)
+    if serve is None:
+        raise DomainError(
+            ErrorCode.CAPABILITY_UNAVAILABLE, "웹 화면은 devroster 명령(설치된 실행 파일)으로 시작해주세요."
+        )
+    return serve
+
+
 def handles(arguments):
     return bool(arguments) and arguments[0] in NAMESPACES
 
@@ -616,17 +634,15 @@ def dispatch(args):
         return restore_bundle(Path(args.source), Path(args.destination))
     if namespace == "studio":
         from agent_dev.adapters.project_setup import ProjectSetup
-        from agent_dev.ui.studio_server import serve
 
-        return serve(
+        return web_server("studio")(
             root,
             args.port if args.port is not None else ProjectSetup(root).read()["ports"]["studio"],
         )
     if namespace == "dashboard":
         from agent_dev.adapters.project_setup import ProjectSetup
-        from agent_dev.ui.dashboard import serve
 
-        return serve(
+        return web_server("dashboard")(
             root,
             args.port if args.port is not None else ProjectSetup(root).read()["ports"]["dashboard"],
         )

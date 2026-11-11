@@ -17,6 +17,7 @@ class ReviewWeb(LocalWeb):
         "/api/review/bootstrap",
         "/api/review/diff",
         "/api/review/evidence",
+        "/api/review/drift",
         "/api/review/preview",
         "/api/review/preview-detail",
         "/api/review/preview-screenshot",
@@ -25,6 +26,8 @@ class ReviewWeb(LocalWeb):
         "/api/review/comment",
         "/api/review/comment-state",
         "/api/review/decision",
+        "/api/review/drift-start",
+        "/api/review/drift-decision",
         "/api/review/preview-prepare",
         "/api/review/preview-start",
         "/api/review/preview-capture",
@@ -92,6 +95,12 @@ class ReviewWeb(LocalWeb):
             if action == "preview-detail":
                 return preview.capture_detail(context, query.get("capture", ""))
             return (preview.load_capture(context, query.get("capture", ""))[1], "image/png")
+        if action == "drift":
+            from agent_dev.adapters import drift_check
+
+            task = query.get("task", "")
+            self._context(task)  # Validates the task the same way as every review read.
+            return drift_check.status(self._db(True), task)
         context = self._context(query.get("task", ""))
         if action == "bootstrap":
             return review.bootstrap(context)
@@ -116,6 +125,20 @@ class ReviewWeb(LocalWeb):
             }
             if action in handlers:
                 return handlers[action]()
+        if action in {"drift-start", "drift-decision"}:
+            from agent_dev.adapters import drift_check
+            from agent_dev.adapters.secrets import registered_secrets
+
+            db, task = self._db(False), payload.get("task", "")
+            if action == "drift-decision":
+                return drift_check.decide(
+                    db, task, payload.get("check_id", ""), payload.get("finding_id", ""), payload.get("state", ""), payload.get("note", "")
+                )
+            from agent_dev.adapters.studio_generation import project_guidance
+            from agent_dev.domain.output_language import DEFAULT
+
+            language = project_guidance(self._config, "specs").get("language") or DEFAULT
+            return drift_check.start(self._config, db, task, registered_secrets(self._config), language)
         context = self._context(payload.get("task", ""), read_only=False)
         if action == "comment":
             return review.add_comment(context, payload)

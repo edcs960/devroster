@@ -57,8 +57,26 @@ def claude_session(stdout):
     return value if isinstance(value, str) and len(value) <= 100 else ""
 
 
+def claude_usage(usage):
+    """Claude reports cache reads and writes beside input_tokens; keep them.
+
+    Cache reads become cached_input_tokens (Anthropic style: not inside input_tokens, priced
+    at the cached rate). Cache writes are input the model processed, so they join
+    input_tokens and are priced at the input rate (Anthropic bills them a little higher).
+    """
+    if not isinstance(usage, dict):
+        return {}
+    mapped = dict(usage)
+    read, written = usage.get("cache_read_input_tokens"), usage.get("cache_creation_input_tokens")
+    if type(read) is int and read >= 0:
+        mapped["cached_input_tokens"] = read
+    if type(written) is int and written >= 0 and type(usage.get("input_tokens")) is int:
+        mapped["input_tokens"] = usage["input_tokens"] + written
+    return safe_usage(mapped)
+
+
 def claude_result(stdout):
     result = _claude_final(stdout)
     if result is None:
         return stdout, {}
-    return str(result.get("result", "")), safe_usage(result.get("usage"))
+    return str(result.get("result", "")), claude_usage(result.get("usage"))

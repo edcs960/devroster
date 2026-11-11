@@ -17,6 +17,7 @@
   </section>
   <aside class="review-side" aria-label="검증과 결정">
     <section><h2>검증 근거</h2><div id="verification"></div><div id="publish"></div></section>
+    <section aria-labelledby="drift-title"><h2 id="drift-title">드리프트 검사</h2><p class="review-meta">이 작업의 코드 변경을 연결된 요구사항·수용 기준과 비교합니다. 개발에 쓰지 않은 다른 계열의 AI가 대화 기록 없이 검사하고, 명세에 없는 동작(반대 방향 드리프트)도 찾습니다.</p><button id="drift-run" type="button" class="secondary">드리프트 검사 실행</button><p id="drift-status" class="review-meta" role="status" aria-live="polite"></p><ol id="drift-findings" class="drift-findings" aria-label="드리프트 지적"></ol></section>
     <section><h2>코멘트 <span id="thread-count" class="review-meta"></span></h2><div id="threads"></div></section>
     <section><h2>코드 검토 결정</h2><p class="review-meta">결정은 현재 변경 내용(digest)에만 묶입니다. 작업 승인·게시 조건을 대신하지 않습니다.</p>
       <p id="decision-reason" class="review-meta" role="status"></p><form id="decision-form"><fieldset><legend>결과</legend><label class="check-label"><input type="radio" name="decision" value="approved" checked> 승인</label><label class="check-label"><input type="radio" name="decision" value="rejected"> 수정 요청</label></fieldset><label for="decision-note">의견<textarea id="decision-note" rows="2" maxlength="4000"></textarea></label><button type="submit" class="primary">결정 기록</button></form>

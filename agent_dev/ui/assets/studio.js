@@ -55,7 +55,7 @@
     const briefSaveState = $('brief-save-state');
     if(briefSaveState) briefSaveState.textContent = busy ? '생성·저장 처리 중' : state.briefDirty ? '변경됨 · 저장 필요' : state.data ? '현재 기획서 저장됨' : '기획서를 저장하면 명세서를 생성할 수 있습니다.';
     $('save-spec').disabled=busy || !state.specDraft || state.history || !state.specDirty;
-    $('approve-spec').disabled=busy || !spec || state.history || state.specDirty || !!spec.approved || state.specDraft?.questions.some(q=>!q.answer?.trim());
+    $('approve-spec').disabled=busy || !spec || state.history || state.specDirty || !!spec.approved || state.specDraft?.questions.some(q=>!q.answer?.trim()) || blockingFindings('spec').length>0;
     $('generate-mock').disabled=state.preparationMode || busy || !spec?.approved || state.specDirty || state.history || !spec.payload.screens.length;
     $('regenerate-mock').disabled=state.preparationMode || busy || !spec?.approved || state.history || !state.data?.mock;
     $('new-review').disabled=busy || !current();
@@ -96,7 +96,7 @@
     if(badge){badge.className=st&&tones[st]!==undefined?'badge '+tones[st]:'badge';badge.textContent=text;badge.hidden=!text;}
     const unanswered=(state.specDraft?.questions||[]).filter(q=>!q.answer?.trim()).length, spec=state.data?.spec;
     gate('brief-gate', $('generate-spec').disabled && !busy && (state.preparationMode ? '준비 모드에서는 생성할 수 없습니다.' : !state.data ? '기획서를 저장하면 생성할 수 있습니다.' : state.briefDirty ? '저장한 뒤 생성할 수 있습니다.' : ''));
-    gate('spec-gate', spec && !spec.approved && $('approve-spec').disabled && !busy && !state.history && (state.specDirty ? '수정 내용을 저장한 뒤 확정할 수 있습니다.' : unanswered ? '확인 질문 '+unanswered+'개에 답변해야 확정할 수 있습니다.' : ''));
+    gate('spec-gate', spec && !spec.approved && $('approve-spec').disabled && !busy && !state.history && (state.specDirty ? '수정 내용을 저장한 뒤 확정할 수 있습니다.' : unanswered ? '확인 질문 '+unanswered+'개에 답변해야 확정할 수 있습니다.' : blockingFindings('spec').length ? '독립 검토의 심각한 지적 '+blockingFindings('spec').length+'건을 처리해야 확정할 수 있습니다.' : ''));
   }
   function gate(id,text){const el=$(id);if(!el)return;el.textContent=text||'';el.hidden=!text;}
   // AI tools report no progress: compare elapsed time with recent runs of the same kind.
@@ -109,7 +109,7 @@
     const key=job.id+':'+job.state;
     if(box.dataset.job!==key){
       box.dataset.job=key;
-      const what=job.kind==='specs'?'명세서를':job.kind==='spec_documents'?'선택한 문서를':'목업을',head=make('div',undefined,'job-head');
+      const what=job.kind==='specs'?'명세서를':job.kind==='spec_documents'?'선택한 문서를':job.kind==='review'?'독립 검토를':'목업을',head=make('div',undefined,'job-head');
       head.append(make('strong',job.state==='queued'?'AI 생성 준비 중입니다':'AI가 '+what+' 만들고 있습니다'),button('생성 중단',()=>mutate('cancel',{job_id:job.id})));
       jobBar=DevRosterProgress.create('AI 생성 진행 상황 (예상)');
       const meta=make('p',undefined,'job-meta');meta.setAttribute('aria-hidden','true');  // ticks every second; the bar carries it
@@ -127,9 +127,39 @@
     const stage=job.state==='running'&&job.message?job.message+' · ':'';const text=job.state==='queued'?'AI 실행 순서를 기다리고 있습니다':stage+(over?'예상보다 오래 걸리고 있습니다 · 경과 '+clock(elapsed):'경과 '+clock(elapsed)+' · 보통 약 '+clock(estimate)+' 걸립니다');
     jobBar.set(percent/100,text,over?'over':'');meta.textContent=text;
   }
+  // Independent review (domain/spec_review.py): lenses, merged findings, decisions.
+  const REVIEW_LENSES=[['comprehension','이해도·자기완결성'],['design','설계 결함'],['readiness','구현 준비도'],['scope','범위·근거'],['mockup','명세·화면 일치']];
+  const LENS_LABEL=Object.fromEntries(REVIEW_LENSES),SEVERITY_LABEL={high:'심각',medium:'보통',low:'낮음'},FINDING_STATE={open:'열림',resolved:'반영함',accepted:'수용(위험 감수)',rebutted:'반박'};
+  function blockingFindings(gate){return (state.data?.findings||[]).filter(f=>f.state==='open'&&f.severity==='high'&&(gate==='handoff'||f.lens!=='mockup'));}
+  function renderReview() {
+    const panel=$('review-panel'),spec=state.data?.spec,show=!!spec&&!state.history&&(state.step==='spec'||state.step==='mock');panel.hidden=!show;if(!show)return;
+    const box=$('review-lenses');
+    if(!box.querySelector('input')){REVIEW_LENSES.forEach(([id,label])=>{const l=make('label',undefined,'check'),c=make('input');c.type='checkbox';c.value=id;c.id='lens-'+id;c.checked=id!=='mockup';l.append(c,document.createTextNode(label));box.append(l);});}
+    const hasMock=!!state.data?.mock,mockup=$('lens-mockup');mockup.disabled=!hasMock;if(!hasMock)mockup.checked=false;
+    $('run-review').disabled=!!live()||state.pending||state.specDirty;
+    const findings=state.data?.findings||[],last=(state.data?.reviews||[])[0];
+    $('review-empty').hidden=findings.length>0||!!last;
+    $('review-meta').textContent=last?`최근 검토: 명세 버전 ${last.spec_revision} · 검토 AI ${last.reviewers.map(r=>r.provider+(r.model?' ('+r.model+')':'')).join(', ')} · 호출 ${last.calls}회`+(last.failed?` (실패 ${last.failed})`:'')+` · 지적 ${findings.filter(f=>f.state==='open').length}건 열림`:'';
+    const list=$('review-findings');list.replaceChildren();
+    for(const f of findings){
+      const li=make('li',undefined,'review-finding');li.dataset.severity=f.severity;li.dataset.state=f.state;
+      const head=make('div',undefined,'finding-head'),sev=make('span',SEVERITY_LABEL[f.severity],'review-chip');sev.dataset.severity=f.severity;
+      const agree=make('span',f.agreement>1?f.agreement+'개 계열 함께 지적':'1개 계열','review-chip');if(f.agreement>1)agree.dataset.agreement='many';agree.title=(f.reviewers||[]).map(r=>r.provider+(r.model?' '+r.model:'')).join(', ');
+      head.append(sev,make('strong',f.title),make('span',LENS_LABEL[f.lens]||f.lens,'review-chip'),agree,make('span',FINDING_STATE[f.state],'review-chip'));
+      li.append(head,make('p',(f.anchor_id?f.anchor_id+' · ':'')+f.detail));
+      if(f.suggestion)li.append(make('p','제안: '+f.suggestion,'hint'));
+      if(f.note)li.append(make('p','처리 메모: '+f.note,'hint'));
+      const actions=make('div',undefined,'finding-actions'),note=make('input');note.placeholder='처리 메모 (수용·반박은 필수)';note.maxLength=4000;note.setAttribute('aria-label',f.title+' 처리 메모');
+      const act=(label,next)=>{const b=button(label,()=>{if((next==='accepted'||next==='rebutted')&&!note.value.trim()){notice('수용·반박에는 이유를 적어주세요.',true);note.focus();return;}mutate('finding',{finding_id:f.id,state:next,note:note.value},{message:'검토 지적을 처리했습니다.'});});b.classList.add('ghost');return b;};
+      if(f.state==='open')actions.append(note,act('명세에 반영함','resolved'),act('위험 수용','accepted'),act('반박','rebutted'));else actions.append(act('다시 열기','open'));
+      li.append(actions);list.append(li);
+    }
+  }
+  $('run-review').addEventListener('click',()=>{const lenses=[...$('review-lenses').querySelectorAll('input:checked')].map(i=>i.value);if(!lenses.length){notice('검토 관점을 하나 이상 고르세요.',true);return;}mutate('review',{lenses},{message:'독립 검토를 시작했습니다. 관점·모델마다 따로 호출하므로 몇 분 걸릴 수 있습니다.'});});
   function render() {
     syncButtons();
     renderSelection();
+    renderReview();
     if(state.step==='spec')renderSpecs();
     if(state.step==='mock')renderMock();
     if(state.step==='handoff')renderHandoff();

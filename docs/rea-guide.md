@@ -5,25 +5,36 @@ REA(Reverse Engineer Anything)는 이미 만들어진 앱·바이너리가 실�
 - 공식 저장소: <https://github.com/morluto/rea> (MIT, npm `rea-agents`)
 - 기준: REA 6.8.0, DevRoster `main` (PR #38 이후)
 
+**목차**
+
+- [1. 언제 쓰는가](#1-언제-쓰는가)
+- [2. 준비](#2-준비)
+- [3. 연결 등록](#3-연결-등록)
+- [4. 개발 흐름에 도구 단계 넣기](#4-개발-흐름에-도구-단계-넣기)
+- [5. 쓸 수 있는 동작](#5-쓸-수-있는-동작)
+- [6. 결과가 전달되는 방식](#6-결과가-전달되는-방식)
+- [7. 주의](#7-주의)
+- [8. 문제 해결](#8-문제-해결)
+
 ## 1. 언제 쓰는가
 
 | 상황 | 예 |
 |---|---|
-| 문서 없는 기존 앱과 연동 | 설치된 Electron 앱이 어떤 모듈·IPC로 구성됐는지 파악한 뒤 연동 기능 설계 |
-| 네이티브 라이브러리 연동 | `.so`·`.dll`이 내보내는 함수 목록 확인 |
-| 배포본 의존성 점검 | Go·Rust 실행 파일에 들어간 의존성·빌드 정보 확인 |
-| Windows 실행 파일 점검 | `.exe`가 불러오는 DLL·함수 확인 |
+| **문서 없는 기존 앱과 연동** | 설치된 Electron 앱이 어떤 모듈·IPC로 구성됐는지 파악한 뒤 연동 기능 설계 |
+| **네이티브 라이브러리 연동** | `.so`·`.dll`이 내보내는 함수 목록 확인 |
+| **배포본 의존성 점검** | Go·Rust 실행 파일에 들어간 의존성·빌드 정보 확인 |
+| **Windows 실행 파일 점검** | `.exe`가 불러오는 DLL·함수 확인 |
 
-소스가 있는 코드는 소스 탐색·코드 그래프로 충분하다. REA는 **소스 없이 결과물만 있을 때** 쓴다.
+> **기준**: 소스가 있는 코드는 소스 탐색·코드 그래프로 충분하다. REA는 **소스 없이 결과물만 있을 때** 쓴다.
 
 ## 2. 준비
 
-1. Node 버전: 22.23.4 이상(22.x), 24.22.1 이상(24.x), 26.12.1 이상(26.x) 중 하나. `node -v`로 확인한다.
-2. 설치: `npm install --global rea-agents` → `rea --help`로 확인.
+1. **Node 버전**: 22.23.4 이상(22.x), 24.22.1 이상(24.x), 26.12.1 이상(26.x) 중 하나. `node -v`로 확인한다.
+2. **설치**: `npm install --global rea-agents` → `rea --help`로 확인.
    - DevRoster는 MCP 서버를 `npx`·`npm`으로 실행하지 않는다(실행할 때마다 다른 버전을 받을 수 있어서). 전역 설치로 `rea` 실행 파일이 PATH에 있어야 한다.
-3. 이번에 허용한 도구는 외부 엔진이 필요 없다. Ghidra·Hopper·IDA 같은 엔진은 설치하지 않아도 된다.
+3. **엔진**: 이번에 허용한 도구는 외부 엔진이 필요 없다. Ghidra·Hopper·IDA 같은 엔진은 설치하지 않아도 된다.
 
-`npx rea-agents setup`은 Claude Code·Codex 같은 **개인 AI 도구**에 REA를 직접 등록하는 명령이다. DevRoster는 실행할 때 AI 도구의 개인 MCP 설정을 끄므로, DevRoster 안에서 쓰려면 아래 연결 절차를 따른다.
+> **주의**: `npx rea-agents setup`은 Claude Code·Codex 같은 **개인 AI 도구**에 REA를 직접 등록하는 명령이다. DevRoster는 실행할 때 AI 도구의 개인 MCP 설정을 끄므로, DevRoster 안에서 쓰려면 아래 연결 절차를 따른다.
 
 ## 3. 연결 등록
 
@@ -52,12 +63,12 @@ devroster integration check rea --root /path/to/project
 
 | 항목 | 값 |
 |---|---|
-| 연결 | `rea` |
-| 동작 | 아래 표의 도구 이름 |
-| 권한(capability) | `analysis.read` |
-| 범위 | 연결에 넣은 이름(예: `legacy-app`) |
-| 입력값(arguments) | 분석할 파일·폴더의 **절대 경로** |
-| 필수 여부 | 분석이 없어도 진행해도 되면 끈다(실패해도 건너뜀으로 기록) |
+| **연결** | `rea` |
+| **동작** | 아래 표의 도구 이름 |
+| **권한(capability)** | `analysis.read` |
+| **범위** | 연결에 넣은 이름(예: `legacy-app`) |
+| **입력값(arguments)** | 분석할 파일·폴더의 **절대 경로** |
+| **필수 여부** | 분석이 없어도 진행해도 되면 끈다(실패해도 건너뜀으로 기록) |
 
 3. **프로젝트에 적용**한다. 이미 승인한 작업에는 바뀌지 않고, **다음에 승인하는 작업**부터 이 단계가 들어간다.
 
@@ -90,14 +101,14 @@ devroster integration check rea --root /path/to/project
 | `inspect_go_binary` | `path`: Go 실행 파일 | Go 버전·메인 모듈·의존성·빌드 설정 |
 | `inspect_rust_binary` | `path`: Rust 실행 파일 | cargo-auditable 의존성 목록 |
 
-일부러 제외한 것:
+**일부러 제외한 것**
 
 - 엔진 세션이 먼저 열려 있어야 하는 도구(예: `binary_overview`)
 - 실행 중인 브라우저 연결이 필요한 도구(예: `analyze_web_bundle`)
 - 앞선 분석 결과를 입력으로 받는 도구(예: `compare_application_versions`)
 - 기기 조작(adb), 실행 중 계측(Frida), 디버거(gdb·rizin), 명령 실행 도구
 
-이 도구들이 필요하면 DevRoster 밖에서 개인 AI 도구에 REA를 등록해 대화형으로 쓴다.
+> **팁**: 이 도구들이 필요하면 DevRoster 밖에서 개인 AI 도구에 REA를 등록해 대화형으로 쓴다.
 
 ## 6. 결과가 전달되는 방식
 

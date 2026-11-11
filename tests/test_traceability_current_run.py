@@ -56,6 +56,8 @@ def test_latest_actual_failure_and_repass_require_explicit_latest_link(
     task_id = first["selection"]["tasks"][0]["id"]
     profile["repositories"]["backend"]["worktree"] = str(source)
     profile["design"] = repo.db.rows("SELECT content FROM design_documents")[0]["content"]
+    # Verification sees only approved variables (exec_policy "check"); the fixture uses one.
+    profile["environment_keys"] = ["TASK3_FORCE_FAILURE"]
     repo.create_snapshot(task_id, profile)
     if same_timestamp:
         repo.clock = lambda: 1000.0

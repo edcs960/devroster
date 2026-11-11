@@ -208,9 +208,12 @@ def _environment(context, service):
     missing = [key for key in service["env_refs"] if key not in values and key not in os.environ]
     if missing:
         fail("프로젝트 환경변수를 먼저 등록해주세요: " + ", ".join(missing))
-    base = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "SYSTEMROOT", "TMPDIR", "TEMP") if k in os.environ}
-    base.update({key: values.get(key, os.environ.get(key, "")) for key in service["env_refs"]})
-    return base
+    from agent_dev.adapters.process_launcher import environment
+
+    return environment(
+        "preview",
+        extra={key: values.get(key, os.environ.get(key, "")) for key in service["env_refs"]},
+    )
 
 
 def _heartbeat(safety, lease, stop):
@@ -236,6 +239,9 @@ def start(context: PreviewContext, payload, agent_port, owner):
     context.store.assert_change_allowed(context.task_id)
     session_id, lease, guard, stop = identifier(), None, None, None
     if mode == "launch":
+        from agent_dev.adapters import workspace_trust
+
+        workspace_trust.require(context.config_root, "미리보기 서비스 실행")
         if _port_open(service["host"], service["port"]):
             fail("포트가 이미 사용 중입니다. 실행 중인 서비스에 연결하거나 포트를 비워주세요.", ErrorCode.POLICY_VIOLATION)
         root, _, _ = context.binding(service["module"])

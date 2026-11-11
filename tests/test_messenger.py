@@ -260,7 +260,7 @@ def test_request_creates_a_studio_draft_and_reports_the_spec(workspace):
     app.poll_once()
     slack.messages = [{"ts": "1001.0", "bot_id": BOT, "subtype": "bot_message", "text": "요청 회원 탈퇴\n본문"}]
     app.poll_once()
-    assert studio.created == [("회원 탈퇴", "본문")] and studio.started == [("STUDIO-1", 1, "spec")]
+    assert studio.created == [("회원 탈퇴", "본문")] and studio.started == [("STUDIO-1", 1, "specs")]
     studio.job_state = "done"
     app.poll_once()
     assert slack.posts[-1] == ("1001.0", "✅ *STUDIO-1* 명세 생성 완료. Studio에서 검토해주세요.")

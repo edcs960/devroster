@@ -190,7 +190,14 @@ def project_checks(resolved):
         if not cwd.is_relative_to(root):
             continue
         checks.append(
-            {"name": item["name"], "command": command, "cwd": str(cwd), "timeout": int(item.get("timeout_seconds", 900))}
+            {
+                "name": item["name"],
+                "command": command,
+                "cwd": str(cwd),
+                "timeout": int(item.get("timeout_seconds", 900)),
+                # Names only: the values reach check_server through the runner's environment.
+                "environment_keys": list(resolved.get("environment_keys", [])),
+            }
         )
     return checks
 
@@ -252,6 +259,9 @@ class WorkflowRuntime:
             )
 
     def resolve_snapshot(self, task_id):
+        from agent_dev.adapters import workspace_trust
+
+        workspace_trust.require(self.root, "작업 승인")
         task = self.store.task(task_id)
         plan = self.store.db.rows("SELECT * FROM task_plans WHERE id=?", (task.plan_id,))[0]
         profiles = self.store.db.rows(
@@ -618,6 +628,10 @@ class WorkflowRuntime:
         return CapabilityRunnerRegistry(candidates, self.safety)
 
     def execute(self, task_id, request_id, *, verify=False, runner=None, tools=None):
+        from agent_dev.adapters import workspace_trust
+
+        # Snapshots in a database that came with the folder were approved by someone else.
+        workspace_trust.require(self.root, "검증" if verify else "작업 실행")
         if not verify:
             from agent_dev.adapters.preparation import require_ai
 

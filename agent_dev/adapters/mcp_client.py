@@ -260,12 +260,9 @@ class McpClient:
                         "MCP 실행 파일이 없습니다. 설치 준비를 확인해주세요.",
                         ErrorCode.CAPABILITY_UNAVAILABLE,
                     )
-                env = {
-                    k: os.environ[k]
-                    for k in ("PATH", "HOME", "LANG", "TMPDIR", "SYSTEMROOT")
-                    if k in os.environ
-                }
-                env.update(self.config.get("_environment", {}))
+                from agent_dev.adapters.process_launcher import environment
+
+                env = environment("mcp_stdio", extra=self.config.get("_environment", {}))
                 self.transport = StdioTransport(
                     [binary, *argv[1:]],
                     cwd=self.cwd,

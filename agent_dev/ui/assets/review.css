@@ -65,3 +65,13 @@ body.app-shell.page-review[data-review-view=code] #preview-section,body.app-shel
 .page-review :is(#decision-form,#preview-decision) .check-label{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:8px;min-height:var(--ui-target);margin:0;padding:6px 10px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-surface);cursor:pointer;font-weight:600;font-size:13px}
 .page-review :is(#decision-form,#preview-decision) .check-label:has(input:checked){border-color:var(--ui-accent);background:var(--ui-accent-soft);color:var(--ui-accent)}
 .page-review :is(#decision-form,#preview-decision) .check-label:has(input:focus-visible){outline:2px solid var(--ui-focus);outline-offset:2px}
+
+/* Drift check findings: severity stripe, category chip, decision row. */
+.page-review .drift-findings{list-style:none;margin:var(--ui-space-2) 0 0;padding:0;display:grid;gap:var(--ui-space-2);}
+.page-review .drift-finding{display:grid;gap:var(--ui-space-1);padding:var(--ui-space-2) var(--ui-space-3);border:1px solid var(--ui-border);border-left-width:4px;border-radius:var(--ui-radius);background:var(--ui-surface);min-width:0;overflow-wrap:anywhere;}
+.page-review .drift-finding[data-severity="high"]{border-left-color:var(--ui-danger);}
+.page-review .drift-finding[data-severity="medium"]{border-left-color:var(--ui-warning);}
+.page-review .drift-finding:not([data-state="open"]){opacity:.72;}
+.page-review .drift-finding p{margin:0;}
+.page-review .drift-actions{display:flex;flex-wrap:wrap;gap:var(--ui-space-1);align-items:center;}
+.page-review .drift-actions input{flex:1 1 160px;min-width:0;}

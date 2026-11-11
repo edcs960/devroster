@@ -21,6 +21,8 @@ class Database:
             raise FileNotFoundError(self.path)
         if not read_only:
             self.path.parent.mkdir(parents=True, exist_ok=True)
+        # A state DB this machine creates is trusted; one that arrived with a folder is not.
+        created = not read_only and self.path.name == "state.db" and not self.path.exists()
         connection = self.connect()
         try:
             current_version = self._version(connection)
@@ -50,6 +52,14 @@ class Database:
                 raise
         finally:
             connection.close()
+        if created:
+            from agent_dev.adapters import workspace_trust
+            from agent_dev.domain.errors import DomainError
+
+            try:
+                workspace_trust.record_created(self.path)
+            except (DomainError, OSError, ValueError, TypeError):
+                pass  # Without a record the workspace asks for trust; it never runs unchecked.
 
     @staticmethod
     def _enable_wal(connection, timeout=10.0):

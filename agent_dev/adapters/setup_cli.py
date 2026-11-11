@@ -173,9 +173,9 @@ def run(args):
     if args.copy and not args.source:
         raise DomainError(ErrorCode.INVALID_INPUT, "--copy는 --from FILE과 함께 사용해주세요.")
     if args.web:
-        from agent_dev.ui.setup_server import serve
+        from agent_dev.adapters.command_line import web_server
 
-        return serve(
+        return web_server("setup")(
             args.root, args.port if args.port is not None else service.read()["ports"]["setup"]
         )
     if args.show:

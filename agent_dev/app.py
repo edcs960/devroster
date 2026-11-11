@@ -127,13 +127,9 @@ def resolve_root(root: Path | None) -> Path:
 
 
 def start_path(root: Path) -> str:
-    from agent_dev.adapters.project_setup import ProjectSetup
+    from agent_dev.ui.studio_server import start_path as page
 
-    try:
-        configured = ProjectSetup(root).read()["revision"] > 0
-    except Exception:  # noqa: BLE001 - an unreadable workspace still opens the setup screen
-        configured = False
-    return "/agent" if configured else "/setup"
+    return page(root)
 
 
 def upgrade_state_database(root: Path) -> bool:
@@ -171,6 +167,9 @@ def main(argv=None) -> None:
     from agent_dev.core.stdio import use_utf8_stdio
 
     use_utf8_stdio()  # Korean help and status lines on Windows pipes.
+    from agent_dev.adapters.workspace_trust import ensure_seeded
+
+    ensure_seeded()  # devroster-app starts here directly; seed before registering --root.
     parser = argparse.ArgumentParser(prog="devroster app", description=(__doc__ or "DevRoster app").splitlines()[0])
     parser.add_argument("--root", type=Path, help="Project folder (default: last used)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)

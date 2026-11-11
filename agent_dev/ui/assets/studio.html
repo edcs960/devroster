@@ -53,6 +53,13 @@
   <div id="spec-empty" class="empty">아직 명세서가 없습니다. 1단계에서 기획서를 저장하고 ‘명세서 생성’을 누르면 22종 문서와 확인 질문이 이곳에 나타납니다.</div>
   <div id="spec-content" hidden><div class="spec-layout"><div class="doc-column"><label class="sr-only" for="document-filter">문서 찾기</label><input id="document-filter" type="search" placeholder="문서 찾기" autocomplete="off"><nav id="documents" aria-label="명세서 문서"></nav></div><div class="document-editor"><div class="editor-label"><h3 id="document-title"></h3><div class="actions"><button id="document-toggle" class="sm" type="button">미리보기</button><button id="download-spec" class="ghost sm" type="button"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/brand-mark.svg#nav-download"/></svg>22종 ZIP</button></div></div><p id="document-failed" class="warning" role="status" hidden></p><textarea id="document-body" spellcheck="false" aria-label="명세서 내용 편집"></textarea><article id="document-preview" class="markdown" hidden></article><div class="document-regenerate"><label for="document-note">이 문서만 다시 생성 (고칠 점, 선택)</label><div class="document-regenerate-row"><input id="document-note" maxlength="2000" placeholder="예: 캐시 전략과 장애 대응을 추가"><button id="regenerate-document" type="button" class="secondary">이 문서 다시 생성</button></div><p class="hint">요구사항·화면 목록과 다른 문서는 그대로 두고, 이 문서만 새 버전으로 씁니다.</p></div></div><aside class="spec-inspector" aria-label="확인 질문과 요구사항 근거"><h3>확인 질문 · 근거</h3><div id="questions" class="questions"></div><details class="requirements" open><summary>추출한 요구사항과 기획서 근거</summary><div id="requirements"></div></details></aside></div></div>
 </section>
+<section id="review-panel" class="panel review-panel" aria-labelledby="review-title" hidden>
+  <div class="panel-heading"><div><h3 id="review-title">독립 검토</h3><p>명세서를 쓴 대화를 모르는 AI들이 문서만 보고 관점별로 검토합니다. 가능하면 서로 다른 계열의 모델(최대 3개)에 같은 관점을 맡겨, 여러 계열이 함께 지적한 문제를 따로 표시합니다. 심각한 지적은 반영하거나 이유를 적어 수용·반박해야 명세서를 확정(화면 일치 지적은 개발 인계)할 수 있습니다.</p></div><div class="actions"><button id="run-review" class="primary" type="button">독립 검토 실행</button></div></div>
+  <fieldset id="review-lenses" class="review-lenses"><legend>검토 관점</legend></fieldset>
+  <p id="review-meta" class="hint" role="status" aria-live="polite"></p>
+  <p id="review-empty" class="empty">아직 독립 검토를 하지 않았습니다.</p>
+  <ol id="review-findings" class="review-findings" aria-label="검토 지적"></ol>
+</section>
 <section id="mock-panel" class="panel" aria-labelledby="studio-step-title" hidden>
   <div class="panel-heading"><div><p>의견 모드에서 요소를 선택하고 의견을 남기세요. 미해결 의견을 처리한 화면부터 확정할 수 있습니다.</p></div><div class="actions"><button id="new-review" class="ghost" type="button">새 검토 버전</button><button id="regenerate-mock" type="button">의견 반영해 재생성</button></div></div>
   <div id="mock-empty" class="empty">명세서를 확정한 뒤 목업을 생성해주세요.</div>

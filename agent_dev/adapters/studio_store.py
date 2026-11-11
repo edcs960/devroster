@@ -38,6 +38,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_live_job ON jobs(project_id) WHERE state I
 CREATE TABLE IF NOT EXISTS leases(resource TEXT PRIMARY KEY,holder TEXT,token INTEGER,expires_at REAL);
 CREATE TABLE IF NOT EXISTS events(
  id INTEGER PRIMARY KEY,project_id TEXT REFERENCES projects(id),kind TEXT,payload TEXT,created REAL);
+CREATE TABLE IF NOT EXISTS reviews(
+ id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),spec_revision INTEGER NOT NULL,
+ lenses TEXT NOT NULL,reviewers TEXT NOT NULL,calls INTEGER NOT NULL,failed INTEGER NOT NULL,created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS findings(
+ id TEXT PRIMARY KEY,review_id TEXT NOT NULL REFERENCES reviews(id),project_id TEXT NOT NULL REFERENCES projects(id),
+ spec_revision INTEGER NOT NULL,lens TEXT NOT NULL,severity TEXT NOT NULL CHECK(severity IN('high','medium','low')),
+ anchor_kind TEXT NOT NULL,anchor_id TEXT NOT NULL,title TEXT NOT NULL,detail TEXT NOT NULL,suggestion TEXT NOT NULL,
+ reviewers TEXT NOT NULL,agreement INTEGER NOT NULL,
+ state TEXT NOT NULL CHECK(state IN('open','accepted','rebutted','resolved')),note TEXT NOT NULL DEFAULT '',
+ created REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS finding_project ON findings(project_id,state);
 """
 
 
@@ -234,10 +245,27 @@ class StudioStore:
                     (project_id,),
                 )
             ]
+            findings = [
+                dict(row, reviewers=json.loads(row["reviewers"]))
+                for row in db.execute(
+                    "SELECT * FROM findings WHERE project_id=? ORDER BY "
+                    "CASE state WHEN 'open' THEN 0 ELSE 1 END,"
+                    "CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,agreement DESC,created",
+                    (project_id,),
+                )
+            ]
+            reviews = [
+                dict(row, lenses=json.loads(row["lenses"]), reviewers=json.loads(row["reviewers"]))
+                for row in db.execute(
+                    "SELECT * FROM reviews WHERE project_id=? ORDER BY created DESC LIMIT 5", (project_id,)
+                )
+            ]
             events = [
                 dict(row)
                 for row in db.execute(
-                    "SELECT kind,payload,created FROM events WHERE project_id=? ORDER BY id DESC LIMIT 30",
+                    # Usage rows feed the usage dashboard, not the screen history.
+                    "SELECT kind,payload,created FROM events WHERE project_id=? AND kind!='job.usage' "
+                    "ORDER BY id DESC LIMIT 30",
                     (project_id,),
                 )
             ]
@@ -253,6 +281,8 @@ class StudioStore:
             "spec_versions": spec_versions,
             "mock_versions": versions,
             "events": events,
+            "findings": findings,
+            "reviews": reviews,
         }
 
     def projects(self):

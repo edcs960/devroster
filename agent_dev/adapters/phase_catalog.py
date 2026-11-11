@@ -62,8 +62,12 @@ class SnapshotPhaseCatalog:
 
         resolved = self.repository.snapshot(task_id)["resolved"]
         from agent_dev.adapters.environment import process_environment
+        from agent_dev.adapters.process_launcher import environment
 
-        process_env = process_environment(self.project_root, resolved.get("environment_keys", []))
+        keys = resolved.get("environment_keys", [])
+        process_env = environment(
+            "check", allowed=keys, source=process_environment(self.project_root, keys)
+        )
         commands = resolved.get("verification", {}).get("commands", [])
         selected = [c for c in commands if not gate_ids or c["name"] in gate_ids]
         missing = set(gate_ids) - {c["name"] for c in selected}

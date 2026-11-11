@@ -8,6 +8,16 @@ from agent_dev.core.paths import PROJECT_ROOT
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 
+def _git_run(argv, **options):
+    """git never prompts for credentials and never waits forever (exec_policy "git")."""
+    from agent_dev.adapters.process_launcher import run
+
+    try:
+        return run("git", argv, **options)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{' '.join(argv[:2])} did not finish within {exc.timeout:.0f} seconds.") from None
+
+
 @dataclass(frozen=True)
 class RepositoryTarget:
     name: str
@@ -64,7 +74,7 @@ def publish_repository(
     if commit or push:
         if selected_branch == target.default_branch:
             raise DomainError(ErrorCode.POLICY_VIOLATION, "Default branch publish is forbidden.")
-        subprocess.run(["git", "check-ref-format", "--branch", selected_branch],
+        _git_run(["git", "check-ref-format", "--branch", selected_branch],
                        cwd=target.path, check=True, capture_output=True)
     allowed = list(include_paths or target.allowed_paths)
     dirty_paths = git_dirty_paths(target.path)
@@ -125,7 +135,7 @@ def publish_repository(
 def ensure_git_repository(path: Path) -> None:
     if not path.exists():
         raise RuntimeError(f"Repository path does not exist: {path}")
-    result = subprocess.run(
+    result = _git_run(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=path,
         text=True, encoding="utf-8", errors="replace",
@@ -137,7 +147,7 @@ def ensure_git_repository(path: Path) -> None:
 
 
 def git_dirty_paths(path: Path) -> list[str]:
-    raw = subprocess.run(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+    raw = _git_run(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
                          cwd=path, capture_output=True, check=True).stdout
     records = raw.decode("utf-8", errors="surrogateescape").split("\0")
     names, index = [], 0
@@ -227,7 +237,7 @@ def git_changed_files(path: Path) -> list[str]:
 
 
 def git_output(path: Path, args: list[str]) -> str:
-    result = subprocess.run(
+    result = _git_run(
         ["git", *args],
         cwd=path,
         text=True, encoding="utf-8", errors="replace",
@@ -252,7 +262,7 @@ def run_git(
     if dry_run:
         return
 
-    result = subprocess.run(
+    result = _git_run(
         ["git", *args],
         cwd=path,
         text=True, encoding="utf-8", errors="replace",
@@ -270,7 +280,7 @@ def run_git(
     if fallback is not None and branch_missing:
         fallback_text = "git " + " ".join(fallback)
         commands.append(fallback_text)
-        fallback_result = subprocess.run(
+        fallback_result = _git_run(
             ["git", *fallback],
             cwd=path,
             text=True, encoding="utf-8", errors="replace",

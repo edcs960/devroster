@@ -4,7 +4,7 @@
 
 | 항목 | 기준 |
 |---|---|
-| 기준 | 버전 0.4.6의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
+| 기준 | 버전 0.4.7의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
 | 대상 | `agent_dev/`, `config/`, `tests/`, 패키지 진입점 및 관련 운영 문서 |
 | 확인 방법 | Python 소스·SQL·테스트 계약 대조 |
 | 문서 책임 | 아키텍처 경계 변경 시 Architect, 저장 구조 변경 시 DBA, 최종 문서 반영 시 Tech Writer |
@@ -80,6 +80,18 @@ flowchart TB
 
 승인 기반 경로는 `application → domain/ports` 의존 방향을 갖는다. 실제 I/O 구현과 조립은 `adapters/`에 있다. 레거시 `pipeline/`·`quality/`·레거시 CLI는 제거했고, v2가 쓰는 공용 기반만 남겼다(§15).
 
+**층 지도와 검사.** 모든 패키지는 다섯 층 중 하나에 속하고, 각 층은 자기와 안쪽 층만 import한다.
+
+| 층 | 패키지 | import 가능 |
+|---|---|---|
+| domain | `domain` | domain |
+| application | `application`, `ports` | application, domain |
+| adapters | `adapters`, `core`, `runners`, `scm`, `storage`, `migration`, `config`, `defaults`, `templates` | adapters, application, domain |
+| ui | `ui` | ui, adapters, application, domain |
+| bootstrap | `app.py`, `entrypoints.py`, `fa.py`, `__main__.py` | 모든 층 |
+
+[test_architecture.py](../tests/test_architecture.py)가 함수 안 import·상대 import·`__import__`까지 모아 이 방향과 모듈 간 `_` 이름 import를 검사한다. 검사를 넣을 때 있던 바깥 층 import 6건은 모두 고쳤다: CLI가 여는 웹 화면은 진입점(`entrypoints.web_servers`)이 `command_line.register_web_servers`로 넘기고, 작업 상태 문구는 `domain/status.py`의 `STATE_TEXT`, Slack 리스너는 웹 계층 대신 Studio 서비스(`messenger.StudioService`)를, 시작 화면 결정은 `ui/studio_server.start_path`를 쓴다. 남은 `_` 이름 import 7건은 `KNOWN_PRIVATE_IMPORTS`에 있고, 고치면 목록에서 지워야 테스트가 통과한다.
+
 | 영역 | 책임 | 주요 소스 |
 |---|---|---|
 | 진입점 | 앱 실행·명령 분기·짧은 별칭, 앱 홈 격리 | [fa.py](../agent_dev/fa.py), [entrypoints.py](../agent_dev/entrypoints.py), [app.py](../agent_dev/app.py) |
@@ -117,7 +129,7 @@ flowchart TB
 | `publish` | 실제 canonical 게시 허용. dry-run과 실제 게시를 구분 |
 | `legacy_readonly` | 레거시 쓰기 경로 제거로 효과 없음(값만 유지) |
 
-웹은 `FeatureRoutes`가 Agent·Workflow·Integration·Reference·Navigation·Journey·Changes·Review·Source·Wiki·Messenger 라우트를 묶는다. `StudioWeb`은 Studio/Setup·정적 자산과 함께 서버에 탑재된다. 주요 화면은 `/home`, `/agent`(작업실, 이전 `/dashboard`는 302로 이동), `/review`, `/traceability`, `/changes`, `/workflows`, `/source`, `/integrations`, `/references`, `/wiki`, `/messengers`, `/setup`, `/settings`, `/studio`다. `/messengers`는 슬랙 채널을 주기 조회하는 리스너([messenger.py](../agent_dev/adapters/messenger.py))의 설정 화면이며, 리스너는 허용한 작성자의 명령만 기존 CLI·작업실·Studio 경로로 넘긴다([설계](design/slack-messenger.md)). 앱은 시작할 때 패키지 파일의 stamp를 기록하고, `/api/app/status`가 디스크와 다르면 공통 내비게이션이 모든 화면에 재시작 안내를 띄운다([code_stamp.py](../agent_dev/ui/code_stamp.py)). `/settings`는 공통 기본값·프로젝트 반영·공통 MCP 연결·저장 위치를 관리하며 `SetupWeb`의 `/api/settings/` 읽기/쓰기 경로를 사용한다. **CLI 기능 추가가 웹 노출을 자동으로 추가하지는 않는다.**
+웹은 `FeatureRoutes`가 Agent·Workflow·Integration·Reference·Navigation·Journey·Changes·Review·Usage·Source·Wiki·Messenger 라우트를 묶는다. `StudioWeb`은 Studio/Setup·정적 자산과 함께 서버에 탑재된다. 주요 화면은 `/home`, `/agent`(작업실, 이전 `/dashboard`는 302로 이동), `/usage`(사용량·진행 현황), `/review`, `/traceability`, `/changes`, `/workflows`, `/source`, `/integrations`, `/references`, `/wiki`, `/messengers`, `/setup`, `/settings`, `/studio`다. `/messengers`는 슬랙 채널을 주기 조회하는 리스너([messenger.py](../agent_dev/adapters/messenger.py))의 설정 화면이며, 리스너는 허용한 작성자의 명령만 기존 CLI·작업실·Studio 경로로 넘긴다([설계](design/slack-messenger.md)). 앱은 시작할 때 패키지 파일의 stamp를 기록하고, `/api/app/status`가 디스크와 다르면 공통 내비게이션이 모든 화면에 재시작 안내를 띄운다([code_stamp.py](../agent_dev/ui/code_stamp.py)). `/settings`는 공통 기본값·프로젝트 반영·공통 MCP 연결·저장 위치를 관리하며 `SetupWeb`의 `/api/settings/` 읽기/쓰기 경로를 사용한다. `/usage`는 읽기 전용 화면으로, 작업 상태별 개수·완료율·열린 작업과 선택한 기간(7·30·90일·전체)의 AI 호출·토큰·실행 시간·예상 비용을 도구·모델·역할·작업·일별로 모은다([usage_report.py](../agent_dev/domain/usage_report.py), [usage_dashboard.py](../agent_dev/adapters/usage_dashboard.py)). 비용은 작업마다 승인된 가격표로 계산하며 작업실의 작업별 비용과 같은 값이다. 세션 구성원처럼 다른 노드의 호출을 나눠 받은 기록(`ai_call: false`)은 호출로 세지 않는다. Studio 생성은 호출마다 Studio DB에 `job.usage` 이벤트(단계·도구·모델·토큰)를 남기고(화면 이력에는 나오지 않음), 대시보드는 이를 `handoff_imports.plan_id = tasks.plan_id`로 그 기획을 인계해 만든 작업과 묶어 기획별(기획 생성 + 작업 실행) 합계를 보여 준다. Studio 호출 비용은 생성 작업을 시작할 때의 프로젝트 가격표로 기록 시점에 계산해 이벤트에 남기므로, 나중에 가격표를 바꿔도 다시 계산되지 않는다(작업의 승인 스냅샷과 같은 기준). Claude CLI 결과의 캐시 읽기 토큰은 `cached_input_tokens`, 캐시 쓰기 토큰은 `input_tokens`에 더해 집계한다([usage.py](../agent_dev/runners/usage.py)). **CLI 기능 추가가 웹 노출을 자동으로 추가하지는 않는다.**
 
 소스: [feature_routes.py](../agent_dev/ui/feature_routes.py), [studio_server.py](../agent_dev/ui/studio_server.py), [setup_server.py](../agent_dev/ui/setup_server.py), [settings.html](../agent_dev/ui/assets/settings.html), [settings.js](../agent_dev/ui/assets/settings.js), [agent_console.py](../agent_dev/adapters/agent_console.py).
 
@@ -426,7 +438,11 @@ external은 설정·DB를 소스 밖에 두고, 실행 worktree·output은 소�
 
 선택 기능의 디렉터리는 사용 시 생성된다. 경로 계약은 [storage_locations.py](../agent_dev/core/storage_locations.py)의 `WorkspaceLocations`, 레이아웃 탐지·매핑 검증은 [storage_registry.py](../agent_dev/adapters/storage_registry.py)의 `workspace_locations()`다. `external`/`portable`/`legacy`/`local`을 명시하고 source/config/runtime root와 DB·role·credential·cache·output 경로를 분리한다. 등록 매핑 → workspace marker → 기존 local/legacy 탐지 순이다. 등록된 설정 폴더·DB가 없으면 새 빈 DB로 대체하지 않고 복구를 요구한다. 미등록 external marker의 ID만으로 다른 workspace의 credential 폴더에 접근하지 않는다.
 
-[workspace.py](../agent_dev/adapters/workspace.py), `workflow_runtime.project_root()`, `StudioStore`도 이 경로 계약을 사용한다. 단일 `root` 변수가 항상 “설치 폴더” 또는 “개발 대상 저장소”를 뜻하는 것은 아니다.
+[workspace.py](../agent_dev/adapters/workspace.py), `workflow_runtime.project_root()`, `StudioStore`도 이 경로 계약을 사용한다.
+
+**설정 신뢰.** 설정이 프로젝트 폴더 안에 있는 작업 공간(portable·local, 등록되지 않은 external 표식)은 저장소와 함께 받은 것일 수 있다. [workspace_trust.py](../agent_dev/adapters/workspace_trust.py)가 그 state DB를 이 컴퓨터의 DevRoster가 만들었는지(`Database`가 새 `state.db`를 만들 때 기록), 사용자가 확인하고 신뢰했는지, 이 기능 도입 전에 이미 등록된 프로젝트인지로 판단하고, 결정은 관리 폴더의 `workspace-trust.json`에 DB 경로와 파일 식별자(장치·inode)로 남긴다. 신뢰 전에는 작업 승인·실행·검증, Studio 생성, 프로젝트 CLI 로그인 확인·로그인, 프로젝트 stdio MCP 서버, 미리보기 서비스 실행을 거부하고(`APPROVAL_REQUIRED`), 모든 화면에 배너, 프로젝트 설정의 '설정 신뢰'에 실행될 명령 목록을 보여 준다. 훅 승인도 같은 파일에 두며 프로젝트 안의 `ai-hooks-approval.json`(이전 버전)은 읽지 않는다. 진입점(`fa.py`, `entrypoints.py`, `app.py`)은 폴더를 등록하기 전에 신뢰 목록을 먼저 만든다.
+
+**자식 프로세스 환경.** 프로젝트 설정에서 오는 명령의 환경변수와 제한 시간은 [exec_policy.py](../agent_dev/domain/exec_policy.py)의 표 하나로 정하고 [process_launcher.py](../agent_dev/adapters/process_launcher.py)가 적용한다. 훅은 시스템 기본값만, stdio MCP는 기본값·프록시·인증서와 연결에 등록한 값, 검증 명령과 Claude 코드 역할의 프로젝트 점검(`check_server`)과 미리보기는 기본값·툴체인(`JAVA_HOME`, `GOPATH` 등)·프록시·앱 전용 CLI 홈과 프로젝트가 승인한 환경변수(`environment_keys`)만 받는다. 셸의 나머지 값(클라우드 키, 토큰)은 넘기지 않는다. git은 사용자의 인증 도구가 필요해 전체 환경을 쓰되 `GIT_TERMINAL_PROMPT=0`과 300초 제한을 둔다. AI CLI 자체의 환경은 아직 바꾸지 않았다. 단일 `root` 변수가 항상 “설치 폴더” 또는 “개발 대상 저장소”를 뜻하는 것은 아니다.
 
 ### 10.2 레거시 배치 (이전 버전 작업 공간)
 
@@ -508,6 +524,10 @@ external은 설정·DB를 소스 밖에 두고, 실행 worktree·output은 소�
 인계 순서는 `기획/명세 → 화면 목업·코멘트 처리 → 화면 확정 → 인계 preview → 동일 입력 commit → 새 설계 승인 → 계획 승인 → task 실행`이다. 여러 개발 모듈에 대한 매핑과 검증 gate도 인계 시 확인한다. 저장소가 다른 프론트·백엔드 작업이 같은 API 계약을 쓰도록, 분석 단계 승인 메모(`user_decisions`)로 계약을 전달하는 것을 권장한다.
 
 canonical DB와 Studio DB의 writer lock 순서는 canonical → Studio로 정한다. 원본을 읽는 동안 상태가 바뀌는 경쟁을 막고 재시도를 식별하지만, 두 DB를 분산 트랜잭션으로 묶는 구조는 아니다. 사용자 흐름: [Studio 가이드](studio-user-guide.md).
+
+**명세 독립 검토.** Studio의 '독립 검토'는 명세서를 쓴 대화를 모르는 AI 호출로 명세를 관점별(이해도·자기완결성, 설계 결함, 구현 준비도, 범위·근거, 목업이 있으면 명세·화면 일치)로 검토한다([spec_review.py](../agent_dev/domain/spec_review.py)). 같은 관점을 서로 다른 모델 계열(사용 중인 도구에서 계열마다 하나, 최대 3개)에 맡기고, 같은 대상·관점에서 제목 단어가 겹치는 지적은 하나로 합쳐 함께 지적한 계열 수를 남긴다. 지적은 Studio DB의 `reviews`·`findings`에 저장되며 반영함·위험 수용·반박(수용·반박은 이유 필수)으로 처리한다. 명세 관점의 심각한 지적이 열려 있으면 명세 확정을, 명세·화면 일치의 심각한 지적이 열려 있으면 개발 인계를 막는다. 확정 이벤트에는 수용·반박한 지적 목록이 남는다. 검토 호출의 사용량은 `job.usage`(단계 `review:<관점>`)로 기록된다.
+
+**드리프트 검사.** 변경 검토 화면의 '드리프트 검사'는 작업에 연결된 요구사항·수용 기준(`requirement_links` kind `task` → `imported_requirements`)과 그 작업의 범위 안 diff(비공개·범위 밖 파일 제외, 30만 자 상한)를 대화 기록 없는 AI 한 번에 비교한다([drift.py](../agent_dev/domain/drift.py), [drift_check.py](../agent_dev/adapters/drift_check.py)). 검토자는 개발에 쓰인 도구와 다른 모델 계열을 우선 고른다. 범주는 명세에 있는데 코드에 없음, 데이터 구조 누락, 하드코딩·임시 처리, 다른 구조·라이브러리, 수용 기준 미충족, 명세에 없는 동작(반대 방향 드리프트)이다. 결과는 작업 이벤트(`DriftStarted`·`DriftChecked`·`DriftFailed`, 처리는 `DriftFindingProcessed`)로만 남아 정본 스키마는 바뀌지 않는다. 호출 사용량은 `RunnerUsage`(phase `drift`)로 기록되며 작업의 시도 한도에는 포함되지 않는다. 지금은 보고만 하고 게시를 막지 않는다.
 
 <a id="review"></a>
 ## 13. 개발 검토·추적성·요구사항 변경

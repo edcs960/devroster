@@ -113,14 +113,18 @@ def ensure_mcp_servers(
 
     from agent_dev.core.cli_home import isolated_environment
 
-    completed = subprocess.run(
-        windows_command([command, "mcp", "list"]),
-        cwd=PROJECT_ROOT,
-        env=isolated_environment(),
-        text=True, encoding="utf-8", errors="replace",
-        capture_output=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            windows_command([command, "mcp", "list"]),
+            cwd=PROJECT_ROOT,
+            env=isolated_environment(),
+            timeout=30,
+            text=True, encoding="utf-8", errors="replace",
+            capture_output=True,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{label} MCP server preflight did not finish within 30 seconds.") from None
     output = f"{completed.stdout}\n{completed.stderr}"
     if completed.returncode != 0:
         raise RuntimeError(

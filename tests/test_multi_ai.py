@@ -388,6 +388,20 @@ def test_real_api_studio_specs_and_mock_follow_saved_defaults(tmp_path, api_serv
     assert item["mock"] and len(api_server.calls) == spec_calls + 1
     queued = next(e for e in item["events"] if e["kind"] == "job.queued")
     assert json.loads(queued["payload"])["selection"]["provider"] == "compatible_api"
+    # Every generation call leaves one usage row for the dashboard, outside the screen history.
+    import sqlite3
+
+    with sqlite3.connect(studio.store.path) as db:
+        rows = [json.loads(r[0]) for r in db.execute("SELECT payload FROM events WHERE kind='job.usage'")]
+    assert len(rows) == len(api_server.calls)
+    assert {"spec_requirements", "mock"} <= {r["step"] for r in rows}
+    assert all(
+        r["provider"] == "compatible_api"
+        and r["model"] == "local-fixture"
+        and r["usage"] == {"input_tokens": 3, "output_tokens": 5}
+        for r in rows
+    )
+    assert all(e["kind"] != "job.usage" for e in item["events"])
     jobs.close()
 
 

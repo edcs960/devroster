@@ -239,3 +239,22 @@
 .document-regenerate-row input { flex: 1 1 240px; min-width: 0; }
 #documents button[data-failed="true"] { color: var(--c-danger); }
 #documents button[data-failed="true"]::after { content: " · 생성 실패"; font-size: var(--fs-xs); }
+
+/* Independent review: findings from fresh reviewers, grouped by state then severity. */
+.review-panel .review-lenses { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin: var(--sp-3) 0; }
+.review-panel .review-lenses label { margin: 0; }
+.review-findings { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
+.review-finding { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-border); border-left-width: 4px; border-radius: var(--r-md); background: var(--c-surface); min-width: 0; overflow-wrap: anywhere; }
+.review-finding[data-severity="high"] { border-left-color: var(--c-danger); }
+.review-finding[data-severity="medium"] { border-left-color: var(--c-warning); }
+.review-finding[data-severity="low"] { border-left-color: var(--c-border-strong); }
+.review-finding[data-state="resolved"], .review-finding[data-state="accepted"], .review-finding[data-state="rebutted"] { opacity: .72; }
+.review-finding .finding-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.review-finding .finding-head strong { flex: 1 1 240px; min-width: 0; }
+.review-chip { display: inline-block; padding: 1px var(--sp-2); border-radius: var(--r-full); font-size: var(--fs-xs); font-weight: var(--fw-semibold); background: var(--c-surface-2); color: var(--c-text-2); white-space: nowrap; }
+.review-chip[data-severity="high"] { background: var(--c-danger-bg); color: var(--c-danger); }
+.review-chip[data-severity="medium"] { background: var(--c-warning-bg); color: var(--c-warning); }
+.review-chip[data-agreement="many"] { background: var(--c-info-bg); color: var(--c-info); }
+.review-finding p { margin: 0; font-size: var(--fs-sm); }
+.review-finding .finding-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.review-finding .finding-actions input { flex: 1 1 220px; min-width: 0; }

@@ -6,6 +6,7 @@ import io
 import time
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from agent_dev.domain import spec_review
 from agent_dev.domain.content import digest
 from agent_dev.domain.studio import (
     DOCUMENTS,
@@ -67,16 +68,33 @@ class Studio:
                     "확인 질문에 답변을 작성하고 저장한 뒤 명세서를 확정해주세요.", 409
                 )
             validate_specs(spec["payload"], spec["source"])
+            findings = [
+                dict(row)
+                for row in db.execute("SELECT * FROM findings WHERE project_id=?", (project_id,))
+            ]
+            blocking = spec_review.blocking(findings)
+            if blocking:
+                raise StudioError(
+                    f"독립 검토의 심각한 지적 {len(blocking)}건이 열려 있습니다. 명세서에 반영하거나, "
+                    "이유를 적어 수용·반박한 뒤 확정해주세요.",
+                    409,
+                )
             if not spec["approved"]:
                 db.execute(
                     "UPDATE specs SET approved=1 WHERE project_id=? AND revision=?",
                     (project_id, spec["revision"]),
                 )
+                # The approval records which known problems were knowingly accepted or rebutted.
+                decided = [
+                    {"id": f["id"], "state": f["state"], "severity": f["severity"], "title": f["title"]}
+                    for f in findings
+                    if f["state"] in {"accepted", "rebutted"}
+                ]
                 self.store.bump(
                     db,
                     project_id,
                     "spec.approved",
-                    {"revision": spec["revision"], "digest": spec["digest"]},
+                    {"revision": spec["revision"], "digest": spec["digest"], "accepted_findings": decided},
                 )
         return self.store.detail(project_id)
 
@@ -126,6 +144,89 @@ class Studio:
             (project["id"], revision, screen_id),
         ).fetchone():
             raise StudioError("확정된 화면입니다. 새 검토 버전을 만든 뒤 변경해주세요.", 409)
+
+    def record_review(self, db, project_id, revision, lenses, results, failed):
+        """Store one independent review: the merged findings of every reviewer call."""
+        review_id = new_id("REVIEW-")
+        merged = spec_review.merge(results)
+        reviewers = sorted({(r["provider"], r.get("model", ""), r["family"]) for r in results})
+        db.execute(
+            "INSERT INTO reviews VALUES(?,?,?,?,?,?,?,?)",
+            (
+                review_id,
+                project_id,
+                revision,
+                serialize(lenses),
+                serialize([{"provider": p, "model": m, "family": f} for p, m, f in reviewers]),
+                len(results) + failed,
+                failed,
+                time.time(),
+            ),
+        )
+        now = time.time()
+        for row in merged:
+            db.execute(
+                "INSERT INTO findings(id,review_id,project_id,spec_revision,lens,severity,anchor_kind,anchor_id,"
+                "title,detail,suggestion,reviewers,agreement,state,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?)",
+                (
+                    new_id("FINDING-"),
+                    review_id,
+                    project_id,
+                    revision,
+                    row["lens"],
+                    row["severity"],
+                    row["anchor_kind"],
+                    row["anchor_id"],
+                    row["title"],
+                    row["detail"],
+                    row["suggestion"],
+                    serialize(row["reviewers"]),
+                    row["agreement"],
+                    now,
+                ),
+            )
+        self.store.bump(
+            db,
+            project_id,
+            "review.completed",
+            {"id": review_id, "revision": revision, "findings": len(merged), "failed": failed},
+        )
+        return review_id
+
+    def process_finding(self, project_id, version, finding_id, state, note=""):
+        """resolved = fixed in the spec; accepted = known risk kept; rebutted = the reviewer is wrong."""
+        if state not in spec_review.STATES:
+            raise StudioError("지적 처리 상태가 잘못되었습니다.")
+        note = text(note or "", "처리 메모", 4000, state in {"accepted", "rebutted"})
+        with self.store.transaction() as db:
+            self.store.project(db, project_id, version)
+            finding = db.execute(
+                "SELECT id FROM findings WHERE id=? AND project_id=?", (finding_id, project_id)
+            ).fetchone()
+            if not finding:
+                raise StudioError("검토 지적을 찾을 수 없습니다.", 404)
+            db.execute("UPDATE findings SET state=?,note=? WHERE id=?", (state, note, finding_id))
+            self.store.bump(db, project_id, "finding.processed", {"id": finding_id, "state": state})
+        return self.store.detail(project_id)
+
+    def review_input(self, project_id, version, lens, language, running=False):
+        with contextlib.closing(self.store.connect()) as db:
+            # The review job itself is running while its reviewers read the spec.
+            project = self.store.project(db, project_id, version, idle=not running)
+            if not project["spec_revision"]:
+                raise StudioError("먼저 명세서를 생성해주세요.", 409)
+            spec = self.store.revision(db, "specs", project_id, project["spec_revision"])
+            mock = (
+                self.store.revision(db, "mocks", project_id, project["mock_revision"])
+                if project["mock_revision"]
+                else None
+            )
+        return {
+            "revision": spec["revision"],
+            "anchors": spec_review.anchors(spec["payload"], mock["payload"] if mock else None),
+            "data": spec_review.review_input(spec["payload"], mock["payload"] if mock else None, lens, language),
+            "has_mock": mock is not None,
+        }
 
     def add_comment(self, project_id, version, revision, screen_id, element_id, body):
         body = text(body, "코멘트", 8000)

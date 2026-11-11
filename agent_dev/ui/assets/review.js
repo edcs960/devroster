@@ -193,6 +193,41 @@
       if (error !== stale) {syncDecision('검증 근거를 불러오지 못했습니다. 새로고침해주세요.');box.replaceChildren(node('p', '검증 근거를 불러오지 못했습니다: ' + errText(error), 'review-meta'));}
     }
   }
+  // Drift check (adapters/drift_check.py): approved requirements vs this task's scoped diff.
+  const DRIFT_STATE = {open: '열림', resolved: '코드에 반영함', accepted: '위험 수용', rebutted: '반박'}, DRIFT_SEVERITY = {high: '심각', medium: '보통', low: '낮음'};
+  let driftTimer = null;
+  async function loadDrift(g) {
+    clearTimeout(driftTimer);
+    try {
+      const drift = await request('drift?' + new URLSearchParams({task}), undefined, g);
+      const latest = drift.latest, list = $('drift-findings');
+      $('drift-run').disabled = drift.running;
+      $('drift-status').textContent = drift.running ? '드리프트 검사 중…' : drift.failure ? '최근 검사 실패: ' + drift.failure
+        : latest ? `최근 검사 · ${latest.provider}${latest.model ? ' (' + latest.model + ')' : ''} · 파일 ${latest.files}개${latest.truncated ? ' (일부만 검사)' : ''} · 지적 ${latest.findings.length}건, 심각한 지적 ${latest.open_high}건 열림, 명세에 없는 동작 ${latest.reverse}건`
+        : '아직 검사하지 않았습니다.';
+      list.replaceChildren();
+      for (const f of latest?.findings || []) {
+        const li = node('li', undefined, 'drift-finding'); li.dataset.severity = f.severity; li.dataset.state = f.state;
+        li.append(node('strong', `${DRIFT_SEVERITY[f.severity]} · ${f.title}`), node('p', `${drift.categories[f.category] || f.category}${f.criterion_id ? ' · ' + f.criterion_id : f.requirement_id ? ' · ' + f.requirement_id : ''}${f.file ? ' · ' + f.file : ''} · ${DRIFT_STATE[f.state]}`, 'review-meta'), node('p', f.detail));
+        if (f.note) li.append(node('p', '처리 메모: ' + f.note, 'review-meta'));
+        const actions = node('div', undefined, 'drift-actions'), note = node('input'); note.placeholder = '처리 메모 (수용·반박은 필수)'; note.maxLength = 4000; note.setAttribute('aria-label', f.title + ' 처리 메모');
+        const act = (label, state) => { const b = node('button', label, 'secondary'); b.type = 'button'; b.addEventListener('click', async () => {
+          if ((state === 'accepted' || state === 'rebutted') && !note.value.trim()) { failure(new Error('수용·반박에는 이유를 적어주세요.')); return; }
+          try { await request('drift-decision', {check_id: latest.id, finding_id: f.id, state, note: note.value}); loadDrift(generation); } catch (error) { failure(error); } }); return b; };
+        if (f.state === 'open') actions.append(note, act('반영함', 'resolved'), act('위험 수용', 'accepted'), act('반박', 'rebutted'));
+        else actions.append(act('다시 열기', 'open'));
+        if (f.category === 'unspecified_behavior') { const link = node('a', '요구사항 변경 제안으로'); link.href = '/changes'; actions.append(link); }
+        li.append(actions); list.append(li);
+      }
+      if (drift.running) driftTimer = setTimeout(() => loadDrift(generation), 4000);
+    } catch (error) {
+      if (error !== stale) $('drift-status').textContent = '드리프트 검사 상태를 불러오지 못했습니다: ' + errText(error);
+    }
+  }
+  $('drift-run').addEventListener('click', async () => {
+    $('drift-run').disabled = true;
+    try { await request('drift-start', {}); loadDrift(generation); } catch (error) { $('drift-run').disabled = false; failure(error); }
+  });
   let previewData = null, prepared = null, session = null, shot = null, element = null;
   // Messages ending in "중…" mean the service or capture is still being prepared.
   function previewStatus(text) { $('preview-status').textContent = text; DevRosterProgress.busyAfter($('preview-status'), text.endsWith('중…'), '미리보기 준비 중'); }
@@ -282,6 +317,7 @@
       renderThreads();
       renderDecisions();
       loadEvidence(g);
+      loadDrift(g);
       loadPreview(g);
       const first = data.modules.flatMap(m => m.files.map(f => [m.id, f.stage, f.path]))[0];
       if (selected) openFile(selected.module, selected.stage, selected.path);

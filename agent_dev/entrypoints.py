@@ -6,14 +6,37 @@ import sys
 ALIASES = {"run": "run", "verify": "verify", "resume": "resume", "complete": "complete"}
 
 
+def web_servers():
+    """The screens CLI commands may start; imported only when one is asked for."""
+
+    def lazy(module):
+        def serve(root, port):
+            from importlib import import_module
+
+            return import_module(module).serve(root, port)
+
+        return serve
+
+    return {
+        "studio": lazy("agent_dev.ui.studio_server"),
+        "dashboard": lazy("agent_dev.ui.dashboard"),
+        "setup": lazy("agent_dev.ui.setup_server"),
+    }
+
+
 def main(argv=None):
     from agent_dev.core.cli_home import apply_to_process
     from agent_dev.core.stdio import use_utf8_stdio
 
     use_utf8_stdio()
     apply_to_process()
-    from agent_dev.adapters.command_line import handles, parser
+    from agent_dev.adapters.workspace_trust import ensure_seeded
+
+    ensure_seeded()  # Before any command registers a folder (see workspace_trust).
+    from agent_dev.adapters.command_line import handles, parser, register_web_servers
     from agent_dev.adapters.command_line import main as workflow_main
+
+    register_web_servers(web_servers())
 
     arguments = list(sys.argv[1:] if argv is None else argv)
     if handles(arguments):

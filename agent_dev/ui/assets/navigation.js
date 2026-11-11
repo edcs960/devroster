@@ -17,11 +17,11 @@
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
     use.setAttribute('href', '/brand-mark.svg#nav-' + name); svg.append(use); return svg;
   };
-  const iconNames = { '/home': 'home', '/studio': 'file-text', '/workflows': 'git-branch', '/agent': 'terminal', '/review': 'check-square', '/source': 'search', '/traceability': 'list', '/changes': 'edit-3', '/setup': 'settings', '/ai': 'sliders', '/integrations': 'link', '/references': 'image', '/wiki': 'archive', '/messengers': 'message-square' };
+  const iconNames = { '/home': 'home', '/studio': 'file-text', '/workflows': 'git-branch', '/agent': 'terminal', '/usage': 'bar-chart-2', '/review': 'check-square', '/source': 'search', '/traceability': 'list', '/changes': 'edit-3', '/setup': 'settings', '/ai': 'sliders', '/integrations': 'link', '/references': 'image', '/wiki': 'archive', '/messengers': 'message-square' };
   const sections = [
     ['홈', ['/home', '프로젝트 홈', '준비 상태와 다음 할 일']],
     ['기획·설계', ['/studio', 'Studio', '기획서·명세서·화면 검토'], ['/workflows', '개발 흐름', '프리셋과 단계 편집']],
-    ['개발·검토', ['/agent', '작업실', '작업 현황 확인과 실행'], ['/review', '변경 검토', '코드·화면 검토와 결정'], ['/source', '소스 탐색', '읽기 전용 원문과 관계'], ['/traceability', '요구사항 근거', '연결과 실제 검증 근거'], ['/changes', '요구사항 변경', '변경·영향·후속 추적']],
+    ['개발·검토', ['/agent', '작업실', '작업 현황 확인과 실행'], ['/usage', '사용량·진행 현황', '토큰·예상 비용·작업 진행'], ['/review', '변경 검토', '코드·화면 검토와 결정'], ['/source', '소스 탐색', '읽기 전용 원문과 관계'], ['/traceability', '요구사항 근거', '연결과 실제 검증 근거'], ['/changes', '요구사항 변경', '변경·영향·후속 추적']],
     ['설정·자료', ['/ai', 'AI 도구', '로그인·모델·API 키'], ['/setup', '프로젝트 설정', '폴더·사용할 AI·개발 환경'], ['/integrations', '외부 도구 연결', 'MCP·인증·연결 검사'], ['/references', '화면 참고 자료', 'Stitch·Figma 원본 읽기'], ['/wiki', '위키 승인', '재발 방지·테스트 지식 검토'], ['/messengers', '메신저 연결', '슬랙 요청·승인 연결']]
   ];
   const aliases = { '/dashboard': '/agent', '/settings': '/setup' };
@@ -132,6 +132,6 @@
     });
     panel.append(quit);
   };
-  if (typeof fetch === 'function') { fetch('/api/app/status').then(r => r.ok ? r.json() : null).then(status => { if (status?.can_quit) addQuit(); if (!status?.restart_required || document.getElementById('app-restart-notice')) return; const notice = make('div', 'DevRoster 코드가 바뀌었습니다. 앱을 종료하고 다시 실행해야 새 코드가 적용됩니다.', 'app-restart-notice'); notice.id = 'app-restart-notice'; notice.setAttribute('role', 'status'); document.body.insertBefore(notice, document.body.firstChild); }).catch(() => {}); }
+  if (typeof fetch === 'function') { fetch('/api/app/status').then(r => r.ok ? r.json() : null).then(status => { if (status?.can_quit) addQuit(); if (status && status.workspace_trusted === false && !document.getElementById('app-trust-notice') && currentPath !== '/setup') { const notice = make('div', undefined, 'app-restart-notice'); notice.id = 'app-trust-notice'; notice.setAttribute('role', 'status'); const link = make('a', '설정 확인 후 신뢰'); link.href = '/setup#trust'; notice.append('이 프로젝트의 DevRoster 설정은 저장소와 함께 받은 것이라, 신뢰하기 전에는 설정의 명령을 실행하지 않습니다. ', link); document.body.insertBefore(notice, document.body.firstChild); } if (!status?.restart_required || document.getElementById('app-restart-notice')) return; const notice = make('div', 'DevRoster 코드가 바뀌었습니다. 앱을 종료하고 다시 실행해야 새 코드가 적용됩니다.', 'app-restart-notice'); notice.id = 'app-restart-notice'; notice.setAttribute('role', 'status'); document.body.insertBefore(notice, document.body.firstChild); }).catch(() => {}); }
   sync();
 })();

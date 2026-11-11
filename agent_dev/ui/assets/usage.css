@@ -1,0 +1,56 @@
+/* Usage and progress dashboard. Summary tiles first, detail tables after. */
+/* minmax(0,1fr): wide tables scroll inside their wrappers instead of widening the page. */
+.page-usage main, .page-usage #usage-content:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
+.page-usage main { gap: var(--sp-6); }
+.page-usage .app-header-actions { display: flex; gap: var(--sp-2); align-items: center; }
+.page-usage .app-header-actions select { min-height: var(--h-sm); }
+.page-usage .usage-section, .page-usage #usage-detail:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); min-width: 0; }
+.page-usage .usage-section h3 { margin-top: var(--sp-3); }
+.page-usage .usage-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
+.page-usage .usage-head h2 { margin: 0; }
+.page-usage :is(.usage-meta, .usage-status) { font-size: var(--fs-sm); color: var(--c-text-3); margin: 0; }
+.page-usage .usage-error { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-danger-border); border-radius: var(--r-md); background: var(--c-danger-bg); color: var(--c-danger); }
+.page-usage .usage-hint { margin: 0; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-info-border); border-radius: var(--r-md); background: var(--c-info-bg); color: var(--c-text-2); font-size: var(--fs-sm); }
+
+/* Tiles: one bordered strip, cells separated by rules (same idiom as the 작업실 cards). */
+.page-usage .usage-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface); overflow: hidden; }
+.page-usage .usage-tile { display: grid; gap: 2px; padding: var(--sp-3) var(--sp-4); border-right: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); margin-right: -1px; margin-bottom: -1px; min-width: 0; }
+.page-usage .usage-tile span { font-size: var(--fs-xs); color: var(--c-text-3); }
+.page-usage .usage-tile strong { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.page-usage .usage-tile small { font-size: var(--fs-xs); color: var(--c-text-3); }
+.page-usage .usage-tile[data-group="blocked"] strong { color: var(--c-danger); }
+.page-usage .usage-tile[data-group="needs_user"] strong { color: var(--c-warning); }
+.page-usage .usage-tile[data-group="completed"] strong { color: var(--c-success); }
+
+.page-usage .usage-rate { display: grid; gap: var(--sp-1); }
+
+/* State chips in tables. */
+.page-usage .usage-state { display: inline-block; padding: 1px var(--sp-2); border-radius: var(--r-full); font-size: var(--fs-xs); font-weight: var(--fw-semibold); background: var(--c-surface-2); color: var(--c-text-2); white-space: nowrap; }
+.page-usage .usage-state[data-group="blocked"] { background: var(--c-danger-bg); color: var(--c-danger); }
+.page-usage .usage-state[data-group="needs_user"] { background: var(--c-warning-bg); color: var(--c-warning); }
+.page-usage .usage-state[data-group="in_progress"] { background: var(--c-info-bg); color: var(--c-info); }
+.page-usage .usage-state[data-group="completed"] { background: var(--c-success-bg); color: var(--c-success); }
+
+.page-usage .usage-table-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface); }
+.page-usage .usage-table-wrap table { min-width: 520px; }
+.page-usage .usage-table-wrap tr:last-child td { border-bottom: 0; }
+.page-usage td.num, .page-usage th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.page-usage td small { display: block; color: var(--c-text-3); font-size: var(--fs-xs); }
+.page-usage td > div + div, .page-usage td details > div { margin-top: var(--sp-1); }
+.page-usage td details { margin-top: var(--sp-1); }
+.page-usage td summary { min-height: 0; padding: 0; font-size: var(--fs-xs); }
+.page-usage .usage-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--sp-4); }
+.page-usage .usage-split > div { min-width: 0; }
+
+/* Daily bars: heights are set from the data on one shared scale. */
+.page-usage .usage-chart { display: flex; align-items: flex-end; gap: 2px; height: 140px; padding: var(--sp-3); border: 1px solid var(--c-border); border-radius: var(--r-md); background: var(--c-surface); overflow: hidden; }
+.page-usage .usage-bar { flex: 1 1 0; min-width: 2px; height: 0; background: var(--c-accent); border-radius: var(--r-xs) var(--r-xs) 0 0; }
+.page-usage .usage-bar[data-empty] { background: var(--c-border); height: 1px; }
+.page-usage .usage-bar:hover { background: var(--c-accent-hover); }
+.page-usage .usage-chart-axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--c-text-3); margin-top: calc(-1 * var(--sp-2)); }
+
+@media (max-width: 767px) {
+  .page-usage .usage-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-usage .usage-split { grid-template-columns: 1fr; }
+  .page-usage .usage-chart { height: 110px; }
+}

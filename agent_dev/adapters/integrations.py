@@ -309,6 +309,11 @@ class Integrations:
             return ""
 
     def _client(self, row, timeout=30):
+        if row.get("transport") == "stdio" and not row.get("shared"):
+            from agent_dev.adapters import workspace_trust
+
+            # A project stdio server is a command from the project's own settings.
+            workspace_trust.require(self.store.config, "MCP 서버 실행")
         values = read_environment(self.store.config)
         config = dict(
             row,

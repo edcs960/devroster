@@ -687,6 +687,11 @@ class ProjectSetup:
             # Shared tools replace the project's own runners, so those never run: probing their
             # logins would launch CLIs for nothing. Shared logins are checked on the AI page.
             check_auth = selected_tools({"ai_tools": value.get("ai_tools")}) is None
+            if check_auth:
+                from agent_dev.adapters import workspace_trust
+
+                # Commands from settings that came with the folder never run unreviewed.
+                check_auth = workspace_trust.is_trusted(self.config)
         for runner in profile["runners"]:
             provider, config = runner["provider"], runner["config"]
             if provider in API_PROVIDERS:
@@ -1059,6 +1064,19 @@ class ProjectSetup:
 
         result = diagnose(self.config, check_auth=False)
         settings = self.read()
+        if check_auth:
+            from agent_dev.adapters import workspace_trust
+
+            if not workspace_trust.is_trusted(self.config):
+                check_auth = False
+                result.setdefault("checks", []).append(
+                    {
+                        "check": "workspace_trust",
+                        "status": "fail",
+                        "message": "이 폴더의 DevRoster 설정은 이 컴퓨터에서 만든 것이 아니라 CLI 로그인 확인 명령을 실행하지 않았습니다.",
+                        "fix": "프로젝트 설정의 '설정 신뢰'에서 실행될 명령을 확인하고 신뢰해주세요.",
+                    }
+                )
         # Check the runners the project would use now; shared tools replace its own runners.
         ai = effective_ai(settings)
         shared = selected_tools({"ai_tools": settings.get("ai_tools")}) is not None

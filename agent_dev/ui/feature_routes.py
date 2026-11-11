@@ -6,6 +6,7 @@ from agent_dev.ui.integration_server import IntegrationWeb
 from agent_dev.ui.journey_server import JourneyWeb
 from agent_dev.ui.messenger_server import MessengerWeb
 from agent_dev.ui.review_server import ReviewWeb
+from agent_dev.ui.usage_server import UsageWeb
 from agent_dev.ui.wiki_server import WikiWeb
 from agent_dev.ui.workflow_server import WorkflowWeb
 
@@ -25,6 +26,7 @@ class FeatureRoutes:
             ChangesWeb(root),
             ReviewWeb(root),
             WikiWeb(root),
+            UsageWeb(root),
         ]
         # The app starts this page's Slack listener (autostart) when the settings say so.
         self.messenger = MessengerWeb(root)
@@ -52,6 +54,7 @@ class FeatureRoutes:
                 ChangesWeb,
                 ReviewWeb,
                 WikiWeb,
+                UsageWeb,
                 MessengerWeb,
             )
         )

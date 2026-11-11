@@ -10,7 +10,7 @@ class Element {
   setAttribute(name, value) { this.attributes[name] = value; }
   addEventListener() {}
 }
-const pages = ['home', 'traceability', 'changes', 'studio', 'ai', 'setup', 'agent', 'review', 'workflows', 'integrations', 'references', 'source', 'wiki', 'messengers'];
+const pages = ['home', 'traceability', 'changes', 'studio', 'ai', 'setup', 'agent', 'usage', 'review', 'workflows', 'integrations', 'references', 'source', 'wiki', 'messengers'];
 // Merged or secondary routes highlight their menu owner (개발 현황 → 작업실, 공통 설정 → 프로젝트 설정).
 const aliases = {dashboard: 'agent', settings: 'setup'};
 for (const pathname of [...[...pages, ...Object.keys(aliases)].flatMap(page => ['/' + page, '/' + page + '/']), '/', '/studio//', '/studio/unknown', '/unknown/']) {

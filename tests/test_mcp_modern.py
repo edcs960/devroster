@@ -153,7 +153,7 @@ def test_http_modern_metadata_headers_and_no_session_contract():
         assert "Mcp-Session-Id" not in headers
         assert q["params"]["_meta"] == {
             "io.modelcontextprotocol/protocolVersion": MODERN,
-            "io.modelcontextprotocol/clientInfo": {"name": "devroster", "version": "0.4.6"},
+            "io.modelcontextprotocol/clientInfo": {"name": "devroster", "version": "0.4.7"},
             "io.modelcontextprotocol/clientCapabilities": {},
         }
         assert "_meta" not in q
