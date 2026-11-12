@@ -34,7 +34,7 @@ DENIED = {
 
 
 def environment_file(root):
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
 
     return workspace_locations(configuration_root(Path(root))).environment_file
 

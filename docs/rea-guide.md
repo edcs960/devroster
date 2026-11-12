@@ -43,7 +43,8 @@ REA(Reverse Engineer Anything)는 이미 만들어진 앱·바이너리가 실�
 1. 메뉴 **설정·자료 → 외부 도구 연결**(`/integrations`)을 연다.
 2. 카탈로그 **앱·바이너리 분석** 묶음에서 **REA (Reverse Engineer Anything)** 를 고른다.
 3. 연결 ID(예: `rea`)와 범위 이름(예: `legacy-app`)을 넣고 저장한다. 범위 이름은 이 연결을 어떤 분석에 쓸지 구분하는 이름이며, 도구 단계에서 같은 이름을 고른다.
-4. **연결 검사**를 누른다. `rea`를 찾지 못하면 "MCP 실행 파일을 먼저 설치해주세요"가 나온다.
+4. **실행 확인**을 눌러 실제로 실행할 `rea` 경로와 인수(`mcp`)를 보고 허용한다. 확인 전에는 서버를 시작하지 않는다.
+5. **연결 검사**를 누른다. `rea`를 찾지 못하면 "MCP 실행 파일을 먼저 설치해주세요"가 나온다.
 
 ### 터미널
 
@@ -53,6 +54,8 @@ REA(Reverse Engineer Anything)는 이미 만들어진 앱·바이너리가 실�
 
 ```sh
 devroster integration configure rea.json --root /path/to/project
+devroster integration launch rea --root /path/to/project            # 실행할 경로·인수와 digest를 보여 준다
+devroster integration launch rea --confirm-digest <digest> --root /path/to/project
 devroster integration check rea --root /path/to/project
 ```
 

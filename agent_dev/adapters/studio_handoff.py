@@ -19,7 +19,7 @@ def fail(message, code=ErrorCode.INVALID_INPUT) -> NoReturn:
 
 def studio_root_for(canonical_db):
     """The folder whose Studio DB pairs with a canonical DB (external config or source)."""
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
     from agent_dev.core.storage_locations import EXTERNAL
 
     folder = Path(canonical_db.path).resolve().parent
@@ -27,7 +27,7 @@ def studio_root_for(canonical_db):
 
 
 def _studio_db_path(workspace_root):
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
     from agent_dev.core.storage_locations import EXTERNAL
 
     root = Path(workspace_root).expanduser().resolve()

@@ -7,7 +7,6 @@ import re
 import shutil
 import socket
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import NoReturn
 
@@ -25,10 +24,9 @@ from agent_dev.adapters.presets import detect as detect_preset
 from agent_dev.adapters.presets import profile as preset_profile
 from agent_dev.adapters.state.sqlite.database import Database
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.windows_launch import windows_command
-from agent_dev.adapters.workspace import configuration_root, engine_configuration, metadata
-from agent_dev.core.io import locked
+from agent_dev.adapters.workspace_locator import locate, metadata, workspace_locations
+from agent_dev.core.io import atomic_json, locked
 from agent_dev.core.output_paths import slugify
 from agent_dev.core.storage_locations import EXTERNAL
 from agent_dev.domain.content import canonical, digest
@@ -103,37 +101,19 @@ def private_directory(path):
         path.chmod(0o700)
 
 
-def atomic_json(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink():
-        invalid("설정 파일에 심볼릭 링크를 사용할 수 없습니다.")
-    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=".setup-", suffix=".tmp")
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-            json.dump(value, output, ensure_ascii=False, indent=2)
-            output.write("\n")
-            output.flush()
-            os.fsync(output.fileno())
-        Path(name).chmod(0o600)
-        os.replace(name, path)
-    finally:
-        Path(name).unlink(missing_ok=True)
-
-
 class ProjectSetup:
     def __init__(self, root):
-        from agent_dev.adapters.workflow_runtime import project_root
-
         # The project folder of a legacy layout keeps its settings under the engine folder.
         # Saving there as a new workspace would write a marker that moves every CLI call.
-        self.config = engine_configuration(configuration_root(Path(root)))
-        self.root = project_root(self.config)
-        self.locations = workspace_locations(self.config)
+        workspace = locate(Path(root))
+        self.config = workspace.config_root
+        self.root = workspace.source_root
+        self.locations = workspace.locations
         # The folder that holds the canonical DB: <source>/.agent-dev, or the external config.
-        self.db_path = self.locations.state_db
-        self.managed = self.db_path.parent
-        self.marker = metadata(self.config)
-        self.legacy = self.config != self.root and self.config != self.managed
+        self.db_path = workspace.state_db
+        self.managed = workspace.managed_root
+        self.marker = workspace.marker
+        self.legacy = workspace.legacy
 
     def preset(self):
         """The saved preset, or for a project never saved the one its build files suggest."""

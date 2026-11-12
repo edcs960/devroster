@@ -137,7 +137,10 @@ def make_server(root: Path, port=8766):
 
 def serve(root, port=8766):
     server = make_server(root, port)
-    print(f"Agent Dev dashboard: http://127.0.0.1:{server.server_address[1]}", flush=True)
+    from agent_dev.ui.session import launch_url
+
+    # The page only answers a browser that came through this one-time address.
+    print(f"Agent Dev dashboard: {launch_url(f'http://127.0.0.1:{server.server_address[1]}', '/dashboard')}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

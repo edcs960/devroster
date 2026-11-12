@@ -12,6 +12,7 @@ from agent_dev.adapters.credential_store import CredentialStore
 from agent_dev.adapters.environment import read_environment
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
 from agent_dev.adapters.workspace import configuration_root, initialize
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.core import cli_home
 from agent_dev.core.storage_locations import bootstrap_file
 from agent_dev.domain.errors import DomainError
@@ -41,7 +42,7 @@ def move(source, target):
 
 def test_f2_unregistered_marker_cannot_reach_registered_credentials(source, tmp_path):
     plan, _ = move(source, tmp_path / "victim-config")
-    victim = r.workspace_locations(source)
+    victim = workspace_locations(source)
     victim.environment_file.parent.mkdir(parents=True, exist_ok=True)
     victim.environment_file.write_text(json.dumps({"VICTIM_TOKEN": "victim-secret-sentinel"}), encoding="utf-8")
     attacker = tmp_path / "attacker-config"
@@ -58,7 +59,7 @@ def test_f2_unregistered_marker_cannot_reach_registered_credentials(source, tmp_
         ), encoding="utf-8"
     )
     assert r.find(attacker) is None
-    locations = r.workspace_locations(attacker)
+    locations = workspace_locations(attacker)
     assert locations.workspace_id == ""
     assert locations.environment_file.is_relative_to(attacker)
     assert "VICTIM_TOKEN" not in read_environment(attacker)
@@ -84,7 +85,7 @@ def test_f2b_workspace_id_never_escapes_the_credentials_root(tmp_path):
             }
         ), encoding="utf-8"
     )
-    assert not r.workspace_locations(config).environment_file.is_relative_to(outside)
+    assert not workspace_locations(config).environment_file.is_relative_to(outside)
     assert "OUTSIDE_TOKEN" not in read_environment(config)
     # A registry entry with a path-like ID is rejected before it becomes a path.
     source = tmp_path / "registered"
@@ -100,7 +101,7 @@ def test_f2b_workspace_id_never_escapes_the_credentials_root(tmp_path):
         json.dumps({"workspace_registry": {"revision": 1, "workspaces": {str(outside): row}}}), encoding="utf-8"
     )
     with pytest.raises(DomainError):
-        r.workspace_locations(source)
+        workspace_locations(source)
     with pytest.raises(DomainError):
         r.register(source, tmp_path / "other", source / ".agent-dev", workspace_id="../escape")
 
@@ -301,7 +302,7 @@ def test_f5b_management_target_inside_a_registered_source_is_refused(source, tmp
         with pytest.raises(DomainError):
             m.apply_move(plan["plan_id"], r.read()["revision"])
         assert not target.exists()
-    assert r.workspace_locations(source).config_root == old / "projects" / "one"
+    assert workspace_locations(source).config_root == old / "projects" / "one"
 
 
 def test_f7_update_only_write_after_switch_refuses_rollback(source, tmp_path):

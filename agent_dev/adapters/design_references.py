@@ -15,8 +15,8 @@ class DesignReferences:
     def __init__(self, root, *, integrations=None):
         self.integrations = integrations or Integrations(root)
         self.root = self.integrations.root
-        from agent_dev.adapters.storage_registry import workspace_locations
         from agent_dev.adapters.workspace import configuration_root
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         cache = workspace_locations(configuration_root(Path(self.root))).cache_root
         self.directory = cache / "design-references"

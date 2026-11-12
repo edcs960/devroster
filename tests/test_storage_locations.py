@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 
 from agent_dev.adapters import storage_registry
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.workflow_runtime import project_root
 from agent_dev.adapters.workspace import configuration_root, discover, initialize
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.adapters.workspace_registry import configuration_for, register_root
 from agent_dev.core import cli_home
 from agent_dev.core.storage_locations import (

@@ -12,9 +12,9 @@ from test_workflow_sessions import session_roster
 from agent_dev.adapters.credential_store import CredentialStore
 from agent_dev.adapters.secrets import registered_secrets
 from agent_dev.adapters.shared_integrations import SharedIntegrations
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.workflow_definitions import roster_graph
 from agent_dev.adapters.workspace import initialize
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.core.storage_locations import management_root
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.project_roles import GRAPH_CONNECTION

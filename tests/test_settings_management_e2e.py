@@ -20,10 +20,10 @@ from agent_dev.adapters.project_setup import ProjectSetup
 from agent_dev.adapters.shared_integrations import SharedIntegrations
 from agent_dev.adapters.storage_migration import apply_move, journal, plan_move, recover_move
 from agent_dev.adapters.storage_registry import read as registry
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.task_queries import TaskQueries
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
 from agent_dev.adapters.workspace import initialize
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.core import cli_home
 from agent_dev.core.storage_locations import EXTERNAL, bootstrap_file, management_root
 from agent_dev.domain.content import content_digest

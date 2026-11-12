@@ -39,6 +39,11 @@ def run(args):
             )
         if action == "disable":
             return app.disable(args.connection_id)
+        if action == "launch":
+            # Shows what would run; --confirm-digest with the digest shown records the confirmation.
+            if args.confirm_digest:
+                return app.approve_launch(args.connection_id, args.confirm_digest, actor="cli")
+            return app.launch(args.connection_id)
         if action == "export":
             return app.export()
         if action == "import":

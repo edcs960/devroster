@@ -163,6 +163,7 @@ def parser():
             "read": ["connection_id"],
             "doctor": [],
             "disable": ["connection_id"],
+            "launch": ["connection_id"],
             "export": [],
             "import": ["source"],
             "prepare": ["provider"],
@@ -351,6 +352,11 @@ def parser():
                     "--decision", choices=["approved", "rejected"], default="approved"
                 )
                 command.add_argument("--module", default="source")
+                command.add_argument(
+                    "--confirm-digest",
+                    default="",
+                    help="integration launch: 확인한 실행 명령의 digest (보여준 값 그대로)",
+                )
                 command.add_argument("--path", default="")
             if name == "source":
                 command.add_argument("--mode", choices=["filename", "content"], default="filename")
@@ -544,8 +550,8 @@ def dispatch(args):
 
     secrets = registered_secrets(root)
     data = args.data or root / "data"
-    from agent_dev.adapters.storage_registry import workspace_locations
     from agent_dev.adapters.workflow_runtime import project_root
+    from agent_dev.adapters.workspace_locator import workspace_locations
 
     workspace = project_root(root)
     db = args.db or workspace_locations(root).state_db

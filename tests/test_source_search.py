@@ -260,6 +260,9 @@ for name in ("O_DIRECTORY", "O_NOFOLLOW"):
         delattr(os, name)
 from agent_dev.ui.setup_server import make_server as setup_server
 from agent_dev.ui.studio_server import make_server as studio_server
+from agent_dev.ui import session
+browser = urllib.request.build_opener()  # A browser this process opened (it has the session cookie).
+browser.addheaders = [("Cookie", session.cookie_name(0) + "=" + session.SECRET)]
 root = Path(sys.argv[1])
 report = {}
 for label, factory in (("setup", setup_server), ("studio", studio_server)):
@@ -269,7 +272,7 @@ for label, factory in (("setup", setup_server), ("studio", studio_server)):
     thread.start()
     def get(path):
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
+            with browser.open(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
                 return response.status, response.read()
         except urllib.error.HTTPError as error:
             return error.code, error.read()

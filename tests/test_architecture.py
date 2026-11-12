@@ -158,3 +158,18 @@ def test_checker_sees_lazy_relative_and_dynamic_imports():
     assert ("agent_dev.application.workflow", "agent_dev.application.workflow_dag") in pairs  # relative
     assert ("agent_dev.adapters.task_queries", "agent_dev.adapters.execution_view") in pairs  # __import__
     assert ("agent_dev.adapters.skill_store", "agent_dev.defaults") in pairs  # from agent_dev import x
+
+
+def test_workspace_location_modules_do_not_import_their_callers():
+    """One module decides where a workspace lives; its callers never get imported back.
+
+    ``workspace_locator`` reads the registry (``storage_registry``) and composes paths.
+    Before, the same decision was spread over five modules that imported each other
+    inside functions (workspace -> storage_registry -> workflow_runtime -> workspace).
+    """
+    adapters = "agent_dev.adapters."
+    callers = {adapters + n for n in ("workspace", "workflow_runtime", "project_setup", "workspace_registry")}
+    below = {adapters + "workspace_locator", adapters + "storage_registry"}
+    back = sorted((i, t) for i, t, _ in imports() if i in below and t in callers)
+    assert not back, f"The locator and the registry must not import their callers: {back}"
+    assert (adapters + "storage_registry", adapters + "workspace_locator") not in {(i, t) for i, t, _ in imports()}

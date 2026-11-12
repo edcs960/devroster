@@ -133,7 +133,7 @@ class PreviewContext(review.ReviewContext):
         self.config_root = Path(config_root or self.project_root)
         runtime_root = self.project_root / ".agent-dev"
         if config_root is not None:
-            from agent_dev.adapters.storage_registry import workspace_locations
+            from agent_dev.adapters.workspace_locator import workspace_locations
 
             locations = workspace_locations(self.config_root)
             self.project_root, runtime_root = locations.source_root, locations.runtime_root

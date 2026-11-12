@@ -8,7 +8,14 @@
 devroster studio --root /path/to/my-project
 ```
 
-`http://127.0.0.1:8767/agent` → 왼쪽 **☰** → 원하는 화면. 포트는 설정이나 `--port`에 따라 달라진다. 메뉴는 현재 화면을 표시하고 Escape로 닫으며 버튼으로 포커스를 돌려준다.
+터미널에 출력된 주소(`http://127.0.0.1:8767/launch?key=…`)를 브라우저에서 연다 → 왼쪽 **☰** → 원하는 화면. 포트는 설정이나 `--port`에 따라 달라진다. 메뉴는 현재 화면을 표시하고 Escape로 닫으며 버튼으로 포커스를 돌려준다.
+
+**화면은 DevRoster가 열어 준 브라우저에서만 동작한다.** 같은 컴퓨터의 다른 프로그램이나 다른 사용자가 화면의 데이터를 읽지 못하게 하기 위해서다.
+
+- `devroster app`(또는 데스크톱 앱)은 브라우저를 직접 연다. `devroster studio`·`setup --web`·`dashboard`는 터미널에 `launch?key=…`가 붙은 주소를 출력한다. 이 주소는 **한 번만** 쓸 수 있고, 한 번 연 브라우저는 앱을 끌 때까지 `http://127.0.0.1:포트/agent` 같은 주소를 그대로 쓸 수 있다.
+- 앱을 다시 시작했거나, 다른 브라우저(또는 시크릿 창)에서 열었거나, 즐겨찾기로 바로 들어가면 "DevRoster 앱에서 다시 열어주세요" 안내가 나온다. `devroster app`을 한 번 더 실행하면 이미 실행 중인 화면이 그 브라우저에 열린다. `devroster app --no-browser`는 열 주소만 출력한다(10분 안에 한 번).
+- 주소는 `127.0.0.1`과 `localhost`를 섞어 쓰지 않는다. 브라우저가 둘을 다른 사이트로 보기 때문에 한쪽에서 연 화면이 다른 쪽에서는 열리지 않는다.
+- 화면의 `/api/…` 주소를 직접 호출하던 스크립트는 더 이상 응답을 받지 못한다(403 `session_required`). 자동화에는 `devroster` CLI를 쓴다.
 
 | # | 화면 | 하는 일 |
 |---|---|---|
@@ -128,6 +135,7 @@ devroster studio --root /path/to/my-project
 ## 8. 도구 연결·디자인 참고
 
 - 설치된 서버/공식 주소와 인증 환경변수 이름·자료 범위를 등록한다.
+- 로컬 실행(stdio) 서버는 **실행 확인**을 먼저 한다. 실제로 실행할 파일 경로, 인수, 전달할 환경변수 이름을 보여 주고, 확인한 뒤에만 서버를 시작한다. 명령·인수·환경변수 이름이 바뀌거나 PATH에서 다른 파일이 잡히면 다시 확인한다. 확인은 이 컴퓨터의 앱 관리 폴더에 남고 프로젝트 폴더에는 남지 않는다. 터미널에서는 `devroster integration launch <연결 ID>`로 보고, 보여 준 digest를 `--confirm-digest`에 넣어 확인한다.
 - 목록 확인 후 실제 읽기를 검사한다.
 - Stitch는 원본을 수정하지 않는다.
 - Figma/Stitch 참조를 Studio 프로젝트 또는 Workflow에 적용한다.
@@ -141,6 +149,7 @@ devroster studio --root /path/to/my-project
 | Workflow 검사 오류 | 단계 ID·조건 양쪽 경로·필수 역할·등록 gate ID 확인 |
 | 프로젝트 적용 | 이후 생성하는 snapshot에 반영; 기존 승인 snapshot은 유지 |
 | Graphify 미설치 | 파일 조회는 계속 사용, 격리 환경에 고정 버전 설치 후 PATH 등록 |
+| 연결 상태 '실행 확인 필요' | 로컬 실행 서버의 명령을 아직 확인하지 않았거나 확인 뒤에 바뀜. 연결 카드의 **실행 확인**에서 경로와 인수를 보고 허용 |
 | 연결 상태 partial | 목록만 확인됨; 범위/인증/필수 입력을 확인하고 실제 읽기 검사 |
 | Browser MCP | 현재 자료 읽기는 차단, 도구 목록 진단만 제공 |
 | OAuth 만료 | 등록 client ID와 지원 계정으로 다시 인증 |
@@ -155,6 +164,7 @@ devroster workflow presets --root /path/to/my-project
 devroster workflow list --project PROJECT-ID --root /path/to/my-project
 devroster integration catalog --root /path/to/my-project
 devroster integration doctor --root /path/to/my-project
+devroster integration launch CONNECTION-ID --root /path/to/my-project
 devroster source modules --root /path/to/my-project
 devroster source tree --module source --root /path/to/my-project
 devroster source file --module source --path src/app.py --root /path/to/my-project
@@ -217,12 +227,13 @@ devroster source impact --module source --path src/app.py --root /path/to/my-pro
 
 ## 슬랙으로 요청·승인 (외부 메신저)
 
-메뉴 **설정·자료 → 외부 메신저**(`/messengers`)에서 슬랙 채널을 연결하면, 그 채널에 남긴 요청을 DevRoster가 주기적으로 확인해 처리하고 같은 스레드에 결과를 답한다. 피클 같은 AI 에이전트가 대신 메시지를 올려도 된다.
+메뉴 **설정·자료 → 외부 메신저**(`/messengers`)에서 슬랙 채널을 연결하면, 그 채널에 남긴 요청을 DevRoster가 주기적으로 확인해 처리하고 같은 스레드에 결과를 답한다. 피클 같은 AI 에이전트가 대신 메시지를 올려도 된다(봇에 허용할 명령을 켠 경우).
 
 ### 연결 절차
 
 1. 슬랙 앱을 만들어 봇 토큰 범위 `channels:history`(비공개 채널은 `groups:history`)와 `chat:write`를 주고, 봇을 채널에 초대한다.
 2. 화면에서 봇 토큰(`xoxb-`)을 저장하고, 채널 ID와 허용할 사용자 ID(U…)·봇 ID(B…)를 넣는다. 허용 목록에 없는 작성자의 메시지는 무시한다.
+   - 봇이 올린 메시지는 기본으로 `상태`·`도움말`만 처리한다. 봇은 다른 사람이 쓴 글(PR 제목, 이슈 본문)을 그대로 옮길 수 있어서다. 믿을 수 있는 봇이 대신 요청·실행하게 하려면 **봇에 허용할 명령**에서 켠다. 승인은 봇에 허용하지 않는다.
 3. 쓸 명령을 고르고 **사용**을 켠 뒤 저장 → **연결 검사** → **시작**. 앱을 다시 켜면 리스너도 자동으로 시작한다. 화면 없이 쓰려면 `devroster messenger listen`.
 4. (선택) 조회 주기를 기다리지 않고 바로 답하게 하려면:
    - 슬랙 앱 설정에서 **Socket Mode**를 켜고 `connections:write` 범위의 앱 수준 토큰(`xapp-`)을 만든다.
@@ -262,7 +273,7 @@ devroster source impact --module source --path src/app.py --root /path/to/my-pro
 devroster dashboard --port 8766
 ```
 
-기본 주소는 `http://127.0.0.1:8766/`이다. 현황 화면의 명령 복사 버튼은 실행하지 않는다. ☰ → 에이전트 작업실에서 승인·실행할 수 있다.
+터미널에 출력된 주소(기본 `http://127.0.0.1:8766/launch?key=…`, 한 번만 사용)를 연다. 현황 화면의 명령 복사 버튼은 실행하지 않는다. ☰ → 에이전트 작업실에서 승인·실행할 수 있다.
 
 - 여러 프로젝트에 같은 AI 기본값·MCP 연결을 쓰려면 설정 화면의 **공통 설정**(`/settings`)을 연다.
 - 공통값은 프로젝트에서 "반영"할 때만 적용되고, 화면은 항목마다 실제 값과 출처(공통값·프로젝트 지정·기본값)를 보여준다.

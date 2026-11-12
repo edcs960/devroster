@@ -369,7 +369,10 @@ def make_server(root, port=8767, generator=None):
 
 def serve(root, port=8767):
     server = make_server(root, port)
-    print(f"기획·화면 검토 Studio: http://127.0.0.1:{server.server_port}/studio")
+    from agent_dev.ui.session import launch_url
+
+    # The page only answers a browser that came through this one-time address.
+    print(f"기획·화면 검토 Studio: {launch_url(f'http://127.0.0.1:{server.server_port}', '/studio')}")
     print("종료: Ctrl+C")
     try:
         server.serve_forever()

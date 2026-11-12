@@ -38,7 +38,7 @@ class JourneyWeb(LocalWeb):
         )
 
     def _db(self, read_only=True):
-        from agent_dev.adapters.storage_registry import state_db_path
+        from agent_dev.adapters.workspace_locator import state_db_path
 
         path = state_db_path(self._config)
         if not path.is_file():
@@ -80,10 +80,10 @@ class JourneyWeb(LocalWeb):
         raise DomainError(ErrorCode.INVALID_INPUT, "실행 기능을 찾을 수 없습니다.")
 
     def _execution_enabled(self):
-        from agent_dev.adapters.workspace import configuration_root, engine_configuration
+        from agent_dev.adapters.workspace_locator import settings_root
 
         # Resolve again: a project first saved after the app opened has a new settings folder.
-        path = engine_configuration(configuration_root(self._root)) / "config/runtime.json"
+        path = settings_root(self._root) / "config/runtime.json"
         try:
             flags = json.loads(path.read_text(encoding="utf-8")).get("orchestrator_v2", {})
         except (OSError, ValueError):
@@ -102,7 +102,7 @@ class JourneyWeb(LocalWeb):
             "imports": [],
             "drafts": [],
         }
-        from agent_dev.adapters.storage_registry import state_db_path
+        from agent_dev.adapters.workspace_locator import state_db_path
 
         if not state_db_path(self._config).is_file():
             return empty

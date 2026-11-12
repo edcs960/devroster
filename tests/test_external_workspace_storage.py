@@ -16,12 +16,12 @@ from agent_dev.adapters.integration_oauth import IntegrationOAuth
 from agent_dev.adapters.integration_store import IntegrationStore
 from agent_dev.adapters.integrations import Integrations
 from agent_dev.adapters.project_setup import ProjectSetup
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.studio_store import StudioStore
 from agent_dev.adapters.task_queries import TaskQueries
 from agent_dev.adapters.ui_queries import snapshot as ui_snapshot
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime, role_override
 from agent_dev.adapters.workspace import initialize, metadata
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.domain.contracts import PhaseResult
 
 

@@ -4,9 +4,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from agent_dev.adapters.project_setup import ProjectSetup, atomic_json
+from agent_dev.adapters.project_setup import ProjectSetup
+from agent_dev.adapters.workspace_locator import remembered_configuration
 from agent_dev.core.cli_home import app_home
-from agent_dev.core.io import locked
+from agent_dev.core.io import atomic_json, locked
 from agent_dev.domain.errors import DomainError
 
 LIMIT = 100
@@ -97,20 +98,11 @@ def register_root(root, *, remember=False):
 
 
 def configuration_for(root):
-    from agent_dev.adapters.storage_registry import registered_config
+    def remembered():
+        value = read_state()
+        return value.get("configurations", {}), value.get("root")
 
-    root = str(root_path(str(root)))
-    registered = registered_config(Path(root))
-    if registered is not None:
-        return registered
-    value = read_state()
-    configurations = value.get("configurations", {})
-    if isinstance(configurations, dict) and root in configurations:
-        return root_path(configurations[root])
-    previous = value.get("root")
-    if isinstance(previous, str) and str(ProjectSetup(root_path(previous)).root) == root:
-        return root_path(previous)
-    return root_path(root)
+    return remembered_configuration(root_path(str(root)), remembered, checked=root_path)
 
 
 def project_list(current):

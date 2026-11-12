@@ -1,95 +1,35 @@
-"""Project-local configuration independent of the package installation directory."""
+"""Creating a project-local workspace (``devroster init``).
+
+Where an existing workspace lives is decided in ``workspace_locator``; the names below are
+re-exported for the callers that import them from here.
+"""
 
 import json
-import os
 import shutil
 from importlib.resources import files
 from pathlib import Path
 
+from agent_dev.adapters.workspace_locator import (
+    MARKER,
+    configuration_root,
+    default_root,
+    discover,
+    engine_configuration,
+    metadata,
+    portable_root,
+)
 from agent_dev.domain.errors import DomainError, ErrorCode
 
-MARKER = "workspace.json"
-
-
-def engine_configuration(config: Path) -> Path:
-    """The engine folder when `config` is the project folder of a legacy engine layout.
-
-    A legacy layout keeps settings and v2 flags under the engine folder while the project
-    folder holds the canonical DB, so commands given either folder must resolve the same
-    settings.
-    """
-    from agent_dev.adapters.workflow_runtime import project_root
-    from agent_dev.core import paths
-
-    config = Path(config)
-    engine = Path(paths.AGENT_DEV_ROOT).resolve()
-    if (
-        config != engine
-        and not (config / ".agent-dev" / MARKER).exists()
-        and (engine / "config/runtime.json").is_file()
-        and project_root(engine) == config
-    ):
-        return engine
-    return config
-
-
-def configuration_root(root: Path) -> Path:
-    from agent_dev.adapters.storage_registry import registered_config
-
-    root = Path(root).expanduser().resolve()
-    # A registered workspace mapping outranks a project-local marker left in the source.
-    registered = registered_config(root)
-    if registered is not None:
-        return registered
-    if (root / ".agent-dev" / MARKER).is_file():
-        return root / ".agent-dev"
-    return root
-
-
-def discover(start: Path | None = None) -> Path | None:
-    from agent_dev.adapters.storage_registry import registered_config
-
-    start = Path(start or Path.cwd()).resolve()
-    for candidate in (start, *start.parents):
-        registered = registered_config(candidate)
-        if registered is not None:
-            return registered
-        if (candidate / ".agent-dev" / MARKER).is_file():
-            return candidate / ".agent-dev"
-    return None
-
-
-def default_root() -> Path:
-    configured = os.environ.get("AGENT_DEV_CONFIG_ROOT")
-    if configured:
-        return configuration_root(Path(configured))
-    found = discover()
-    if found:
-        return found
-    from agent_dev.core.paths import AGENT_DEV_ROOT
-
-    return AGENT_DEV_ROOT
-
-
-def portable_root() -> Path | None:
-    root = configuration_root(default_root())
-    return root if (root / MARKER).is_file() else None
-
-
-def metadata(root: Path) -> dict | None:
-    path = configuration_root(root) / MARKER
-    if not path.exists():
-        return None
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if (
-        not isinstance(value, dict)
-        or value.get("format_version") != 1
-        or not isinstance(value.get("project_id"), str)
-        or not value["project_id"]
-        or not isinstance(value.get("name"), str)
-    ):
-        raise DomainError(ErrorCode.INVALID_INPUT, "Unsupported workspace marker.")
-    return value
+__all__ = [
+    "MARKER",
+    "configuration_root",
+    "default_root",
+    "discover",
+    "engine_configuration",
+    "initialize",
+    "metadata",
+    "portable_root",
+]
 
 
 def initialize(

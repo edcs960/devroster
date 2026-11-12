@@ -10,7 +10,7 @@ devroster studio --root /path/to/my-project
 
 | 항목 | 값 |
 |---|---|
-| 브라우저 | `http://127.0.0.1:8767/studio` |
+| 브라우저 | 터미널에 출력된 주소(`http://127.0.0.1:8767/launch?key=…`, 한 번만 사용). 연 뒤에는 `http://127.0.0.1:8767/studio` |
 | 포트 변경 | `devroster studio --port 8870` |
 | 다른 프로젝트 | 패키지 설치 후 `devroster studio --root /path/to/project`. 이미 `devroster init`한 프로젝트 안에서는 `devroster studio`만 실행한다 |
 

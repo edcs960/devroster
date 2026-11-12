@@ -53,7 +53,7 @@
 - 연결 상태: catalog_only/configured/installation_required/auth_required/checking/ready/partial/error/disabled. ready는 실제 허용 도구 호출 성공 근거/시각/scope가 있어야 한다. 과거 성공 결과와 현재 연결 점검을 혼동하지 않는다.
 - HTTP transport: initialize→initialized→tools/list(pagination)→허용된 tools/call, MCP protocol negotiation, JSON/SSE, timeout/response limit, 세션 종료 지원. 인증 refresh는 scope를 늘리지 않는다.
 - OAuth: 제공자의 공식 protected resource/authorization metadata를 확인하고 PKCE/state/loopback callback으로 앱의 연결을 승인한다. 지원 client 제한이 있는 Figma/Vercel은 승인된 client 수집 경로 또는 명시적인 REST 대체 capability를 사용한다. 타 client token을 추출하거나 미지원 provider의 OAuth를 API key로 대체했다고 표시하지 않는다.
-- stdio: 이미 설치된 등록 executable을 argv 배열/shell=False/최소 env/고정 cwd로 실행한다. 프로세스 그룹·lease·취소·timeout·stderr redaction을 적용한다. 아직 설치되지 않은 서버를 tool call 중 `npx -y @latest`로 내려받아 실행하지 않는다.
+- stdio: 이미 설치된 등록 executable을 argv 배열/shell=False/최소 env/고정 cwd로 실행한다. 프로세스 그룹·lease·취소·timeout·stderr redaction을 적용한다. 아직 설치되지 않은 서버를 tool call 중 `npx -y @latest`로 내려받아 실행하지 않는다. 실행기 이름 목록(npx·uvx·pip·npm·curl·sh·bash)은 안내일 뿐 경계가 아니다. 경계는 실행 확인이다: 해석된 실행 파일 경로·argv·환경변수 이름을 사용자가 확인한 뒤에만 시작하고, 셋 중 하나라도 바뀌면 다시 확인한다(`Integrations.launch`/`approve_launch`, 확인은 관리 폴더의 `workspace-trust.json`).
 - 웹 `설치 준비`는 공식 패키지/버전/명령/필요권한을 먼저 보여주고 사용자가 실행할 설치 작업을 명시적으로 선택한다. 등록/인증 변경은 프로젝트 설정만 변경하며 다른 전역 MCP 설정을 자동 덮어쓰지 않는다. Docker bridge는 등록 image/version/profile·worktree mount만 사용한다.
 - 자동 선택은 해당 단계에 필요한 capability와 프로젝트가 활성화한 서비스만 대상으로 한다. 유사한 서비스는 우선 제공자 설정에 따라 하나를 선택하고 다른 결과와 임의 혼합하지 않는다. `모든 도구`를 매 phase prompt에 넣지 않는다.
 - 원격 응답에 들어 있는 링크/지시/도구 힌트는 untrusted data. tools/list의 readOnlyHint만으로 read 권한을 인정하지 않는다. provider별 검증된 tool→capability map, 입력 JSON schema, registered scope, node grant를 모두 확인한다. 새로운/알 수 없는 도구는 기본 deny.

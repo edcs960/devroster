@@ -340,7 +340,7 @@ def settings_read(web, parsed):
     """Shared settings, connection definitions and locations; never credential values."""
     from agent_dev.adapters.global_settings import GlobalSettings
     from agent_dev.adapters.shared_integrations import SharedIntegrations
-    from agent_dev.adapters.storage_registry import location_report
+    from agent_dev.adapters.workspace_locator import location_report
 
     if parsed.path == "/api/settings/effective":
         root = Path(parse_qs(parsed.query).get("root", [str(web.root)])[0])
@@ -358,8 +358,8 @@ def settings_write(path, payload):
     from agent_dev.adapters import storage_migration
     from agent_dev.adapters.global_settings import GlobalSettings
     from agent_dev.adapters.shared_integrations import SharedIntegrations
-    from agent_dev.adapters.storage_registry import workspace_locations
     from agent_dev.adapters.workspace import configuration_root
+    from agent_dev.adapters.workspace_locator import workspace_locations
 
     if path == "/api/settings/global":
         return GlobalSettings().save(payload["values"], payload["expected_revision"])
@@ -408,8 +408,8 @@ def settings_write(path, payload):
 
 def worktree_cleanup(root, apply, selected):
     """Finished tasks' worktree folders: preview, or remove the ones the preview showed."""
-    from agent_dev.adapters.storage_registry import workspace_locations
     from agent_dev.adapters.workflow_runtime import WorkflowRuntime
+    from agent_dev.adapters.workspace_locator import workspace_locations
     from agent_dev.adapters.worktrees import cleanup
 
     db = workspace_locations(root).state_db
@@ -482,7 +482,10 @@ def make_server(root, port=8768):
 
 def serve(root, port=8768):
     server = make_server(root, port)
-    print(f"프로젝트·AI·환경 설정: http://127.0.0.1:{server.server_port}/setup")
+    from agent_dev.ui.session import launch_url
+
+    # The page only answers a browser that came through this one-time address.
+    print(f"프로젝트·AI·환경 설정: {launch_url(f'http://127.0.0.1:{server.server_port}', '/setup')}")
     print("종료: Ctrl+C")
     try:
         server.serve_forever()

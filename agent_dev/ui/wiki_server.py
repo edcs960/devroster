@@ -25,8 +25,8 @@ class WikiWeb(LocalWeb):
     def _wiki(self, read_only=True):
         from agent_dev.adapters.secrets import registered_secrets
         from agent_dev.adapters.state.sqlite.store import WorkflowRepository
-        from agent_dev.adapters.storage_registry import state_db_path
         from agent_dev.adapters.wiki_knowledge import WikiKnowledge
+        from agent_dev.adapters.workspace_locator import state_db_path
 
         path = state_db_path(self._config)
         if not path.is_file():

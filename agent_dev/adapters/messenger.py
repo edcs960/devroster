@@ -22,6 +22,9 @@ TOKEN_KEY = "SLACK_BOT_TOKEN"
 APP_TOKEN_KEY = "SLACK_APP_TOKEN"  # Socket Mode only (connections:write)
 SAFETY_POLL = 300  # With Socket Mode connected, history is still read this often.
 COMMANDS = ("request", "status", "run", "approve")
+# A bot repeats text other people wrote (PR titles, issue bodies, alerts), so its message is not
+# a statement by an allow-listed person. Bots get their own, narrower list; approval is never on it.
+BOT_COMMANDS = ("request", "status", "run")
 DEFAULTS = {
     "enabled": False,
     "channel_id": "",
@@ -30,6 +33,7 @@ DEFAULTS = {
     "prefix": "",
     "poll_seconds": 15,
     "commands": {"request": True, "status": True, "run": True, "approve": False},
+    "bot_commands": {"request": False, "status": True, "run": False},
     # Post every task state change to the channel (thread of the Slack command when known).
     "notify": True,
     # Socket Mode: Slack pushes a signal for each new message, so replies start at once.
@@ -105,9 +109,9 @@ def invalid(message):
 
 
 def config_folder(root):
-    from agent_dev.adapters.workspace import configuration_root, engine_configuration
+    from agent_dev.adapters.workspace_locator import settings_root
 
-    return engine_configuration(configuration_root(Path(root)))
+    return settings_root(root)
 
 
 def settings_path(root):
@@ -136,9 +140,14 @@ def _write_json(path, value):
 def read_settings(root):
     stored = _read_json(settings_path(root), {}).get("slack", {})
     value = copy.deepcopy(DEFAULTS)
-    value.update({k: v for k, v in stored.items() if k in DEFAULTS and k != "commands"})
+    value.update(
+        {k: v for k, v in stored.items() if k in DEFAULTS and k not in {"commands", "bot_commands"}}
+    )
     value["commands"].update(
         {k: v for k, v in stored.get("commands", {}).items() if k in COMMANDS}
+    )
+    value["bot_commands"].update(
+        {k: v for k, v in stored.get("bot_commands", {}).items() if k in BOT_COMMANDS}
     )
     return value
 
@@ -147,8 +156,11 @@ def normalize_settings(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULTS):
         invalid("메신저 설정 항목을 확인해주세요.")
     result = copy.deepcopy(DEFAULTS)
-    result.update({k: v for k, v in value.items() if k != "commands"})
-    result["commands"].update(value.get("commands", {}))
+    result.update({k: v for k, v in value.items() if k not in {"commands", "bot_commands"}})
+    for key in ("commands", "bot_commands"):
+        if not isinstance(value.get(key, {}), dict):
+            invalid("명령별 허용 값을 확인해주세요.")
+        result[key].update(value.get(key, {}))
     if any(type(result[k]) is not bool for k in ("enabled", "notify", "socket_mode")):
         invalid("사용 여부를 확인해주세요.")
     channel = result["channel_id"]
@@ -172,6 +184,11 @@ def normalize_settings(value):
     commands = result["commands"]
     if set(commands) != set(COMMANDS) or any(type(v) is not bool for v in commands.values()):
         invalid("명령별 허용 값을 확인해주세요.")
+    bot_commands = result["bot_commands"]
+    if set(bot_commands) != set(BOT_COMMANDS) or any(
+        type(v) is not bool for v in bot_commands.values()
+    ):
+        invalid("봇에 허용할 명령 값을 확인해주세요. 승인은 봇에 허용할 수 없습니다.")
     if result["enabled"] and not (
         channel and (result["allowed_user_ids"] or result["allowed_bot_ids"])
     ):
@@ -455,7 +472,9 @@ class MessengerListener:
                 if command is None:
                     continue
                 author = message.get("user") or message.get("bot_id", "")
-                reply, pending = self.handle(command, settings, author, ts)
+                reply, pending = self.handle(
+                    command, settings, author, ts, bot=bool(message.get("bot_id"))
+                )
                 if pending:
                     state["pending"][ts] = pending
                     if pending.get("task_id"):
@@ -488,7 +507,7 @@ class MessengerListener:
 
     # commands -------------------------------------------------------------------------
 
-    def handle(self, command, settings, author, ts):
+    def handle(self, command, settings, author, ts, bot=False):
         kind = command["kind"]
         if kind == "help":
             return HELP, None
@@ -501,6 +520,16 @@ class MessengerListener:
                 (
                     f"🚫 `{KIND_NAMES.get(kind, kind)}` 명령은 꺼져 있습니다. "
                     "DevRoster *외부 메신저* 설정에서 켤 수 있습니다."
+                ),
+                None,
+            )
+        # Any message carrying bot_id counts as a bot, even when its bot user is allow-listed.
+        if bot and not settings["bot_commands"].get(kind):
+            return (
+                (
+                    f"🚫 봇이 올린 메시지의 `{KIND_NAMES.get(kind, kind)}` 명령은 처리하지 않습니다. "
+                    "허용된 사용자가 직접 보내거나, DevRoster *외부 메신저* 설정의 "
+                    "*봇에 허용할 명령*에서 켤 수 있습니다(승인은 켤 수 없습니다)."
                 ),
                 None,
             )

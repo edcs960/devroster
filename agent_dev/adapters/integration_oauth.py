@@ -24,8 +24,8 @@ class IntegrationOAuth:
     def path(self, key):
         from pathlib import Path
 
-        from agent_dev.adapters.storage_registry import workspace_locations
         from agent_dev.adapters.workspace import configuration_root
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         # Tokens belong to one workspace; a connection ID never selects another one's file.
         directory = workspace_locations(configuration_root(Path(self.root))).oauth_dir

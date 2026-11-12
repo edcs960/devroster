@@ -17,10 +17,10 @@ from agent_dev.adapters import storage_migration, storage_registry
 from agent_dev.adapters.environment import read_environment
 from agent_dev.adapters.global_settings import GlobalSettings
 from agent_dev.adapters.storage_migration import apply_move, plan_move, recover_move
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.studio_store import StudioStore
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
 from agent_dev.adapters.workspace import configuration_root
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.application.studio import Studio
 from agent_dev.core import cli_home
 from agent_dev.core.storage_locations import EXTERNAL, bootstrap_file, management_root

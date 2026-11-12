@@ -1,6 +1,6 @@
 # 다른 프로젝트에서 사용하기
 
-DevRoster 0.4.7. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
+DevRoster 0.4.8. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
 
 **목차**
 
@@ -29,7 +29,7 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 # Windows는 .venv/Scripts/activate 사용
-python -m pip install /path/to/devroster-0.4.7-py3-none-any.whl
+python -m pip install /path/to/devroster-0.4.8-py3-none-any.whl
 devroster init --root /path/to/my-project --name MyProject --preset python
 cd /path/to/my-project
 devroster doctor
@@ -45,7 +45,7 @@ devroster dashboard
 - 기존 wheel 설치를 업데이트할 때는 같은 버전의 실행 파일도 갱신되도록 다시 설치한다.
 
 ```sh
-python -m pip install --force-reinstall --no-deps /path/to/devroster-0.4.7-py3-none-any.whl
+python -m pip install --force-reinstall --no-deps /path/to/devroster-0.4.8-py3-none-any.whl
 ```
 
 **초기 상태**
@@ -229,7 +229,7 @@ devroster dashboard --port 8766
 
 **대시보드가 보여주는 것**
 
-- 주소는 `http://127.0.0.1:8766`이다.
+- 터미널에 출력된 주소(`http://127.0.0.1:8766/launch?key=…`)로 연다. 한 번만 쓸 수 있는 주소이고, 연 브라우저에서는 끌 때까지 `http://127.0.0.1:8766`을 그대로 쓸 수 있다.
 - 전체/진행/확인 필요/완료 건수, 클릭 가능한 작업 목록, 목표·완료 기준, 한글 다음 행동, 승인·진행 단계와 검증 결과를 표시한다.
 - 명령 복사 버튼은 명령을 실행하지 않는다.
 - `#task=TASK-ID`로 작업 상세를 직접 열 수 있다.

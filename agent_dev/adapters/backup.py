@@ -64,7 +64,7 @@ def physical_sources(root, workspace):
     Bundles keep the project-local logical paths (``.agent-dev/...``); an external
     workspace resolves them to its configuration folder instead.
     """
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
     from agent_dev.core.storage_locations import EXTERNAL
 
     locations = workspace_locations(root)

@@ -1,7 +1,8 @@
 """Storage-location types and management-root discovery.
 
 Pure path composition only: nothing here creates folders or databases. Registry
-I/O and the detection of existing layouts live in ``adapters.storage_registry``.
+I/O lives in ``adapters.storage_registry``; the decision which layout a folder uses
+lives in ``adapters.workspace_locator``.
 """
 
 from __future__ import annotations
@@ -45,6 +46,13 @@ class WorkspaceLocations:
     worktree_root: Path
     output_root: Path
     layout: str = LOCAL
+
+    @property
+    def needs_trust(self) -> bool:
+        """Only configuration that can travel with the project folder needs a decision."""
+        # The legacy engine folder and a registered mapping are folders the user chose.
+        registered = self.layout == EXTERNAL and bool(self.workspace_id)
+        return self.layout != LEGACY and not registered
 
 
 def location_error(message: str) -> DomainError:

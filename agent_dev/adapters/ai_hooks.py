@@ -308,9 +308,9 @@ LOG_KEEP = 200
 
 
 def _config(root) -> Path:
-    from agent_dev.adapters.workspace import configuration_root, engine_configuration
+    from agent_dev.adapters.workspace_locator import settings_root
 
-    return engine_configuration(configuration_root(Path(root)))
+    return settings_root(root)
 
 
 def log_results(config_root, event: str, results: list[dict], context: dict) -> None:

@@ -747,7 +747,7 @@ class WikiKnowledge:
 
     def workspace_project(self):
         """The project this workspace's docs/wiki belongs to (same rule as project setup)."""
-        from agent_dev.adapters.storage_registry import workspace_locations
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         marker = workspace_locations(self.root).config_root / "workspace.json"
         if marker.is_file():

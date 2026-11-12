@@ -16,7 +16,7 @@ def _read(path, default):
 
 def snapshot(root):
     root = Path(root)
-    from agent_dev.adapters.storage_registry import state_db_path
+    from agent_dev.adapters.workspace_locator import state_db_path
 
     database = state_db_path(root)
     runtime = _read(root / "config/runtime.json", {})

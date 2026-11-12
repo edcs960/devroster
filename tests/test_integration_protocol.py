@@ -21,6 +21,10 @@ def test_catalog_read_fixture_and_unknown_write_denied(tmp_path, monkeypatch, pr
 
     app=Integrations(tmp_path,client_factory=FakeClient)
     app.configure({'id':'fixture','provider':provider['id'],'scopes':['fixture'],'supported_client':True})
+    if app.show('fixture')['transport'] == 'stdio':
+        # A local server starts only after its launch command was confirmed.
+        assert app.check('fixture')['state']=='approval_required'
+        app.approve_launch('fixture', app.launch('fixture')['digest'])
     assert app.check('fixture')['state']=='partial'
     if provider['group'] == 'browser':
         assert app.check('fixture',operation=operation,scope='fixture')['state']=='error'

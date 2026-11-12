@@ -16,9 +16,11 @@ class IntegrationWeb(LocalWeb):
         if action == "bootstrap":
             return {
                 "catalog": self.service.catalog(),
-                "connections": self.service.list(),
+                "connections": self._connections(),
                 "project": self.service.project,
             }
+        if action == "launch":
+            return self.service.launch(query["id"])
         if action == "catalog":
             return self.service.catalog()
         if action == "list":
@@ -33,8 +35,18 @@ class IntegrationWeb(LocalWeb):
             return self.service.oauth.complete(query.get("state", ""), query.get("code", ""), self.service.show)
         return super().get(action, query)
 
+    def _connections(self):
+        """Rows for the page: a stdio row also says whether its launch command was confirmed."""
+        rows = self.service.list()
+        for row in rows:
+            if row.get("transport") == "stdio" and row.get("command"):
+                row["launch_approved"] = self.service.launch(row)["approved"]
+        return rows
+
     def post(self, action, payload):
         service = self.service
+        if action == "approve-launch":
+            return service.approve_launch(payload["id"], payload["digest"])
         if action == "configure":
             return service.configure(payload["config"], payload.get("expected_version", 0))
         if action == "check":

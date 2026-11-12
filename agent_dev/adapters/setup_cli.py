@@ -234,7 +234,7 @@ def _invalid(message):
 def settings_location(args):
     """devroster settings location show|plan DEST --scope S|apply PLAN_ID|recover ID --action A."""
     from agent_dev.adapters import storage_migration
-    from agent_dev.adapters.storage_registry import location_report
+    from agent_dev.adapters.workspace_locator import location_report
 
     operation, target = args.operation, args.target
     if operation not in LOCATION_OPERATIONS:

@@ -11,9 +11,9 @@ from agent_dev.adapters.backup import create_bundle, inspect_bundle, restore_bun
 from agent_dev.adapters.credential_store import CredentialStore
 from agent_dev.adapters.integrations import Integrations
 from agent_dev.adapters.shared_integrations import SharedIntegrations
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.studio_store import StudioStore
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.application.studio import Studio
 from agent_dev.core.storage_locations import PORTABLE
 from agent_dev.domain.content import content_digest

@@ -3,29 +3,25 @@
 The mapping lives in ``<management root>/app.json`` under ``workspace_registry``; the
 project list kept by ``workspace_registry`` shares the file and lock. Lookups never
 create folders, databases or registry files; only ``register``/``relink`` write.
+
+This module is registry I/O only. Which layout a folder uses is decided in
+``workspace_locator``, which reads this registry; nothing here imports it back.
 """
 
 import json
 import uuid
 from pathlib import Path
 
-from agent_dev.core.io import locked
+from agent_dev.core.io import atomic_json, locked
 from agent_dev.core.storage_locations import (
-    LEGACY,
-    PORTABLE,
     RUNTIME_DIR,
-    WorkspaceLocations,
-    external_locations,
-    local_locations,
     location_error,
     management_root,
-    unregistered_external_locations,
     valid_workspace_id,
 )
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 KEY = "workspace_registry"
-MARKER = "workspace.json"
 REGISTRY_VERSION = 1
 
 
@@ -131,8 +127,6 @@ def check_mapping(source, config, runtime, workspace_id=None):
 
 
 def _write(state, registry):
-    from agent_dev.adapters.project_setup import atomic_json
-
     state[KEY] = dict(registry, version=REGISTRY_VERSION)
     atomic_json(state_file(), state)
 
@@ -264,114 +258,3 @@ def find(path: Path) -> tuple[str, dict] | None:
 def registered_config(path: Path) -> Path | None:
     found = find(path)
     return Path(found[1]["config_root"]) if found else None
-
-
-def location_report(root: Path) -> dict:
-    """Where the management root and the selected workspace keep their data (no secrets)."""
-    import os
-    from dataclasses import asdict
-
-    from agent_dev.adapters.workspace import configuration_root
-    from agent_dev.core.storage_locations import HOME_OVERRIDE, read_bootstrap
-
-    source = (
-        "environment"
-        if os.environ.get(HOME_OVERRIDE)
-        else "bootstrap"
-        if read_bootstrap() is not None
-        else "default"
-    )
-    locations = workspace_locations(configuration_root(Path(root)))
-    return {
-        "management_root": str(management_root()),
-        "management_source": source,
-        "registry_revision": read()["revision"],
-        "workspace": {key: str(value) for key, value in asdict(locations).items()},
-    }
-
-
-def state_db_path(root: Path) -> Path:
-    """The canonical DB of the workspace selected by ``root`` (source or config folder)."""
-    from agent_dev.adapters.workspace import configuration_root
-
-    return workspace_locations(configuration_root(Path(root))).state_db
-
-
-def _marker(config: Path) -> dict | None:
-    path = config / MARKER
-    if not path.is_file():
-        return None
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        raise location_error(f"workspace 표식 파일을 읽지 못했습니다: {path}") from None
-    if not isinstance(value, dict):
-        raise location_error(f"workspace 표식 파일 형식을 확인해주세요: {path}")
-    return value
-
-
-def _external_marker(config: Path, marker: dict) -> WorkspaceLocations:
-    workspace_id = marker.get("workspace_id")
-    source = marker.get("source_root")
-    runtime = marker.get("runtime_root", "")
-    if (
-        not isinstance(workspace_id, str)
-        or not workspace_id
-        or not isinstance(source, str)
-        or not Path(source).is_absolute()
-        or not isinstance(runtime, str)
-    ):
-        raise location_error(f"외부 workspace 표식의 위치 정보를 확인해주세요: {config / MARKER}")
-    source_path = Path(source)
-    # A marker is not an identity: without a registry entry it never selects another
-    # workspace's credential folder (its workspace_id is ignored for paths and checks).
-    return unregistered_external_locations(
-        source_path, config, Path(runtime) if runtime else source_path / RUNTIME_DIR
-    )
-
-
-def workspace_locations(root: Path) -> WorkspaceLocations:
-    """Resolve and validate where one workspace keeps each kind of data.
-
-    Order: a registered source/config/runtime mapping, then a configuration marker,
-    then the project-local or legacy engine layout. Read-only.
-    """
-    root = Path(root).expanduser().resolve()
-    found = find(root)
-    if found:
-        workspace_id, row = found
-        config = Path(row["config_root"])
-        if not config.is_dir():
-            # Never fall back to an empty store in a disconnected folder (AC-12).
-            raise DomainError(
-                ErrorCode.CAPABILITY_UNAVAILABLE,
-                f"등록된 설정 위치에 접근할 수 없습니다: {config}. 저장 장치를 연결하거나 "
-                "devroster settings location으로 위치를 복구해주세요.",
-            )
-        marker = _marker(config)
-        if marker and marker.get("workspace_id") not in {None, workspace_id}:
-            raise DomainError(
-                ErrorCode.POLICY_VIOLATION,
-                "설정 위치의 workspace ID가 앱 매핑과 다릅니다. 다른 DB를 연결하지 않습니다.",
-            )
-        return external_locations(
-            workspace_id,
-            Path(row["source_root"]),
-            config,
-            Path(row["runtime_root"]),
-            management_root(),
-        )
-    for config in (root, root / RUNTIME_DIR):
-        marker = _marker(config)
-        if marker is None:
-            continue
-        if "source_root" in marker:
-            return _external_marker(config, marker)
-        return local_locations(
-            config.parent, config, studio_base=config / "studio", layout=PORTABLE
-        )
-    from agent_dev.core.paths import AGENT_DEV_ROOT, PROJECT_ROOT
-
-    if root == Path(AGENT_DEV_ROOT).resolve():
-        return local_locations(Path(PROJECT_ROOT).resolve(), root, layout=LEGACY)
-    return local_locations(root, root)

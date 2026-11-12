@@ -130,8 +130,8 @@ def _as_pre_wiki_v3_database(root):
     """Recreate a workspace made before 2026-10-18: schema v3 without the wiki table."""
     import sqlite3
 
-    from agent_dev.adapters.storage_registry import state_db_path
     from agent_dev.adapters.workspace import configuration_root
+    from agent_dev.adapters.workspace_locator import state_db_path
 
     path = state_db_path(configuration_root(root))
     with sqlite3.connect(path) as sql:

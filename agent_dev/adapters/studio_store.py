@@ -76,7 +76,7 @@ def job_estimates(db, recent=5):
 
 class StudioStore:
     def __init__(self, root):
-        from agent_dev.adapters.storage_registry import workspace_locations
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         root = Path(root).expanduser().resolve()
         locations = workspace_locations(root)

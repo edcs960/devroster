@@ -53,7 +53,7 @@ def test_bad_variable_names_are_refused(value):
 
 def test_a_reference_names_the_missing_variable(tmp_path, monkeypatch):
     initialize(tmp_path)
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
 
     locations = workspace_locations(tmp_path)
     store = CredentialStore(locations)

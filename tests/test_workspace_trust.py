@@ -3,6 +3,8 @@
 import json
 import shutil
 import sys
+import time
+from pathlib import Path
 
 import pytest
 
@@ -83,10 +85,88 @@ def test_another_database_at_a_trusted_path_is_not_trusted(tmp_path):
     root = made_here(tmp_path)
     foreign = arrived_with_repository(tmp_path, made_here(tmp_path, "other"))
     database = root / ".agent-dev/state.db"
+    before = workspace_trust._identity(database)
     for suffix in ("", "-wal", "-shm"):
         (root / f".agent-dev/state.db{suffix}").unlink(missing_ok=True)
+    time.sleep(0.05)  # Linux stamps birth times from a clock that ticks every 1-10 ms.
     shutil.copy2(foreign / ".agent-dev/state.db", database)
+    replaced = workspace_trust._identity(database)
+    if replaced == before and len(replaced) == 2:
+        pytest.skip("이 파일 시스템은 inode 번호를 다시 쓰고 파일 생성 시각을 알려 주지 않습니다.")
     assert workspace_trust.status(root)["trusted"] is False
+
+
+def reused_inode(monkeypatch, born):
+    """A filesystem that gives the next file the same inode number and reports birth times."""
+    monkeypatch.setattr(workspace_trust, "_born", lambda path: (Path(path).stat().st_ino, born["at"]))
+
+
+def test_a_reused_inode_number_is_told_apart_by_birth_time(tmp_path, monkeypatch):
+    """ext4 gives a freed inode number to the next new file (seen on Linux CI for 0.4.7)."""
+    born = {"at": 1_000}
+    reused_inode(monkeypatch, born)
+    root = made_here(tmp_path)
+    write_hooks(root, {"after_edit": [{"run": ["x"]}]})
+    config = ai_hooks._config(root)
+    ai_hooks.approve(config, root, ai_hooks.read_hooks(root)["digest"])
+    assert workspace_trust.status(root)["trusted"] is True
+    born["at"] = 2_000  # Same path, same device and inode, another file.
+    assert workspace_trust.status(root)["trusted"] is False
+    assert workspace_trust.hook_approval(config) == ""
+
+
+def test_decisions_from_the_previous_format_are_kept_once(tmp_path, monkeypatch):
+    root = made_here(tmp_path)
+    database = root / ".agent-dev/state.db"
+    info = database.stat()
+    trust_file = workspace_trust._path()
+    value = json.loads(trust_file.read_text(encoding="utf-8"))
+    key = next(iter(value["databases"]))
+    value["version"] = 1
+    value["databases"][key]["file"] = [info.st_dev, info.st_ino]
+    value["hooks"][key] = {"origin": "hooks", "file": [info.st_dev, info.st_ino], "digest": "d"}
+    trust_file.write_text(json.dumps(value), encoding="utf-8")
+    born = {"at": 1_000}
+    reused_inode(monkeypatch, born)
+
+    assert workspace_trust.status(root)["trusted"] is True  # Read before anything is stored.
+    workspace_trust.ensure_seeded()
+    stored = json.loads(trust_file.read_text(encoding="utf-8"))
+    assert stored["version"] == workspace_trust.VERSION
+    assert stored["databases"][key]["file"] == [info.st_dev, info.st_ino, 1_000]
+    assert stored["hooks"][key]["file"] == [info.st_dev, info.st_ino, 1_000]
+    assert workspace_trust.status(root)["trusted"] is True
+    assert workspace_trust.hook_approval(root) == "d"
+
+    born["at"] = 2_000
+    assert workspace_trust.status(root)["trusted"] is False
+
+
+def test_an_old_style_identity_no_longer_matches_once_stored(tmp_path, monkeypatch):
+    root = made_here(tmp_path)
+    info = (root / ".agent-dev/state.db").stat()
+    trust_file = workspace_trust._path()
+    value = json.loads(trust_file.read_text(encoding="utf-8"))
+    assert value["version"] == workspace_trust.VERSION
+    key = next(iter(value["databases"]))
+    value["databases"][key]["file"] = [info.st_dev, info.st_ino]
+    trust_file.write_text(json.dumps(value), encoding="utf-8")
+    assert workspace_trust.status(root)["trusted"] == (len(workspace_trust._identity(key)) == 2)
+    reused_inode(monkeypatch, {"at": 1_000})
+    assert workspace_trust.status(root)["trusted"] is False
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="statx는 Linux에만 있습니다.")
+def test_linux_reports_the_inode_it_measured(tmp_path):
+    path = tmp_path / "file"
+    path.write_text("x", encoding="utf-8")
+    born = workspace_trust._born(path)
+    if born is None:
+        pytest.skip("이 파일 시스템은 파일 생성 시각을 알려 주지 않습니다.")
+    assert born[0] == path.stat().st_ino
+    assert abs(born[1] / 1e9 - path.stat().st_mtime) < 60
+    assert workspace_trust._identity(path) == [path.stat().st_dev, born[0], born[1]]
+    assert workspace_trust._born(tmp_path / "missing") is None
 
 
 def test_upgrading_trusts_projects_the_app_already_knew(tmp_path):
@@ -166,11 +246,16 @@ def test_untrusted_project_mcp_server_is_not_started(tmp_path):
     clone = arrived_with_repository(tmp_path, made_here(tmp_path))
     started = []
     tools = Integrations(clone, client_factory=lambda *args, **kwargs: started.append(args))
-    row = {"transport": "stdio", "command": ["evil"], "environment_keys": [], "credential_ref": "", "id": "c", "endpoint": ""}
+    row = {"transport": "stdio", "command": [sys.executable, "-c", "pass"], "environment_keys": [], "credential_ref": "", "id": "c", "name": "c", "endpoint": ""}
     with pytest.raises(DomainError) as error:
         tools._client(row)
-    assert error.value.code == ErrorCode.APPROVAL_REQUIRED and started == []
+    assert error.value.code == ErrorCode.APPROVAL_REQUIRED and "설정 신뢰" in str(error.value) and started == []
     workspace_trust.trust(clone)
+    # Trusting the folder is not the same as confirming this server's launch command.
+    with pytest.raises(DomainError) as error:
+        tools._client(row)
+    assert error.value.code == ErrorCode.APPROVAL_REQUIRED and "실행 확인" in str(error.value) and started == []
+    tools.approve_launch(row, tools.launch(row)["digest"])
     tools._client(row)
     assert len(started) == 1
 

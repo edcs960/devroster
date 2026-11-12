@@ -119,7 +119,7 @@ def diagnose(root: Path, *, check_auth=False, fix_permissions=False):
             "실행 설정이 없거나 올바르지 않습니다.",
             "새 작업 공간이면 devroster init 을 실행하고, 아니면 config/runtime.json 을 복원해주세요.",
         )
-    from agent_dev.adapters.storage_registry import workspace_locations
+    from agent_dev.adapters.workspace_locator import workspace_locations
 
     db_path = workspace_locations(root).state_db
     profile = {}

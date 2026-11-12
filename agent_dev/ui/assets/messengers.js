@@ -31,6 +31,7 @@
     $('channel-id').value = s.channel_id; $('allowed-users').value = s.allowed_user_ids.join(', '); $('allowed-bots').value = s.allowed_bot_ids.join(', ');
     $('prefix').value = s.prefix; $('poll-seconds').value = s.poll_seconds; $('enabled').checked = s.enabled; $('notify').checked = s.notify; $('socket-mode').checked = s.socket_mode;
     for (const box of document.querySelectorAll('[data-command]')) box.checked = !!s.commands[box.dataset.command];
+    for (const box of document.querySelectorAll('[data-bot-command]')) box.checked = !!s.bot_commands[box.dataset.botCommand];
     const facts = $('listener-state'); facts.replaceChildren();
     const fact = (label, value) => facts.append(node('dt', label), node('dd', value));
     fact('이 앱의 리스너', data.running ? '동작 중' : '멈춤');
@@ -55,6 +56,7 @@
     enabled: $('enabled').checked, notify: $('notify').checked, socket_mode: $('socket-mode').checked, channel_id: $('channel-id').value.trim(), allowed_user_ids: ids($('allowed-users').value), allowed_bot_ids: ids($('allowed-bots').value),
     prefix: $('prefix').value.trim(), poll_seconds: Number($('poll-seconds').value),
     commands: Object.fromEntries([...document.querySelectorAll('[data-command]')].map(box => [box.dataset.command, box.checked])),
+    bot_commands: Object.fromEntries([...document.querySelectorAll('[data-bot-command]')].map(box => [box.dataset.botCommand, box.checked])),
   }}), () => '설정을 저장했습니다.'); });
   $('connection-test').addEventListener('click', () => act($('connection-test'), () => call('test', {}), data => {
     const c = data.check; const channel = c.channel ? ` · 채널 #${c.channel.name}${c.channel.is_member ? '' : ' (봇이 아직 채널에 없습니다. /invite로 초대해주세요)'}` : ' · 채널 ID를 아직 저장하지 않았습니다';

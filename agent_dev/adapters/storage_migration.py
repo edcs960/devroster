@@ -28,8 +28,8 @@ from typing import NoReturn
 
 from agent_dev.adapters import storage_registry
 from agent_dev.adapters.project_setup import atomic_json, private_directory
-from agent_dev.adapters.storage_registry import workspace_locations
 from agent_dev.adapters.workspace import configuration_root, metadata
+from agent_dev.adapters.workspace_locator import workspace_locations
 from agent_dev.core.storage_locations import (
     BOOTSTRAP_VERSION,
     EXTERNAL,

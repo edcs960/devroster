@@ -8,7 +8,8 @@ Build on each target OS; PyInstaller does not cross-compile (one-click: scripts/
 The app has no console window: it starts the local web workspace, opens the browser and is
 stopped from the screen's menu (앱 종료). Opening it again shows the running one. AI CLIs
 (codex, claude) are installed separately and logged in from the settings screen.
---smoke starts the built app without a browser and checks /setup.
+--smoke starts the built app without a browser, opens a session with a one-time ticket
+and checks /setup.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -159,6 +161,22 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
+def session_address(home: str, base: str, page: str) -> str:
+    """A launch address for the app whose app folder is ``home`` (see agent_dev.ui.session)."""
+    sys.path.insert(0, str(ROOT))
+    from agent_dev.ui import session
+
+    saved = os.environ.get("DEVROSTER_HOME")
+    os.environ["DEVROSTER_HOME"] = home
+    try:
+        return session.launch_url(base, page, session.ticket())
+    finally:
+        if saved is None:
+            del os.environ["DEVROSTER_HOME"]
+        else:
+            os.environ["DEVROSTER_HOME"] = saved
+
+
 def smoke(executable: Path) -> None:
     port = free_port()
     with tempfile.TemporaryDirectory(prefix="devroster-app-") as folder:
@@ -173,16 +191,29 @@ def smoke(executable: Path) -> None:
             text=True, encoding="utf-8", errors="replace",
         )
         try:
+            base = f"http://127.0.0.1:{port}"
             deadline = time.time() + 60
             while True:
                 try:
-                    with urllib.request.urlopen(f"http://127.0.0.1:{port}/setup", timeout=2) as page:
-                        assert "settings-form" in page.read().decode("utf-8")
+                    with urllib.request.urlopen(base + "/api/app/status", timeout=2) as status:
+                        assert b"can_quit" in status.read()
                     break
                 except OSError:
                     if process.poll() is not None or time.time() > deadline:
-                        raise RuntimeError("launcher did not serve /setup:\n" + (process.stdout.read() if process.stdout else ""))
+                        raise RuntimeError("launcher did not start:\n" + (process.stdout.read() if process.stdout else ""))
                     time.sleep(1)
+            # The screens answer only a browser the app opened. Do what a second start of
+            # the app does: leave a one-time ticket in the app folder and open /launch.
+            try:
+                urllib.request.urlopen(base + "/setup", timeout=5)
+                raise RuntimeError("the built app served /setup without a session")
+            except urllib.error.HTTPError as refused:
+                assert refused.code == 403
+            browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+            with browser.open(session_address(env["DEVROSTER_HOME"], base, "/setup"), timeout=5) as launch:
+                assert launch.status == 200
+            with browser.open(base + "/setup", timeout=5) as page:
+                assert "settings-form" in page.read().decode("utf-8")
             homes = Path(folder) / "home" / "cli"
             assert (homes / "claude").is_dir() and (homes / "codex").is_dir()
             print(f"smoke ok: {executable} served /setup on port {port}")

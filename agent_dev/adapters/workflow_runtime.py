@@ -16,21 +16,16 @@ from agent_dev.adapters.state.sqlite.safety import ExecutionSafety
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository
 from agent_dev.adapters.verification import VerificationAdapter
 from agent_dev.adapters.wiki_knowledge import WikiKnowledge
+from agent_dev.adapters.workspace_locator import (
+    configuration_root,
+    project_root,
+    settings_root,
+    workspace_locations,
+)
 from agent_dev.adapters.worktrees import WorktreeManager
 from agent_dev.application.workflow import WorkflowCoordinator
 from agent_dev.domain.contracts import ToolConnection
 from agent_dev.domain.errors import DomainError, ErrorCode
-
-
-def project_root(configuration_root):
-    from agent_dev.adapters.storage_registry import workspace_locations
-    from agent_dev.adapters.workspace import configuration_root as normalize
-    from agent_dev.adapters.workspace import metadata
-
-    configuration_root = normalize(configuration_root)
-    metadata(configuration_root)  # Reject an unsupported marker before resolving.
-    return workspace_locations(configuration_root).source_root
-
 
 ROLE_OVERRIDE_DIR = ".agent-dev/roles"
 ROLE_OVERRIDE_LIMIT = 64 * 1024
@@ -43,8 +38,6 @@ def role_override(root, name):
     inside a task worktree can never redefine the rules that judge it. ``root`` is the
     configuration root; an external workspace records where its override came from.
     """
-    from agent_dev.adapters.storage_registry import workspace_locations
-    from agent_dev.adapters.workspace import configuration_root
     from agent_dev.core.storage_locations import EXTERNAL
     from agent_dev.domain.content import content_digest
 
@@ -204,11 +197,9 @@ def project_checks(resolved):
 
 class WorkflowRuntime:
     def __init__(self, root: Path, db_path=None, secrets=()):
-        from agent_dev.adapters.workspace import configuration_root, engine_configuration
-
         # The project folder of a legacy layout resolves to the engine's settings, so the
         # v2 flags and runners are the same whichever folder a command names.
-        self.root = engine_configuration(configuration_root(root))
+        self.root = settings_root(root)
         if (self.root / "upgrade-journal.json").exists():
             raise DomainError(
                 ErrorCode.POLICY_VIOLATION,
@@ -216,7 +207,6 @@ class WorkflowRuntime:
             )
         self.project_root = project_root(self.root)
         from agent_dev.adapters.secrets import registered_secrets
-        from agent_dev.adapters.storage_registry import workspace_locations
 
         self.locations = workspace_locations(self.root)
         if (

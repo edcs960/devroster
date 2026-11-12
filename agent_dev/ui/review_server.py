@@ -55,7 +55,7 @@ class ReviewWeb(LocalWeb):
         )
 
     def _db(self, read_only):
-        from agent_dev.adapters.storage_registry import state_db_path
+        from agent_dev.adapters.workspace_locator import state_db_path
 
         path = state_db_path(self._config)
         if not path.is_file():

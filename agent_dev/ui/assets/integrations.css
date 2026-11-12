@@ -48,3 +48,4 @@ body.app-shell.page-integrations .connection-editor .fields>label{margin:6px 0;f
 .page-integrations .catalog-transport{font-size:12px;color:var(--ui-muted);white-space:nowrap}
 .page-integrations .catalog-row button{min-height:36px;padding:6px 12px;font-size:13px}
 @media(max-width:700px){.page-integrations .catalog-row{grid-template-columns:minmax(0,1fr) auto}.page-integrations .catalog-group-tag,.page-integrations .catalog-transport{display:none}}
+.launch-facts{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-1);margin:0}.launch-facts dt{font-size:var(--fs-xs);color:var(--c-text-3);font-weight:var(--fw-semibold)}.launch-facts dd{margin:0 0 var(--sp-2);font-family:var(--font-mono,ui-monospace,monospace);font-size:var(--fs-sm);overflow-wrap:anywhere}

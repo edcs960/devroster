@@ -3,9 +3,12 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+from agent_dev.domain.errors import DomainError, ErrorCode
 
 
 @contextlib.contextmanager
@@ -80,3 +83,21 @@ def write_text(path: Path, content: str) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text(content, encoding="utf-8")
     os.replace(tmp_path, path)
+
+
+def atomic_json(path: Path, value: Any) -> None:
+    """Replace a private JSON file in one step (0600, fsync, never through a symlink)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        raise DomainError(ErrorCode.INVALID_INPUT, "설정 파일에 심볼릭 링크를 사용할 수 없습니다.")
+    descriptor, name = tempfile.mkstemp(dir=path.parent, prefix=".setup-", suffix=".tmp")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            json.dump(value, output, ensure_ascii=False, indent=2)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        Path(name).chmod(0o600)
+        os.replace(name, path)
+    finally:
+        Path(name).unlink(missing_ok=True)

@@ -18,7 +18,7 @@ class TaskQueries:
         from agent_dev.adapters.workflow_runtime import project_root
 
         self.root = configuration_root(root)
-        from agent_dev.adapters.storage_registry import workspace_locations
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         self.workspace = project_root(self.root)
         self.locations = workspace_locations(self.root)

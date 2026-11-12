@@ -12,7 +12,6 @@ import os
 import sys
 import threading
 import urllib.request
-import webbrowser
 from pathlib import Path
 
 from agent_dev.core.cli_home import app_home, apply_to_process
@@ -140,8 +139,8 @@ def upgrade_state_database(root: Path) -> bool:
     a locked file is left alone here; the pages report those cases themselves.
     """
     from agent_dev.adapters.state.sqlite.database import Database
-    from agent_dev.adapters.storage_registry import state_db_path
     from agent_dev.adapters.workspace import configuration_root
+    from agent_dev.adapters.workspace_locator import state_db_path
 
     try:
         path = state_db_path(configuration_root(Path(root)))
@@ -181,12 +180,24 @@ def main(argv=None) -> None:
     root = resolve_root(args.root)
     if args.root and root.is_dir():
         remember_root(root)
+    from agent_dev.ui import session
+
+    session.purge()
+    terminal = not getattr(sys, "frozen", False)  # A packaged app logs to a file: no keys there.
     existing = None if args.root else running_instance()
     if existing:
         # Opening the app again shows the running one instead of starting a second copy.
+        # That one only serves a browser it knows, so hand it a one-time ticket.
         print(f"이미 실행 중인 DevRoster를 엽니다: {existing}", flush=True)
-        if not args.no_browser:
-            webbrowser.open(existing + start_path(root))
+        try:
+            if not args.no_browser:
+                # This process ends here, so it waits until the browser has arrived.
+                session.open_in_browser(existing, start_path(root), key=session.ticket(), wait=True)
+            elif terminal:
+                address = session.launch_url(existing, start_path(root), session.ticket())
+                print(f"직접 열기(한 번만, 10분 안에): {address}", flush=True)
+        except OSError as error:
+            print(f"브라우저에 열 주소를 만들지 못했습니다: {error}", flush=True)
         return
     server = make_server(root, args.port)
     server.studio.quit = server.shutdown  # The screen's 앱 종료 stops serve_forever below.
@@ -195,12 +206,16 @@ def main(argv=None) -> None:
         server.studio.setup.features.messenger.autostart()
     except DomainError as error:
         print(f"슬랙 리스너를 시작하지 못했습니다: {error}", flush=True)
-    url = f"http://127.0.0.1:{server.server_port}{start_path(root)}"
-    print(f"DevRoster: {url}", flush=True)
+    base = f"http://127.0.0.1:{server.server_port}"
+    page = start_path(root)
+    print(f"DevRoster: {base}{page}", flush=True)
+    if terminal:
+        # The screens only answer a browser this app opened; this address opens one by hand.
+        print(f"직접 열기(한 번만 사용): {session.launch_url(base, page)}", flush=True)
     print(f"프로젝트 폴더: {root}", flush=True)
     print("종료: 화면 메뉴의 '앱 종료', 이 창을 닫기, 또는 Ctrl+C", flush=True)
     if not args.no_browser:
-        threading.Timer(0.5, webbrowser.open, [url]).start()
+        threading.Timer(0.5, session.open_in_browser, [base, page]).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

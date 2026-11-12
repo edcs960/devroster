@@ -308,12 +308,75 @@ class Integrations:
                 raise
             return ""
 
+    def launch(self, key):
+        """What starting this stdio connection runs here, for the user to confirm.
+
+        The name check in ``connection_row`` only steers people away from install-on-run
+        launchers; it cannot tell a safe program from ``python3 -c``. The boundary is this:
+        a stdio server starts only after the user confirmed the resolved executable, its
+        arguments and the environment names it receives. Any change to them asks again.
+        """
+        row = key if isinstance(key, dict) else self.show(key)
+        if row.get("transport") != "stdio" or not row.get("command"):
+            invalid("로컬 실행(stdio) 연결만 실행 확인이 필요합니다.")
+        program = row["command"][0]
+        if os.path.isabs(program):
+            found = program if os.path.isfile(program) else ""
+        elif os.sep in program or (os.altsep and os.altsep in program):
+            candidate = Path(self.root) / program
+            found = str(candidate) if candidate.is_file() else ""
+        else:
+            found = shutil.which(program) or ""
+        executable = os.path.abspath(found) if found else ""
+        subject = {
+            "executable": executable,
+            "command": list(row["command"]),
+            "environment_keys": sorted(row["environment_keys"]),
+        }
+        from agent_dev.adapters import workspace_trust
+
+        value = digest(subject)
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "executable": executable,
+            "real_path": os.path.realpath(executable) if executable else "",
+            "arguments": list(row["command"][1:]),
+            "environment_keys": subject["environment_keys"],
+            "digest": value,
+            "found": bool(executable),
+            "approved": bool(executable)
+            and workspace_trust.command_approval(self.store.config, row["id"]) == value,
+        }
+
+    def approve_launch(self, key, digest_value, actor="local-user"):
+        from agent_dev.adapters import workspace_trust
+
+        launch = self.launch(key)
+        if not launch["found"]:
+            invalid("MCP 실행 파일을 찾을 수 없습니다. 먼저 설치하거나 경로를 확인해주세요.")
+        if digest_value != launch["digest"]:
+            invalid(
+                "확인한 뒤에 실행 명령이 바뀌었습니다. 다시 열어 확인해주세요.",
+                ErrorCode.STALE_VERSION,
+            )
+        workspace_trust.approve_command(self.store.config, launch["id"], launch["digest"], actor)
+        return self.launch(key)
+
     def _client(self, row, timeout=30):
-        if row.get("transport") == "stdio" and not row.get("shared"):
+        if row.get("transport") == "stdio":
             from agent_dev.adapters import workspace_trust
 
-            # A project stdio server is a command from the project's own settings.
-            workspace_trust.require(self.store.config, "MCP 서버 실행")
+            if not row.get("shared"):
+                # A project stdio server is a command from the project's own settings.
+                workspace_trust.require(self.store.config, "MCP 서버 실행")
+            if not self.launch(row)["approved"]:
+                raise DomainError(
+                    ErrorCode.APPROVAL_REQUIRED,
+                    "이 MCP 서버가 실제로 실행할 명령을 아직 확인하지 않았습니다. 외부 도구 연결 "
+                    "화면의 '실행 확인'(또는 `devroster integration launch <연결 ID>`)에서 실행 파일 경로와 "
+                    "인수를 확인해주세요.",
+                )
         values = read_environment(self.store.config)
         config = dict(
             row,
@@ -338,8 +401,14 @@ class Integrations:
                 "auth_required",
                 "지원 MCP 클라이언트 인증을 확인하거나 Figma REST 연결을 선택해주세요.",
             )
-        elif row["transport"] == "stdio" and not shutil.which(row["command"][0]):
+        elif row["transport"] == "stdio" and not self.launch(row)["found"]:
             state, message = "installation_required", "MCP 실행 파일을 먼저 설치해주세요."
+        elif row["transport"] == "stdio" and not self.launch(row)["approved"]:
+            state = "approval_required"
+            message = (
+                "실제로 실행할 명령을 아직 확인하지 않았습니다. '실행 확인'에서 실행 파일 경로와 "
+                "인수를 확인해주세요."
+            )
         elif (
             row["transport"] in {"http", "api"}
             and base["auth"] != "none"

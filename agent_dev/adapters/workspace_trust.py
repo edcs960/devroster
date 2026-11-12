@@ -12,44 +12,77 @@ hook approvals written by someone else. Such a workspace is trusted only when
 
 Every decision lives in the management folder, never in the project, so a repository
 cannot ship its own trust. A decision names the DB file by path and file identity
-(device and inode): a different folder cloned or restored to the same path later is a
-different file and starts untrusted. Workspaces whose configuration DevRoster keeps outside the
+(device, inode and, on Linux, birth time): a different folder cloned or restored to the
+same path later is a different file and starts untrusted. Linux filesystems hand a freed
+inode number to the next new file, so device and inode alone would accept a replaced
+file there; see ``_identity``. Workspaces whose configuration DevRoster keeps outside the
 project (a registered external mapping, the legacy engine folder) need no trust.
-Hook approvals live here too, keyed by the same state DB.
+Hook approvals live here too, keyed by the same state DB, and so do the confirmations of
+stdio MCP launch commands (one per connection, naming the exact command the user saw).
 """
 
 from __future__ import annotations
 
+import ctypes
+import functools
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
-from agent_dev.core.io import locked
-from agent_dev.core.storage_locations import EXTERNAL, LEGACY, management_root
+from agent_dev.core.io import atomic_json, locked
+from agent_dev.core.storage_locations import management_root
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 TRUST_FILE = "workspace-trust.json"
-VERSION = 1
+# 2: a file identity also carries the birth time where the system reports one.
+VERSION = 2
+SECTIONS = ("databases", "hooks", "commands")
 
 
 def _path() -> Path:
     return management_root() / TRUST_FILE
 
 
+def _outdated(value: dict) -> bool:
+    version = value.get("version", 1)
+    return type(version) is not int or version < VERSION
+
+
 def _read() -> dict:
+    """The trust file with every decision in the current identity format.
+
+    A version 1 file named each DB by device and inode only. An entry that still names
+    the file at its path is read with that file's full identity; the next write (entry
+    points make one through ``ensure_seeded``) stores it. From then on an old-style
+    entry cannot match a file whose system reports a birth time.
+    """
+    value = _load()
+    if not _outdated(value):
+        return value
+    for section in SECTIONS:
+        rows = value.get(section)
+        for key, row in rows.items() if isinstance(rows, dict) else ():
+            known = row.get("file") if isinstance(row, dict) else None
+            current = _identity(key) if isinstance(known, list) and len(known) == 2 else None
+            if current is not None and current[:2] == known:
+                row["file"] = current
+    return value
+
+
+def _load() -> dict:
     try:
         value = json.loads(_path().read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, ValueError):
         # A damaged file trusts nothing new; it never silently trusts everything.
-        return {"version": VERSION, "databases": {}, "hooks": {}, "damaged": True}
+        return {"version": VERSION, "databases": {}, "hooks": {}, "commands": {}, "damaged": True}
     return value if isinstance(value, dict) else {}
 
 
 def _write(value: dict) -> None:
-    from agent_dev.adapters.project_setup import atomic_json
-
     atomic_json(_path(), dict(value, version=VERSION))
 
 
@@ -57,12 +90,60 @@ def _key(path) -> str:
     return str(Path(path).expanduser().resolve())
 
 
+@functools.cache
+def _statx():
+    """libc's statx on Linux, or None (another system, or a libc without it)."""
+    if sys.platform != "linux":
+        return None
+    try:
+        call = ctypes.CDLL(None, use_errno=True).statx
+    except (OSError, AttributeError):
+        return None
+    call.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_char_p]
+    call.restype = ctypes.c_int
+    return call
+
+
+def _born(path) -> tuple[int, int] | None:
+    """(inode, birth time in ns) of a file on Linux, when the filesystem records one.
+
+    Asked by path: opening the DB file here and closing it again would drop the POSIX
+    locks SQLite holds on it in this process, which is why the inode generation
+    (``FS_IOC_GETVERSION``, needs an open file) is not used.
+    """
+    call = _statx()
+    if call is None:
+        return None
+    at_fdcwd, inode_field, btime = -100, 0x100, 0x800
+    buffer = ctypes.create_string_buffer(256)  # struct statx
+    if call(at_fdcwd, os.fsencode(path), 0, inode_field | btime, buffer) != 0:
+        return None
+    raw = buffer.raw
+    if not int.from_bytes(raw[0:4], sys.byteorder) & btime:  # stx_mask
+        return None
+    inode = int.from_bytes(raw[32:40], sys.byteorder)  # stx_ino
+    seconds = int.from_bytes(raw[80:88], sys.byteorder, signed=True)  # stx_btime
+    return inode, seconds * 1_000_000_000 + int.from_bytes(raw[88:92], sys.byteorder)
+
+
 def _identity(path) -> list[int] | None:
+    """What tells this file from any other file that is ever at this path.
+
+    Device and inode are enough on macOS and Windows, which do not hand a freed file
+    number to a new file. Linux filesystems (ext4, XFS, Btrfs, overlayfs) do, so the
+    birth time is added there. A filesystem that reports none (some network and FUSE
+    mounts, ext4 with 128-byte inodes) keeps device and inode only.
+    """
     try:
         info = Path(path).stat()
     except OSError:
         return None
-    return [info.st_dev, info.st_ino]
+    born = _born(path)
+    if born is None or born[0] != info.st_ino:
+        # No birth time, or the file changed between the two calls: the shorter identity
+        # never matches a decision that recorded a birth time.
+        return [info.st_dev, info.st_ino]
+    return [info.st_dev, info.st_ino, born[1]]
 
 
 def _entry(origin: str, database, **extra) -> dict:
@@ -74,17 +155,14 @@ def _matches(entry, database) -> bool:
 
 
 def locations_for(root):
-    from agent_dev.adapters.storage_registry import workspace_locations
-    from agent_dev.adapters.workspace import configuration_root
+    from agent_dev.adapters.workspace_locator import configuration_root, workspace_locations
 
     return workspace_locations(configuration_root(Path(root)))
 
 
 def needs_trust(locations) -> bool:
     """Only configuration that can travel with the project folder needs a decision."""
-    # The legacy engine folder and a registered mapping are folders the user chose.
-    registered = locations.layout == EXTERNAL and bool(locations.workspace_id)
-    return locations.layout != LEGACY and not registered
+    return locations.needs_trust
 
 
 def _seeded(value: dict) -> dict:
@@ -114,6 +192,7 @@ def _update(change) -> dict:
         value = _seeded(_read())
         value.setdefault("databases", {})
         value.setdefault("hooks", {})
+        value.setdefault("commands", {})
         change(value)
         _write(value)
         return value
@@ -126,8 +205,9 @@ def ensure_seeded() -> None:
     upgrade (``devroster app --root <clone>``) is not mistaken for an already-known one.
     """
     try:
-        if "databases" not in _read():
-            _update(lambda _value: None)
+        value = _read()
+        if "databases" not in value or _outdated(value):
+            _update(lambda _value: None)  # Also stores identities read from a version 1 file.
     except (DomainError, OSError, ValueError, TypeError):
         pass  # Without a trust file every in-folder workspace asks for trust.
 
@@ -140,6 +220,7 @@ def record_created(database) -> None:
         # A new file at a known path replaces whatever was decided about the old one.
         value["databases"][key] = _entry("created", database)
         value["hooks"].pop(key, None)
+        value["commands"].pop(key, None)
 
     _update(change)
 
@@ -201,6 +282,38 @@ def forget(database) -> None:
     def change(value):
         value["databases"].pop(key, None)
         value["hooks"].pop(key, None)
+        value["commands"].pop(key, None)
+
+    _update(change)
+
+
+def command_approval(config_root, name: str) -> str:
+    """The launch digest the user confirmed for one stdio connection here, or ''."""
+    try:
+        database = locations_for(config_root).state_db
+    except (DomainError, OSError, ValueError):
+        return ""
+    row = _read().get("commands", {}).get(_key(database))
+    if not _matches(row, database):
+        return ""
+    item = row.get("items", {}).get(name)
+    return item.get("digest", "") if isinstance(item, dict) else ""
+
+
+def approve_command(config_root, name: str, digest_value: str, actor: str) -> None:
+    database = locations_for(config_root).state_db
+    if not database.is_file():
+        from agent_dev.adapters.state.sqlite.database import Database
+
+        Database(database)
+    key = _key(database)
+
+    def change(value):
+        row = value["commands"].get(key)
+        if not _matches(row, database):
+            row = _entry("commands", database, items={})  # another file: earlier answers do not carry over
+        row.setdefault("items", {})[name] = {"digest": digest_value, "actor": str(actor)[:80], "at": time.time()}
+        value["commands"][key] = row
 
     _update(change)
 

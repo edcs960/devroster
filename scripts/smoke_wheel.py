@@ -158,16 +158,27 @@ from agent_dev.adapters.project_setup import ProjectSetup
 root=Path.cwd();server=make_server(root,0)
 thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
 url='http://127.0.0.1:'+str(server.server_port)
+# The screens answer only a browser the app opened: no session, no data; then open one.
+import http.cookiejar,urllib.error
+from agent_dev.ui import session
+for path in ('/api/setup/bootstrap','/api/studio/bootstrap'):
+    try:
+        urllib.request.urlopen(url+path);raise SystemExit(path+' answered without a session')
+    except urllib.error.HTTPError as refused:
+        assert refused.code==403 and json.loads(refused.read())['code']=='session_required'
+browser=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+with browser.open(session.launch_url(url)) as response:
+    assert response.status==200
 try:
-    with urllib.request.urlopen(url+'/setup') as response:
+    with browser.open(url+'/setup') as response:
         assert '프로젝트 폴더' in response.read().decode('utf-8')
-    with urllib.request.urlopen(url+'/api/setup/bootstrap') as response:
+    with browser.open(url+'/api/setup/bootstrap') as response:
         boot=json.loads(response.read())
     assert len(boot['providers'])==9 and {'gemini_cli','xai_api','exaone_api'} <= set(boot['providers'])
     assert set(boot['settings']['ai']['runners'])==set(boot['providers'])
     value=boot['settings'];value['ai']['runners']['codex_cli']['model']='installed-fixture-model'
     request=urllib.request.Request(url+'/api/setup/save',data=json.dumps({'root':str(root),'settings':value}).encode(),headers={'Content-Type':'application/json','X-Setup-Token':boot['token']})
-    with urllib.request.urlopen(request) as response:
+    with browser.open(request) as response:
         assert json.loads(response.read())['settings']['revision']==1
     assert ProjectSetup(root).read()['ai']['runners']['codex_cli']['model']=='installed-fixture-model'
 finally:
@@ -183,15 +194,26 @@ from agent_dev.ui.studio_server import make_server
 server=make_server(Path.cwd(),0)
 thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
 url='http://127.0.0.1:'+str(server.server_port)
+# The screens answer only a browser the app opened: no session, no data; then open one.
+import http.cookiejar,urllib.error
+from agent_dev.ui import session
+for path in ('/api/setup/bootstrap','/api/studio/bootstrap'):
+    try:
+        urllib.request.urlopen(url+path);raise SystemExit(path+' answered without a session')
+    except urllib.error.HTTPError as refused:
+        assert refused.code==403 and json.loads(refused.read())['code']=='session_required'
+browser=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+with browser.open(session.launch_url(url)) as response:
+    assert response.status==200
 try:
-    with urllib.request.urlopen(url+'/studio') as response:
+    with browser.open(url+'/studio') as response:
         assert '기획서 작성' in response.read().decode('utf-8')
-    with urllib.request.urlopen(url+'/api/studio/bootstrap') as response:
+    with browser.open(url+'/api/studio/bootstrap') as response:
         data=json.loads(response.read());assert len(data['documents'])==22
     assert len(data['providers'])==9 and {'compatible_api','xai_api','exaone_api'} <= set(data['providers'])
     from agent_dev.adapters.api_runner import ApiRunnerAdapter
     request=urllib.request.Request(url+'/api/studio/create',data=json.dumps({'title':'Installed Studio','brief':'A user can create and search a memo.'}).encode(),headers={'Content-Type':'application/json','X-Studio-Token':data['token']})
-    with urllib.request.urlopen(request) as response:
+    with browser.open(request) as response:
         assert json.loads(response.read())['project']['title']=='Installed Studio'
 finally:
     server.shutdown();server.studio.close();server.server_close();thread.join()

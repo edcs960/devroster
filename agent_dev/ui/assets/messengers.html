@@ -51,6 +51,12 @@
       <label class="check"><input type="checkbox" data-command="run"> 실행·재개·검증 — 승인된 작업 진행</label>
       <label class="check"><input type="checkbox" data-command="approve"> 승인 — 설계·계획·Workflow 단계 승인 (승인자는 slack:사용자 ID로 기록)</label>
     </fieldset>
+    <fieldset><legend>봇에 허용할 명령</legend>
+      <p class="messenger-meta">봇은 다른 사람이 쓴 글(PR 제목, 이슈 본문, 알림)을 그대로 옮길 수 있습니다. 그 글이 명령으로 읽히면 글쓴이가 명령을 보낸 것과 같으므로, 믿을 수 있는 봇에만 필요한 명령을 켜세요. 위에서 꺼 둔 명령은 여기서 켜도 처리하지 않고, 승인은 봇에 허용하지 않습니다.</p>
+      <label class="check"><input type="checkbox" data-bot-command="status"> 상태 — 작업 목록·상태 조회</label>
+      <label class="check"><input type="checkbox" data-bot-command="request"> 요청 — Studio 기획서를 만들고 명세 생성 (AI 비용 발생)</label>
+      <label class="check"><input type="checkbox" data-bot-command="run"> 실행·재개·검증 — 승인된 작업 진행 (AI 비용 발생)</label>
+    </fieldset>
     <label class="check"><input id="notify" type="checkbox"> 작업 상태가 바뀌면 채널에 알림 (슬랙에서 시작한 작업은 그 스레드에)</label>
     <label class="check"><input id="socket-mode" type="checkbox"> Socket Mode로 바로 받기 (앱 토큰 필요. 연결이 끊기면 조회 주기대로 확인)</label>
     <label class="check"><input id="enabled" type="checkbox"> 사용 (앱을 켤 때 리스너도 시작)</label>

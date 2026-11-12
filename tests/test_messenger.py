@@ -258,12 +258,66 @@ def test_request_creates_a_studio_draft_and_reports_the_spec(workspace):
         clock=lambda: clock[0],
     )
     app.poll_once()
-    slack.messages = [{"ts": "1001.0", "bot_id": BOT, "subtype": "bot_message", "text": "요청 회원 탈퇴\n본문"}]
+    slack.messages = [{"ts": "1001.0", "user": USER, "text": "요청 회원 탈퇴\n본문"}]
     app.poll_once()
     assert studio.created == [("회원 탈퇴", "본문")] and studio.started == [("STUDIO-1", 1, "specs")]
     studio.job_state = "done"
     app.poll_once()
     assert slack.posts[-1] == ("1001.0", "✅ *STUDIO-1* 명세 생성 완료. Studio에서 검토해주세요.")
+
+
+def test_bot_messages_only_run_the_commands_allowed_for_bots(workspace):
+    """A bot relays text other people wrote, so by default it may only read status."""
+    settings = messenger.read_settings(workspace)
+    assert settings["bot_commands"] == {"request": False, "status": True, "run": False}
+    settings["commands"]["approve"] = True
+    messenger.save_settings(workspace, settings)
+    slack, clock, studio, console = FakeSlack(), [1000.0], FakeStudioWeb(), FakeConsole()
+    app = messenger.MessengerListener(
+        workspace, studio_web=studio, client_factory=lambda: slack, console=console,
+        clock=lambda: clock[0],
+    )
+    app.poll_once()
+    bot = {"bot_id": BOT, "subtype": "bot_message"}
+    slack.messages = [
+        {"ts": "1001.0", **bot, "text": "요청 회원 탈퇴\n본문"},
+        {"ts": "1002.0", **bot, "text": "실행 TASK-001"},
+        {"ts": "1003.0", **bot, "text": "승인 계획 PLAN-1"},
+        {"ts": "1004.0", **bot, "text": "상태"},
+        {"ts": "1005.0", **bot, "text": "도움말"},
+        # The bot's own user ID on the allow-list does not turn its message into a person's.
+        {"ts": "1006.0", "bot_id": BOT, "user": USER, "text": "실행 TASK-001"},
+    ]
+    app.poll_once()
+    replies = dict(slack.posts)
+    for ts in ("1001.0", "1002.0", "1003.0", "1006.0"):
+        assert replies[ts].startswith("🚫 봇이 올린 메시지"), replies[ts]
+    assert replies["1004.0"] == "작업이 없습니다."
+    assert replies["1005.0"].startswith("*DevRoster 명령*")
+    assert not studio.created and not console.started
+
+
+def test_a_trusted_bot_can_be_given_request_but_never_approve(workspace):
+    settings = messenger.read_settings(workspace)
+    settings["bot_commands"]["request"] = True
+    messenger.save_settings(workspace, settings)
+    slack, clock, studio = FakeSlack(), [1000.0], FakeStudioWeb()
+    app = messenger.MessengerListener(
+        workspace, studio_web=studio, client_factory=lambda: slack, console=FakeConsole(),
+        clock=lambda: clock[0],
+    )
+    app.poll_once()
+    slack.messages = [{"ts": "1001.0", "bot_id": BOT, "subtype": "bot_message", "text": "요청 회원 탈퇴\n본문"}]
+    app.poll_once()
+    assert studio.created == [("회원 탈퇴", "본문")]
+    with pytest.raises(DomainError):
+        messenger.save_settings(workspace, {**settings, "bot_commands": {**settings["bot_commands"], "approve": True}})
+    # Turning the command off for everyone also turns it off for bots.
+    settings["commands"]["request"] = False
+    messenger.save_settings(workspace, settings)
+    slack.messages = [{"ts": "1002.0", "bot_id": BOT, "subtype": "bot_message", "text": "요청 둘째\n본문"}]
+    app.poll_once()
+    assert "꺼져 있습니다" in dict(slack.posts)["1002.0"] and len(studio.created) == 1
 
 
 def test_approvals_use_the_cli_rules_and_record_the_slack_actor(workspace):

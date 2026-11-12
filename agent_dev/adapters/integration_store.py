@@ -13,8 +13,8 @@ from agent_dev.domain.errors import DomainError, ErrorCode
 class IntegrationStore:
     def __init__(self, root):
         from agent_dev.adapters.project_setup import ProjectSetup
-        from agent_dev.adapters.storage_registry import workspace_locations
         from agent_dev.adapters.workflow_runtime import project_root
+        from agent_dev.adapters.workspace_locator import workspace_locations
 
         self.config = configuration_root(Path(root))
         self.root = project_root(self.config)

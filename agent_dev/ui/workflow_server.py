@@ -39,7 +39,7 @@ class WorkflowWeb:
 
         from agent_dev.adapters.state.sqlite.database import Database
         from agent_dev.adapters.state.sqlite.store import WorkflowRepository
-        from agent_dev.adapters.storage_registry import state_db_path
+        from agent_dev.adapters.workspace_locator import state_db_path
 
         path = state_db_path(self.root)
         if not path.is_file():
