@@ -202,10 +202,10 @@ DB 변경이 없으면 “DB 변경 없음”과 이유를 명시한다.
 
 | 영역 | 역할 파일 | 주요 참조 |
 |---|---|---|
-| Frontend | `agent/developer-frontend.md` | 화면정의서, 프론트엔드 개발표준, 프레임워크·상태관리 구조 |
-| Backend | `agent/developer-backend.md` | API명세서, 데이터정의서, 권한정의서, 백엔드 개발표준 |
+| Frontend | `agent/developer-frontend.md` | 사용자인터페이스설계서, 프론트엔드 개발표준, 프레임워크·상태관리 구조 |
+| Backend | `agent/developer-backend.md` | 인터페이스설계서, 엔티티관계모형기술서, 권한정의서, 백엔드 개발표준 |
 | Infra | `agent/developer-infra.md` | 로컬개발/CI/CD/운영 문서 |
-| DB/Migration | `agent/dba.md` | 데이터정의서, 테이블정의서, 정책정의서 |
+| DB/Migration | `agent/dba.md` | 엔티티관계모형기술서, 데이터베이스설계서, 정책정의서 |
 
 복합 기능은 필요한 전문 Developer를 모두 적용한다.
 

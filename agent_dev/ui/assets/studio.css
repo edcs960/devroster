@@ -239,10 +239,18 @@
 .document-regenerate-row input { flex: 1 1 240px; min-width: 0; }
 #documents button[data-failed="true"] { color: var(--c-danger); }
 #documents button[data-failed="true"]::after { content: " · 생성 실패"; font-size: var(--fs-xs); }
+#documents button[data-skipped="true"] { color: var(--c-text-3); }
+#documents button[data-skipped="true"]::after { content: " · 작성 안 함"; font-size: var(--fs-xs); }
+.page-studio .optional-groups { margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.page-studio .optional-groups legend { padding: 0 var(--sp-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.page-studio .optional-groups .hint { margin: 0; overflow-wrap: anywhere; }
 
 /* Independent review: findings from fresh reviewers, grouped by state then severity. */
 .review-panel .review-lenses { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin: var(--sp-3) 0; }
 .review-panel .review-lenses label { margin: 0; }
+.review-panel .review-depth { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-3); }
+.review-panel .review-depth label, .review-panel .review-depth .hint { margin: 0; }
+.review-panel .review-depth select { width: auto; max-width: 100%; }
 .review-findings { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
 .review-finding { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-border); border-left-width: 4px; border-radius: var(--r-md); background: var(--c-surface); min-width: 0; overflow-wrap: anywhere; }
 .review-finding[data-severity="high"] { border-left-color: var(--c-danger); }

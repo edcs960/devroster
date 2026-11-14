@@ -11,8 +11,15 @@ from agent_dev.adapters.ai_providers import API_PROVIDERS, endpoint, normalize
 from agent_dev.domain.contracts import PhaseResult
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.model_routing import select_model
+from agent_dev.domain.prompt_cache import stable_length
 
 LIMIT = 2_000_000
+
+
+def _detail(usage, key):
+    """``cached_tokens`` of an OpenAI-style usage detail object; None when not reported."""
+    detail = usage.get(key)
+    return detail.get("cached_tokens") if isinstance(detail, dict) else None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -51,10 +58,22 @@ class ApiRunnerAdapter:
         elif self.provider == "anthropic_api":
             url = base + "/messages"
             headers.update({"x-api-key": key, "anthropic-version": "2023-06-01"})
+            # Anthropic reuses a prompt prefix only up to a marked block; the other providers
+            # find the shared prefix themselves. A part below the model's minimum cacheable
+            # size is processed as usual, so the marker is safe on short prompts.
+            split = stable_length(prompt)
+            content = (
+                [
+                    {"type": "text", "text": prompt[:split], "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": prompt[split:]},
+                ]
+                if split
+                else prompt
+            )
             body = {
                 "model": model,
                 "max_tokens": tokens,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": [{"role": "user", "content": content}],
             }
             if effort:
                 body["output_config"] = {"effort": effort}
@@ -137,17 +156,19 @@ class ApiRunnerAdapter:
                 ]
                 usage = data.get("usage", {})
                 counters = (usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+                cached = _detail(usage, "input_tokens_details")
             elif self.provider == "anthropic_api":
                 if data.get("stop_reason") not in {"end_turn", "stop_sequence"}:
                     raise ValueError("Incomplete response")
                 parts = [part["text"] for part in data["content"] if part["type"] == "text"]
                 usage = data.get("usage", {})
+                # Same mapping as the Claude CLI (runners/usage.py): cache writes are input the
+                # model processed, cache reads are counted beside input and priced at the cached rate.
                 counters = (
-                    usage.get("input_tokens", 0)
-                    + usage.get("cache_read_input_tokens", 0)
-                    + usage.get("cache_creation_input_tokens", 0),
+                    usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0),
                     usage.get("output_tokens", 0),
                 )
+                cached = usage.get("cache_read_input_tokens")
             elif self.provider == "gemini_api":
                 candidate = data["candidates"][0]
                 if candidate.get("finishReason") != "STOP":
@@ -162,6 +183,7 @@ class ApiRunnerAdapter:
                     usage.get("promptTokenCount", 0),
                     usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0),
                 )
+                cached = usage.get("cachedContentTokenCount")
             else:
                 choice = data["choices"][0]
                 if choice.get("finish_reason") != "stop" or choice["message"].get("tool_calls"):
@@ -169,6 +191,7 @@ class ApiRunnerAdapter:
                 parts = [choice["message"]["content"]]
                 usage = data.get("usage", {})
                 counters = (usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+                cached = _detail(usage, "prompt_tokens_details")
             text = "\n".join(parts).strip()
             if not text or len(text) > LIMIT or any(type(n) is not int or n < 0 for n in counters):
                 raise ValueError("Invalid content")
@@ -177,11 +200,20 @@ class ApiRunnerAdapter:
                 ErrorCode.INVALID_INPUT,
                 "AI 응답이 비어 있거나 잘림·차단·미지원 형식입니다. 모델과 출력 토큰 상한을 확인해주세요.",
             ) from None
-        return text, {
+        result = {
             "input_tokens": counters[0],
             "output_tokens": counters[1],
             "total_tokens": sum(counters),
         }
+        # Input the provider read from its prompt cache. Kept only when reported: an absent
+        # count stays unknown. Anthropic counts it beside input_tokens, the others inside
+        # (domain/usage_policy.py prices each accordingly).
+        if type(cached) is int and cached >= 0:
+            if self.provider == "anthropic_api":
+                result.update(cached_input_tokens=cached, total_tokens=sum(counters) + cached)
+            elif cached <= counters[0]:
+                result["cached_input_tokens"] = cached
+        return text, result
 
     def execute(self, request):
         if not request.capabilities <= {"text.generate"}:

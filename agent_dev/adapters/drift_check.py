@@ -5,6 +5,10 @@ the canonical DB, preferably on another model family than the one that wrote the
 Results are task events (DriftStarted / DriftChecked / DriftFailed, then
 DriftFindingProcessed per decision), so nothing in the canonical schema changes and the
 history stays append-only. The call's tokens are a RunnerUsage event (phase "drift").
+
+A project can join the check to verification (``drift.gate`` in the approved snapshot):
+``after_verification`` runs it when the gates pass, and ``require_clear`` refuses a publish
+until the check of the verified code has no open high finding (mode "block").
 """
 
 from __future__ import annotations
@@ -17,12 +21,27 @@ from pathlib import Path
 
 from agent_dev.adapters.development_review import ReviewContext, collect
 from agent_dev.adapters.state.sqlite.store import identifier
-from agent_dev.domain import drift
+from agent_dev.adapters.worktrees import evidence_digest
+from agent_dev.domain import criteria_tests, drift, review_scorecard
+from agent_dev.domain.content import digest, redact
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 
+def named_tests(db, task_id):
+    """Criterion id -> test selector, as Test Automation last named them for this task."""
+    rows = db.rows(
+        "SELECT payload_json FROM events WHERE aggregate_id=? AND kind='CriteriaTestsNamed' ORDER BY version DESC LIMIT 1",
+        (task_id,),
+    )
+    named = json.loads(rows[0]["payload_json"]).get("criteria_tests") if rows else None
+    return named if isinstance(named, dict) else {}
+
+
 def requirements(db, task_id):
-    """The imported requirements this task implements, with numbered acceptance criteria."""
+    """The imported requirements this task implements, with numbered acceptance criteria.
+
+    Each criterion carries ``test``: the test named for it, or "".
+    """
     rows = db.rows(
         "SELECT DISTINCT ir.requirement_id,ir.content_json FROM requirement_links rl "
         "JOIN imported_requirements ir ON ir.import_id=rl.import_id AND ir.requirement_id=rl.requirement_id "
@@ -43,7 +62,7 @@ def requirements(db, task_id):
                 ],
             }
         )
-    return result
+    return criteria_tests.attach(result, named_tests(db, task_id)) if result else result
 
 
 def diff_text(context):
@@ -98,6 +117,48 @@ def _events(db, task_id, kinds):
     ]
 
 
+def notebook(db, task_id, prefer=""):
+    """What the owner already rebutted or accepted in this task's earlier checks, with the reason."""
+    rows = _events(db, task_id, ("DriftChecked", "DriftFindingProcessed"))
+    findings = drift.decided(
+        [r for r in rows if r["_kind"] == "DriftChecked"], [r for r in rows if r["_kind"] == "DriftFindingProcessed"]
+    )
+    return review_scorecard.notebook(
+        [
+            {
+                "title": f.get("title"),
+                "state": f["state"],
+                "note": f["note"],
+                "about": f.get("criterion_id") or f.get("requirement_id") or f.get("file"),
+                "group": f.get("category"),
+            }
+            for f in findings
+        ],
+        prefer=prefer,
+    )
+
+
+def evidence(resolved):
+    """What a passed verification run stores as its policy digest, for the code as it is now."""
+    commands = resolved.get("verification", {}).get("commands", [])
+    return digest({"commands": commands, "source": evidence_digest(resolved.get("repositories", {}))})
+
+
+def _resolved(db, task_id):
+    rows = db.rows(
+        "SELECT s.resolved_json FROM input_snapshots s JOIN tasks t ON t.snapshot_id=s.id WHERE t.id=?", (task_id,)
+    )
+    return json.loads(rows[0]["resolved_json"]) if rows else {}
+
+
+def _verified(db, task_id):
+    """The evidence digest of the latest verification run when it passed, else ""."""
+    runs = db.rows(
+        "SELECT state,policy_digest FROM verification_runs WHERE task_id=? ORDER BY rowid DESC LIMIT 1", (task_id,)
+    )
+    return runs[0]["policy_digest"] if runs and runs[0]["state"] == "passed" else ""
+
+
 def status(db, task_id):
     rows = _events(db, task_id, ("DriftStarted", "DriftChecked", "DriftFailed", "DriftFindingProcessed"))
     finished = {r["id"] for r in rows if r["_kind"] in {"DriftChecked", "DriftFailed"}}
@@ -105,12 +166,54 @@ def status(db, task_id):
     failure = next((r for r in reversed(rows) if r["_kind"] == "DriftFailed"), None)
     checks = [r for r in rows if r["_kind"] == "DriftChecked"]
     decisions = [r for r in rows if r["_kind"] == "DriftFindingProcessed"]
-    return {
+    result = {
         "running": bool(running) and time.time() - running["_at"] < 1800,
         "latest": drift.view(checks, decisions),
         "failure": failure["message"] if failure and (not checks or failure["_at"] > checks[-1]["_at"]) else "",
         "categories": drift.CATEGORIES,
     }
+    reqs = requirements(db, task_id)
+    # Deterministic, no AI: which criteria have a test named for them at all.
+    result["criteria"] = criteria_tests.coverage(reqs)
+    mode = drift.gate_mode(_resolved(db, task_id))
+    result["gate"] = drift.gate(
+        mode,
+        bool(reqs),
+        result["latest"],
+        result["running"],
+        bool(result["failure"]),
+        _verified(db, task_id) if mode != "off" else "",
+    )
+    return result
+
+
+def require_clear(db, task_id):
+    """Refuse a publish while the project's drift gate blocks it (mode "block" only)."""
+    gate = status(db, task_id)["gate"]
+    if gate["blocks"]:
+        raise DomainError(ErrorCode.VERIFICATION_FAILED, "드리프트 검사 때문에 게시할 수 없습니다. " + gate["message"])
+    return gate
+
+
+def after_verification(config_root, db, task_id, generator=None):
+    """Run the check once verification passed, when the project joined it to verification.
+
+    Waits for the reviewer: verification runs in a command that ends right after. Never
+    raises: the check is evidence beside the gates, and a failure is recorded as DriftFailed.
+    """
+    try:
+        gate = status(db, task_id)["gate"]
+        if gate["state"] in {"off", "not_applicable", "running", "open", "clear"}:
+            return gate
+        from agent_dev.adapters.secrets import registered_secrets
+        from agent_dev.adapters.studio_generation import project_guidance
+        from agent_dev.domain.output_language import DEFAULT
+
+        language = project_guidance(config_root, "specs").get("language") or DEFAULT
+        return start(config_root, db, task_id, registered_secrets(config_root), language, generator, wait=True)["gate"]
+    except Exception as exc:  # noqa: BLE001 -- verification already passed; report, never fail it.
+        message = str(exc) if isinstance(exc, DomainError) else "드리프트 검사를 시작하지 못했습니다."
+        return {"mode": "", "state": "skipped", "blocks": False, "message": message}
 
 
 def start(config_root, db, task_id, secrets=(), language="Korean", generator=None, wait=False):
@@ -137,16 +240,21 @@ def start(config_root, db, task_id, secrets=(), language="Korean", generator=Non
     developer = json.loads(usage[0]["payload_json"]).get("provider", "") if usage else ""
     provider, model, config = reviewer(config_root, developer)
     check_id = "DRIFT-" + identifier()
+    # The check counts for exactly this code and these gates (see drift.gate).
+    checked = evidence(context.resolved)
     context.store.event(
         task_id,
         "DriftStarted",
         {"id": check_id, "provider": provider, "model": model, "files": len(files), "truncated": truncated},
     )
     data = {"requirements": reqs, "diff": diff, "language": language}
+    earlier = redact(notebook(db, task_id), context.secrets)
+    if earlier:
+        data["decided"] = earlier
     criteria = {c["id"] for r in reqs for c in r["acceptance"]}
     worker = threading.Thread(
         target=_run,
-        args=(context, task_id, check_id, data, provider, model, config, {r["id"] for r in reqs}, criteria, files, truncated, generator),
+        args=(context, task_id, check_id, data, provider, model, config, {r["id"] for r in reqs}, criteria, files, truncated, generator, checked),
         name="devroster-drift",
         daemon=True,
     )
@@ -156,7 +264,7 @@ def start(config_root, db, task_id, secrets=(), language="Korean", generator=Non
     return status(db, task_id)
 
 
-def _run(context, task_id, check_id, data, provider, model, config, req_ids, criteria, files, truncated, generator):
+def _run(context, task_id, check_id, data, provider, model, config, req_ids, criteria, files, truncated, generator, checked=""):
     from agent_dev.adapters.state.sqlite.safety import ExecutionSafety
     from agent_dev.adapters.studio_generation import cli_generate
     from agent_dev.domain.execution_limits import safe_usage
@@ -176,7 +284,15 @@ def _run(context, task_id, check_id, data, provider, model, config, req_ids, cri
         store.event(
             task_id,
             "DriftChecked",
-            {"id": check_id, "provider": provider, "model": model, "files": len(files), "truncated": truncated, "findings": findings},
+            {
+                "id": check_id,
+                "provider": provider,
+                "model": model,
+                "files": len(files),
+                "truncated": truncated,
+                "findings": findings,
+                "evidence": checked,
+            },
         )
     except Exception as exc:  # noqa: BLE001 -- the screen shows a safe reason, never provider output.
         message = str(exc) if isinstance(exc, DomainError) else "드리프트 검사에 실패했습니다. AI 도구 로그인·키를 확인해주세요."

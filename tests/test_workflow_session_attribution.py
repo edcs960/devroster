@@ -95,7 +95,53 @@ def test_declared_change_outside_the_nodes_own_scope_blocks(runtime):
         "DAG", "run", runner=Writer({"architect": {"changed_paths": "source.txt"}})
     )
     assert result["state"] == "blocked"
-    assert "architect changed a path outside its own scope" in result["reason"]
+    assert "세션의 'architect' 단계가 자기 수정 허용 경로 밖의 파일을 바꿨다고 보고했습니다: source.txt." in result["reason"]
+
+
+def worktree(runtime):
+    return Path(runtime.store.snapshot("DAG")["resolved"]["repositories"]["source"]["worktree"])
+
+
+def refused_copies(runtime, name):
+    folder = worktree(runtime).parent / ".attempts"
+    return [p.read_text(encoding="utf-8") for p in folder.glob(f"*-refused/source/{name}")]
+
+
+def test_running_again_puts_back_what_the_wrong_session_node_wrote(runtime):
+    prepare(runtime, chain(role("architect", "mix"), role("developer", "mix")))
+    runner = Writer({"architect": {"changed_paths": "source.txt"}})
+    blocked = runtime.execute("DAG", "run", runner=runner)
+    assert blocked["state"] == "blocked" and "이어서 실행하면 이 변경을" in blocked["reason"]
+    assert (worktree(runtime) / "source.txt").read_text(encoding="utf-8") == "new"
+    # Left in place, the next session would start from "new" and the architect's write would stand.
+    runner.controls, runner.write = {}, False
+    assert runtime.execute("DAG", "run-2", runner=runner)["state"] == "verifying"
+    assert (worktree(runtime) / "source.txt").read_text(encoding="utf-8") == "base"
+    assert refused_copies(runtime, "source.txt") == ["new"]
+
+
+class Stray(Writer):
+    """The first session call also writes a file no member may change."""
+
+    def execute(self, request):
+        if request.node_ids and not self.calls:
+            root = json.loads(request.context)["repositories"]["source"]["worktree"]
+            Path(root, "package.json").write_text("{}", encoding="utf-8")
+        return super().execute(request)
+
+
+def test_running_again_puts_back_a_session_change_outside_every_members_scope(runtime):
+    prepare(runtime, chain(role("developer", "develop"), role("developer-backend", "develop")))
+    runner = Stray({})
+    blocked = runtime.execute("DAG", "run", runner=runner)
+    assert blocked["state"] == "blocked"
+    assert "밖의 파일을 바꿨습니다: package.json." in blocked["reason"]
+    assert "이어서 실행하면 위 변경을" in blocked["reason"]
+    assert runtime.execute("DAG", "run-2", runner=runner)["state"] == "verifying"
+    assert not (worktree(runtime) / "package.json").exists()
+    assert refused_copies(runtime, "package.json") == ["{}"]
+    # What the session was allowed to write is kept.
+    assert (worktree(runtime) / "source.txt").read_text(encoding="utf-8") == "new"
 
 
 @pytest.mark.parametrize(

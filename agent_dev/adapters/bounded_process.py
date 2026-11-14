@@ -44,7 +44,7 @@ def _libc_waitid():
 _LIBC_WAITID = _libc_waitid()
 
 
-def _wait_options():
+def wait_options():
     if hasattr(os, "waitid") and hasattr(os, "P_PID"):
         return os.WEXITED | os.WNOHANG | os.WNOWAIT
     if _LIBC_WAITID is not None:
@@ -60,7 +60,7 @@ def _exited_pid(pid):
 
     WNOWAIT keeps the zombie, so the PID and its group cannot be reused while we hold it.
     """
-    options = _wait_options()
+    options = wait_options()
     if hasattr(os, "waitid"):
         result = os.waitid(os.P_PID, pid, options)
         return 0 if result is None else result.si_pid
@@ -76,7 +76,7 @@ def _exited_pid(pid):
     return struct.unpack_from("=i", info.raw, 12)[0]
 
 
-def _exited_unreaped(process):
+def exited_unreaped(process):
     """Observe exit without releasing the child PID/group identity."""
     with process._waitpid_lock:
         if process.returncode is not None:
@@ -87,7 +87,7 @@ def _exited_unreaped(process):
             return True
 
 
-def _signal_owned_group(process, sig):
+def signal_owned_group(process, sig):
     # Serialize with Popen poll/wait; never signal a reaped, reusable PID.
     with process._waitpid_lock:
         if process.returncode is not None:
@@ -117,7 +117,7 @@ class ProcessOutput:
 
 def _terminate(process):
     if os.name != "nt":
-        _signal_owned_group(process, signal.SIGKILL)
+        signal_owned_group(process, signal.SIGKILL)
     elif os.name == "nt":
         from agent_dev.adapters.process_guard import terminate_tree
 
@@ -128,7 +128,7 @@ def _terminate(process):
 def run_bounded(command, *, cwd, env, timeout, limit, tail=None, stderr=subprocess.STDOUT):
     """Keep a prefix, or a tail, and terminate on deadline or total byte limit."""
     if os.name != "nt":
-        _wait_options()  # Fail before spawning if safe group pinning is unavailable.
+        wait_options()  # Fail before spawning if safe group pinning is unavailable.
     deadline = time.monotonic() + timeout
     process, job = spawn(
         command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
@@ -184,7 +184,7 @@ def run_bounded(command, *, cwd, env, timeout, limit, tail=None, stderr=subproce
                 _terminate(process)
                 break
             if drained.is_set() and (
-                _exited_unreaped(process) if os.name != "nt" else process.poll() is not None
+                exited_unreaped(process) if os.name != "nt" else process.poll() is not None
             ):
                 break
             remaining = deadline - time.monotonic()

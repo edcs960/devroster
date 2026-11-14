@@ -24,6 +24,17 @@ def web_servers():
     }
 
 
+def commands():
+    """CLI namespaces whose handlers import the command line (see cli_registry)."""
+
+    def messenger(args):
+        from agent_dev.adapters.messenger import run_cli
+
+        return run_cli(args)
+
+    return {"messenger": messenger}
+
+
 def main(argv=None):
     from agent_dev.core.cli_home import apply_to_process
     from agent_dev.core.stdio import use_utf8_stdio
@@ -33,10 +44,12 @@ def main(argv=None):
     from agent_dev.adapters.workspace_trust import ensure_seeded
 
     ensure_seeded()  # Before any command registers a folder (see workspace_trust).
-    from agent_dev.adapters.command_line import handles, parser, register_web_servers
+    from agent_dev.adapters.cli_registry import register_commands, register_web_servers
+    from agent_dev.adapters.command_line import handles, parser
     from agent_dev.adapters.command_line import main as workflow_main
 
     register_web_servers(web_servers())
+    register_commands(commands())
 
     arguments = list(sys.argv[1:] if argv is None else argv)
     if handles(arguments):

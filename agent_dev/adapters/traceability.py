@@ -12,6 +12,7 @@ from agent_dev.adapters.pytest_attestation import canonical_selector, selector_p
 from agent_dev.adapters.source_explorer import SourceExplorer, forbidden
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository, identifier
 from agent_dev.adapters.worktrees import commit_fingerprint, evidence_digest
+from agent_dev.domain import criteria_tests
 from agent_dev.domain.content import canonical, content_digest, digest, redact
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.role_policy import path_matches
@@ -43,25 +44,13 @@ def _file(root, relative):
 
 
 def _test_selector(link, definition, policy):
-    mappings = [
-        m
-        for m in definition.get("verification_mapping", [])
-        if m["requirement_id"] == link["requirement_id"]
-        and m["target"] == link["target_ref"]
-        and set(link.get("criteria_ids", [])).issubset(m["criteria_ids"])
-    ]
+    mappings = criteria_tests.mappings(link, definition)
     gates = (
         {m["gate"] for m in mappings}
         if mappings
         else set(definition["handoff_scope"]["verification_gates"])
     )
-    commands = [
-        c
-        for c in policy.get("verification", {}).get("commands", [])
-        if c.get("repository") == link.get("module_id")
-        and c["name"] in gates
-        and link["target_ref"] in c.get("command", [])
-    ]
+    commands = criteria_tests.registered_commands(link, policy.get("verification", {}).get("commands", []), gates)
     try:
         targets = {canonical_selector(link["target_ref"], c.get("cwd", ".")) for c in commands}
         if not targets:
@@ -224,21 +213,9 @@ def _proof(conn, db, link, context, cache=None):
     ):
         return None, "수동·AI 연결입니다. 실제 검증 근거가 필요합니다."
     definition = json.loads(task["definition_json"])
-    matches = [
-        m
-        for m in definition.get("verification_mapping", [])
-        if m["requirement_id"] == link["requirement_id"]
-        and m["target"] == link["target_ref"]
-        and set(link["criteria_ids"]).issubset(m["criteria_ids"])
-    ]
+    matches = criteria_tests.mappings(link, definition)
     commands = resolved.get("verification", {}).get("commands", [])
-    matching = [
-        c
-        for c in commands
-        if c.get("repository") == link.get("module_id")
-        and c["name"] in {m["gate"] for m in matches}
-        and link["target_ref"] in c.get("command", [])
-    ]
+    matching = criteria_tests.registered_commands(link, commands, {m["gate"] for m in matches})
     if not matching:
         return None, "승인 계획에 수용 기준과 등록된 테스트 대상의 명시적 연결이 없습니다."
     if not WorkflowRepository(db)._approved(conn, task["id"]):
@@ -603,19 +580,7 @@ def link_criteria_tests(db, task_id, run_id):
         return 0
     if not named:
         named = _changed_tests(db, task[0], definition)
-    grouped = {}
-    for criterion, selector in named.items():
-        if not isinstance(criterion, str) or ":" not in criterion or not isinstance(selector, str):
-            continue
-        requirement, _, name = criterion.partition(":")
-        if requirement not in definition.get("requirement_ids", []):
-            continue
-        path = selector.split("::", 1)[0].strip()
-        if path:
-            # "REQ-001:*n" marks a changed test without a known criterion.
-            criteria = grouped.setdefault((requirement, path), set())
-            if not name.startswith("*"):
-                criteria.add(criterion)
+    grouped = criteria_tests.grouped(named, definition.get("requirement_ids", []))
     linked = 0
     for (requirement, path), criteria in sorted(grouped.items()):
         existing = db.rows(

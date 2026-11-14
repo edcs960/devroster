@@ -30,6 +30,7 @@ from agent_dev.core.io import atomic_json, locked
 from agent_dev.core.output_paths import slugify
 from agent_dev.core.storage_locations import EXTERNAL
 from agent_dev.domain.content import canonical, digest
+from agent_dev.domain.drift import GATE_MODES, gate_mode
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.domain.execution_limits import limits
 from agent_dev.domain.model_routing import routing_policy, select_model
@@ -229,6 +230,7 @@ class ProjectSetup:
             ((profile or {}).get("completion") or {}).get("mode", "local") if registered else "local"
         )
         value["verification_scope"] = (profile or {}).get("verification", {}).get("scope", "all")
+        value["drift_gate"] = gate_mode(profile or {})
         value["usage_policy"] = (profile or {}).get("usage_policy")
         # The screen keeps module-keyed choices; the profile stores them per git repository.
         value.setdefault("skills", (profile or {}).get("skills", {}))
@@ -361,6 +363,7 @@ class ProjectSetup:
             "document_paths",
             "verification_scope",
             "completion_mode",
+            "drift_gate",
             "output_language",
         }
         if set(value) - allowed_keys:
@@ -589,6 +592,16 @@ class ProjectSetup:
             invalid("작업 완료 방식을 확인해주세요.")
         value["completion_mode"] = mode
         result["completion"] = {"mode": mode}
+        # A save that does not mention the gate keeps it: a gate is never dropped silently.
+        gate = value.get("drift_gate", gate_mode(result))
+        if gate not in GATE_MODES:
+            invalid("드리프트 검사 방식을 확인해주세요.")
+        value["drift_gate"] = gate
+        if gate == "off":
+            # Absent means "off", so profiles saved before this setting keep their digest.
+            result.pop("drift", None)
+        else:
+            result["drift"] = {"gate": gate}
         for key, label in STRUCTURED_PATH_KEYS.items():
             if key in value:
                 paths = value[key]

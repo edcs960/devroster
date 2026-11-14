@@ -7,7 +7,7 @@ from pathlib import Path
 from agent_dev.adapters.skill_store import SKILLS_RULE, prompt_skills
 from agent_dev.adapters.state.sqlite.store import identifier
 from agent_dev.adapters.wiki_knowledge import prompt_items
-from agent_dev.domain import output_language
+from agent_dev.domain import output_language, prompt_cache
 from agent_dev.domain.content import content_digest, redact
 from agent_dev.domain.errors import DomainError, ErrorCode
 
@@ -167,7 +167,7 @@ class FilesystemArtifacts:
                     "content": content.decode(errors="replace")[:6000],
                 }
             )
-        # Project-stable keys first so providers can reuse the cached prompt prefix.
+        # prompt_cache.stable_first() below moves what every phase repeats to the front.
         payload = {
                 "operating_rules": resolved.get("operating_rules", ""),
                 # The project's own rules (.ai/rules): they refine how to work here and never
@@ -269,7 +269,7 @@ class FilesystemArtifacts:
             if project_skills:
                 payload["project_skills_rule"] = PROJECT_SKILLS_RULE
                 payload["project_skills"] = project_skills
-        return json.dumps(payload, ensure_ascii=False)
+        return json.dumps(prompt_cache.stable_first(payload), ensure_ascii=False)
 
     def acceptance_criteria(self, task_id: str) -> list:
         """Criterion IDs and text of the requirements this task implements (Studio handoff)."""

@@ -2,7 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const preparationReason='준비 모드에서는 AI 실행을 할 수 없습니다. 프로젝트 설정의 AI 도구에서 기본 AI를 활성화하고 인증을 확인해주세요.';
-  const state = {preparationMode:false,data:null, token:'', template:'', documents:[], step:'brief', screen:'', element:'', document:'', specDraft:null, specDirty:false, briefDirty:false, commenting:true, preview:false, pending:false, history:false, timer:null};
+  const state = {preparationMode:false,data:null, token:'', template:'', documents:[], documentGroups:null, optionalKey:'', step:'brief', screen:'', element:'', document:'', specDraft:null, specDirty:false, briefDirty:false, commenting:true, preview:false, pending:false, history:false, timer:null};
   const make = (tag, text, cls) => {const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
   const button = (title, action, cls='secondary') => {const b=make('button',title,cls);b.type='button';b.addEventListener('click',action);return b;};
   // Feedback rules: blocking errors stay in a dismissible banner until handled; successes are toasts.
@@ -28,7 +28,7 @@
     const previous=state.data;
     if(previous?.project.id!==data.project.id){$('journey-editor').hidden=true;$('journey-result').replaceChildren();journeySelection=null;invalidateJourney();}
     else if(previous?.project.version!==data.project.version){invalidateJourney();journeyStatus('Studio 변경됨 · 입력을 확인하고 새 미리보기를 준비해주세요.');}
-    state.data=data;state.history=!!data.readonly;$('projects').value=data.project.id;
+    state.data=data;state.history=!!data.readonly;syncOptionalGroups(data);$('projects').value=data.project.id;
     if(brief || !state.briefDirty) {$('title').value=data.project.title;$('brief').value=data.project.brief;state.briefDirty=false;}
     if(!state.specDirty || previous?.spec?.revision!==data.spec?.revision) {
       state.specDraft=data.spec ? structuredClone(data.spec.payload):null;state.specDirty=false;
@@ -136,7 +136,7 @@
     const box=$('review-lenses');
     if(!box.querySelector('input')){REVIEW_LENSES.forEach(([id,label])=>{const l=make('label',undefined,'check'),c=make('input');c.type='checkbox';c.value=id;c.id='lens-'+id;c.checked=id!=='mockup';l.append(c,document.createTextNode(label));box.append(l);});}
     const hasMock=!!state.data?.mock,mockup=$('lens-mockup');mockup.disabled=!hasMock;if(!hasMock)mockup.checked=false;
-    $('run-review').disabled=!!live()||state.pending||state.specDirty;
+    $('run-review').disabled=!!live()||state.pending||state.specDirty;$('review-depth').disabled=$('run-review').disabled;reviewCost();
     const findings=state.data?.findings||[],last=(state.data?.reviews||[])[0];
     $('review-empty').hidden=findings.length>0||!!last;
     $('review-meta').textContent=last?`최근 검토: 명세 버전 ${last.spec_revision} · 검토 AI ${last.reviewers.map(r=>r.provider+(r.model?' ('+r.model+')':'')).join(', ')} · 호출 ${last.calls}회`+(last.failed?` (실패 ${last.failed})`:'')+` · 지적 ${findings.filter(f=>f.state==='open').length}건 열림`:'';
@@ -155,7 +155,10 @@
       li.append(actions);list.append(li);
     }
   }
-  $('run-review').addEventListener('click',()=>{const lenses=[...$('review-lenses').querySelectorAll('input:checked')].map(i=>i.value);if(!lenses.length){notice('검토 관점을 하나 이상 고르세요.',true);return;}mutate('review',{lenses},{message:'독립 검토를 시작했습니다. 관점·모델마다 따로 호출하므로 몇 분 걸릴 수 있습니다.'});});
+  // Cost grows with lenses x model families; fewer families start with the best hit rate so far.
+  function reviewCost(){const lenses=$('review-lenses').querySelectorAll('input:checked').length,depth=Number($('review-depth').value);$('review-cost').textContent=`AI 호출 최대 ${lenses*depth}회 (관점 ${lenses}개 × 모델 계열 ${depth}개).`+(depth<3?' 계열을 줄이면 지금까지 지적 적중률이 확인된 계열부터 씁니다.':'');}
+  $('review-lenses').addEventListener('change',reviewCost);$('review-depth').addEventListener('change',reviewCost);
+  $('run-review').addEventListener('click',()=>{const lenses=[...$('review-lenses').querySelectorAll('input:checked')].map(i=>i.value);if(!lenses.length){notice('검토 관점을 하나 이상 고르세요.',true);return;}mutate('review',{lenses,depth:Number($('review-depth').value)},{message:'독립 검토를 시작했습니다. 관점·모델마다 따로 호출하므로 몇 분 걸릴 수 있습니다.'});});
   function render() {
     syncButtons();
     renderSelection();
@@ -226,8 +229,29 @@
       else if(line.trim())container.append(make('p',line));
     }
   }
-  // 22 specification documents in reading order, grouped; unknown names fall into 기타.
-  const DOC_GROUPS=[['기획·요구',['개발기획서','요구사항명세서','기능명세서','비기능요구사항정의서','프로세스정의서','용어사전']],['화면·인터페이스',['화면정의서','API명세서','프로그램목록']],['데이터·정책',['데이터정의서','테이블정의서','권한정의서','정책정의서','코드공통코드정의서']],['설계',['기술설계서','시스템다이어그램정의서','시퀀스다이어그램','클래스다이어그램']],['검증·추적',['테스트시나리오','요구사항추적성매트릭스','갭분석및보완사항','산출물목록']]];
+  // Specification documents in reading order: the required ones first, then the optional groups; unknown names fall into 기타.
+  const DOC_GROUPS=[['요구사항',['개발기획서','사용자요구사항정의서','유스케이스명세서','비기능요구사항정의서','정책정의서','요구사항추적표']],['화면·인터페이스',['사용자인터페이스설계서','인터페이스설계서']],['데이터·권한',['엔티티관계모형기술서','데이터베이스설계서','권한정의서']],['설계·시험',['아키텍처설계서','시험시나리오']],['선택 · 상세 설계',['컴포넌트설계서','클래스설계서','시퀀스다이어그램','프로세스정의서','프로그램목록','코드공통코드정의서']],['선택 · 관리',['용어사전','갭분석및보완사항','산출물목록']]];
+  // The optional groups to write (domain/studio.py OPTIONAL_GROUPS): all checked unless the current spec left a whole group out.
+  function renderOptionalGroups() {
+    const list=$('optional-group-list'), groups=state.documentGroups?.optional||[];if(!list||list.childElementCount||!groups.length)return;
+    for(const group of groups){
+      const label=make('label',undefined,'check'), input=make('input'), names=make('p',group.documents.join(', '),'hint');
+      input.type='checkbox';input.id='optional-group-'+group.key;input.checked=true;names.id=input.id+'-documents';input.setAttribute('aria-describedby',names.id);
+      label.append(input,document.createTextNode(' '+group.label+' '+group.documents.length+'종'));list.append(label,names);
+    }
+    if(state.data)syncOptionalGroups(state.data,true);
+  }
+  function syncOptionalGroups(data,force=false) {
+    if(data.readonly)return;
+    const key=data.project.id+':'+(data.spec?.revision||0);if(key===state.optionalKey&&!force)return;
+    const groups=state.documentGroups?.optional||[];if(!groups.length)return;
+    state.optionalKey=key;const skipped=data.spec?.payload.skipped_documents||[];
+    for(const group of groups){const box=$('optional-group-'+group.key);if(box)box.checked=!group.documents.every(name=>skipped.includes(name));}
+  }
+  function chosenOptionalGroups() {
+    const groups=state.documentGroups?.optional||[];if(!groups.length||groups.some(group=>!$('optional-group-'+group.key)))return null;
+    return groups.filter(group=>$('optional-group-'+group.key).checked).map(group=>group.key);
+  }
   function renderDocList() {
     const draft=state.specDraft, nav=$('documents');if(!draft)return;nav.replaceChildren();
     const needle=($('document-filter')?.value||'').trim();
@@ -237,7 +261,7 @@
     for(const [label,names] of groups){
       const list=names.filter(name=>state.documents.includes(name)&&(!needle||name.includes(needle)));if(!list.length)continue;
       nav.append(make('p',label,'doc-group'));
-      for(const name of list){const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');if((draft.failed_documents||[]).includes(name)){b.dataset.failed='true';b.title='생성 실패 · 다시 생성 필요';}if(name===state.document)b.setAttribute('aria-current','true');nav.append(b);shown++;}
+      for(const name of list){const b=button(name,()=>{state.document=name;renderDocument();nav.querySelectorAll('button').forEach(e=>e.classList.toggle('active',e===b));});b.classList.toggle('active',name===state.document);b.dataset.available=String(typeof draft.documents[name]==='string');if((draft.failed_documents||[]).includes(name)){b.dataset.failed='true';b.title='생성 실패 · 다시 생성 필요';}else if((draft.skipped_documents||[]).includes(name)){b.dataset.skipped='true';b.title='선택 문서 · 작성하지 않음';}if(name===state.document)b.setAttribute('aria-current','true');nav.append(b);shown++;}
     }
     if(!shown)nav.append(make('p','‘'+needle+'’와 일치하는 문서가 없습니다.','hint'));
   }
@@ -248,6 +272,7 @@
     $('document-toggle').textContent=state.preview?'편집 내용으로 돌아가기':'미리보기';
     markdown($('document-preview'),state.specDraft.documents[state.document]||'이 버전에는 선택한 문서 본문이 없습니다.');
     const failed=(state.specDraft.failed_documents||[]).includes(state.document);$('document-failed').hidden=!failed;$('document-failed').textContent=failed?'이 문서는 AI 생성에 실패했습니다. 아래에서 다시 생성해주세요.':'';
+    const skipped=!failed&&(state.specDraft.skipped_documents||[]).includes(state.document);$('document-skipped').hidden=!skipped;$('document-skipped').textContent=skipped?'선택 문서라 이번 생성에서 작성하지 않았습니다. 필요하면 아래에서 이 문서만 생성해주세요. 개발 인계 문서에는 들어가지 않습니다.':'';
     const blocked=state.preparationMode||state.history||!!live()||state.pending||state.specDirty||state.document==='개발기획서'||!state.data?.spec;
     $('regenerate-document').disabled=blocked;$('document-note').disabled=blocked;$('regenerate-document').title=state.document==='개발기획서'?'개발기획서는 입력한 기획서 원문입니다.':state.specDirty?'수정 내용을 저장한 뒤 다시 생성할 수 있습니다.':'';
   }
@@ -298,7 +323,7 @@
     item.requirement_ids.forEach(id=>{const req=state.data.spec.payload.requirements.find(r=>r.id===id);box.append(make('p',id+' · '+req.title,'hint'));});
     for(const id of item.reference_ids||[]){const reference=state.data.mock.payload.design_references?.find(row=>row.id===id);if(reference)box.append(make("p",reference.provider+" 참고 출처 · "+reference.source_digest.slice(0,12)+" (원본과 동일하다는 확인은 아님)","hint"));}
     const body=make('textarea');body.placeholder='예: 저장 버튼을 하단에 고정해주세요.';body.maxLength=8000;body.setAttribute('aria-label',item.label+'에 남길 코멘트');body.disabled=!writable();
-    const add=button('코멘트 남기기',()=>mutate('comment',{screen:state.screen,element:item.id,body:body.value}),'');add.disabled=!writable();box.append(body,add);
+    const add=button('코멘트 남기기',()=>mutate('comment',{screen:state.screen,element:item.id,body:body.value}),'');add.id='element-comment-add';add.setAttribute('aria-keyshortcuts','Control+Enter Meta+Enter');body.dataset.submit=add.id;add.disabled=!writable();box.append(body,add);
     const edits=make('details');edits.append(make('summary','요소 문구 직접 수정'));
     const title=field('요소 이름',item.label,()=>{}), content=field('표시 내용',item.text || '',()=>{},true);
     const save=button('문구 수정해 새 버전 만들기',()=>{const payload=structuredClone(state.data.mock.payload);const change=collect(payload.screens.find(s=>s.id===state.screen).elements)[item.id];change.label=title.querySelector('input').value;change.text=content.querySelector('textarea').value;mutate('mock-save',{payload});});save.disabled=!current() || !!live() || state.pending;
@@ -422,7 +447,7 @@
     } catch(error) {state.pending=false;notice(error.message,true);syncButtons();return false;}
   }
   async function refreshProjects(selected) {
-    const bootstrap=await api('bootstrap');state.preparationMode=!!bootstrap.preparation_mode;state.token=bootstrap.token;state.documents=bootstrap.documents;state.template=bootstrap.template;
+    const bootstrap=await api('bootstrap');state.preparationMode=!!bootstrap.preparation_mode;state.token=bootstrap.token;state.documents=bootstrap.documents;state.documentGroups=bootstrap.document_groups||null;renderOptionalGroups();state.template=bootstrap.template;
     if(!state.aiInitialized&&bootstrap.ai){state.providers=bootstrap.providers;$('provider').replaceChildren();Object.entries(state.providers).forEach(([p,info])=>{const note=bootstrap.ai_notes?.notes?.[p]??(bootstrap.ai.runners[p].enabled?'':'설정 필요'),option=make('option',info.label+(note?' · '+note:''));option.value=p;$('provider').append(option);});$('provider').value=bootstrap.ai.provider;state.ai=bootstrap.ai;state.aiShared=!!bootstrap.ai_notes?.shared;state.aiInitialized=true;syncRouting();}
     const select=$('projects');select.replaceChildren(make('option','새 프로젝트'));select.firstChild.value='';
     bootstrap.projects.forEach(p=>{const o=make('option',p.title);o.value=p.id;select.append(o);});select.value=selected || '';syncButtons();
@@ -484,7 +509,7 @@
     const info=state.providers?.[$('provider').value];$('provider-help').textContent=info?.kind==='api'?'등록한 API 또는 로컬 서버로 기획서를 전달합니다. 모델·인증 키는 '+(state.aiShared?'AI 도구 메뉴':'AI·환경 설정')+'에서 준비해주세요.':'로컬에 설치하고 로그인한 CLI를 사용합니다. 생성 시 선택한 AI 서비스로 기획서를 전달합니다.';
     $('routing-hint').textContent=automatic?(selected?.routing?.mode==='auto'?'균형형 자동 선택: 명세·위험 검토 high, 일반 작업 medium, 단순 작업 low. 등록한 지원 강도와 상한 안에서 선택합니다.':'프로젝트에 저장한 고정 모델·추론 강도를 사용합니다.'):'이번 생성에만 모델·추론 강도를 직접 지정합니다.';
   }
-  const generate=(kind,extra={})=>{if(state.preparationMode){notice(preparationReason,true);return Promise.resolve(false);}return mutate('generate',{kind,...extra,provider:$('provider').value,...($('auto-routing').checked?{}:{model:$('model').value,effort:$('effort').value})},{message:kind==='spec_documents'?'선택한 문서를 다시 생성합니다. 완료되면 새 버전으로 열립니다.':'AI 생성을 시작했습니다. 완료되면 검토 화면으로 이동합니다.'});};
+  const generate=(kind,extra={})=>{if(state.preparationMode){notice(preparationReason,true);return Promise.resolve(false);}const optional=kind==='specs'?chosenOptionalGroups():null;return mutate('generate',{kind,...extra,...(optional?{optional_groups:optional}:{}),provider:$('provider').value,...($('auto-routing').checked?{}:{model:$('model').value,effort:$('effort').value})},{message:kind==='spec_documents'?'선택한 문서를 다시 생성합니다. 완료되면 새 버전으로 열립니다.':'AI 생성을 시작했습니다. 완료되면 검토 화면으로 이동합니다.'});};
   $('regenerate-document').addEventListener('click',async()=>{const name=state.document;if(!name||$('regenerate-document').disabled)return;if(!await ask('이 문서 다시 생성',name+' 문서만 AI로 다시 씁니다. 다른 문서와 요구사항은 그대로이고, 결과는 새 명세 버전으로 저장됩니다.','다시 생성'))return;if(await generate('spec_documents',{documents:[name],note:$('document-note').value.trim()}))$('document-note').value='';});
   $('provider').addEventListener('change',syncRouting);
   $('auto-routing').addEventListener('change',syncRouting);

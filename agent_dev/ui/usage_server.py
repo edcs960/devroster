@@ -15,9 +15,9 @@ class UsageWeb(LocalWeb):
     def handle(self, handler):
         path = urlsplit(handler.path).path
         if path.startswith("/api/") and (handler.command != "GET" or path not in self.get_routes):
-            from agent_dev.ui.studio_server import StudioWeb
+            from agent_dev.ui.responses import send
 
-            StudioWeb.send(handler, {"error": "요청 경로를 확인해주세요."}, status=400)
+            send(handler, {"error": "요청 경로를 확인해주세요."}, status=400)
             return
         super().handle(handler)
 

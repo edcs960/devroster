@@ -8,6 +8,7 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 
+from agent_dev.adapters.cli_registry import WEB_SERVERS, register_web_servers, web_server
 from agent_dev.adapters.state.sqlite.database import Database
 from agent_dev.adapters.workflow_runtime import WorkflowRuntime
 from agent_dev.domain.errors import DomainError, ErrorCode
@@ -108,22 +109,9 @@ class _Parser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: {message}\n`{self.prog} --help`로 사용할 수 있는 명령을 확인하세요.\n")
 
 
-# Web screens the CLI can start ("studio", "dashboard", "setup"). The ui layer sits outside
-# adapters, so the entry point (bootstrap) registers them instead of this module importing ui.
-WEB_SERVERS: dict = {}
-
-
-def register_web_servers(servers) -> None:
-    WEB_SERVERS.update(servers)
-
-
-def web_server(name):
-    serve = WEB_SERVERS.get(name)
-    if serve is None:
-        raise DomainError(
-            ErrorCode.CAPABILITY_UNAVAILABLE, "웹 화면은 devroster 명령(설치된 실행 파일)으로 시작해주세요."
-        )
-    return serve
+# Web screens and the messenger command are registered by the entry point (cli_registry);
+# these names stay importable from here.
+__all__ = ["WEB_SERVERS", "register_web_servers", "web_server"]
 
 
 def handles(arguments):
@@ -387,6 +375,11 @@ def parser():
                 command.add_argument(
                     "--fix-permissions", action="store_true", help="인증 파일 권한을 0600/0700으로 되돌림"
                 )
+                command.add_argument(
+                    "--protect-credentials",
+                    action="store_true",
+                    help="파일에 적혀 있는 공통 인증 값을 OS 보안 저장소(macOS 키체인, Windows 계정 보호)로 옮김",
+                )
             if name == "setup":
                 mode = command.add_mutually_exclusive_group()
                 mode.add_argument("--web", action="store_true")
@@ -565,21 +558,10 @@ def dispatch(args):
 
         return run(args)
     if namespace == "messenger":
-        from agent_dev.adapters import messenger
+        # The listener runs commands through this module, so the entry point registers it.
+        from agent_dev.adapters.cli_registry import command
 
-        if action == "status":
-            return messenger.status(root)
-        if action == "test":
-            return messenger.check(root)
-        listener = messenger.MessengerListener(root)
-        print("슬랙 리스너 실행 중입니다. Ctrl+C로 종료합니다.", file=sys.stderr, flush=True)
-        try:
-            listener.run()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            listener.stop()
-        return messenger.status(root, listener)
+        return command(namespace)(args)
     if namespace == "settings":
         from agent_dev.adapters.setup_cli import settings_location
 
@@ -624,7 +606,12 @@ def dispatch(args):
     if namespace == "doctor":
         from agent_dev.adapters.diagnostics import diagnose
 
-        return diagnose(root, check_auth=args.check_auth, fix_permissions=args.fix_permissions)
+        return diagnose(
+            root,
+            check_auth=args.check_auth,
+            fix_permissions=args.fix_permissions,
+            protect_credentials=args.protect_credentials,
+        )
     if namespace == "backup":
         from agent_dev.adapters.backup import create_bundle, inspect_bundle, restore_bundle
 

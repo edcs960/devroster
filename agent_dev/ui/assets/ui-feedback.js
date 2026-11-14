@@ -61,6 +61,27 @@
     return t;
   }
 
+  /* Ctrl+Enter (⌘+Enter on macOS) presses the button that finishes what is being written.
+     Held keys do not repeat it, and Korean input still being composed is left alone. */
+  const submitKey = e => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey
+    && !e.repeat && !e.isComposing && e.keyCode !== 229;
+  const usable = b => b instanceof HTMLButtonElement && !b.disabled && b.getAttribute('aria-disabled') !== 'true' && b.getClientRects().length > 0;
+  /* The button a field submits with: ``data-submit="button-id"``, or the submit button of the
+     text area's form. Plain inputs already submit their form with Enter. */
+  function submitTarget(field) {
+    if (!field || field.disabled || field.readOnly) return null;
+    if (field.dataset?.submit) return document.getElementById(field.dataset.submit);
+    if (field.tagName === 'TEXTAREA' && field.form) return field.form.querySelector('button[type=submit]:not([data-cancel]), button:not([type])');
+    return null;
+  }
+  document.addEventListener('keydown', e => {
+    if (!submitKey(e) || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+    const target = submitTarget(e.target.closest?.('textarea,input,select'));
+    if (!usable(target)) return;
+    e.preventDefault();
+    target.click();
+  });
+
   /* Dialogs */
   function dialog({ title, body = '', tone = 'accent', iconName, confirm = '확인', cancel = '취소', danger = false, input = null, wide = false, content = null }) {
     return new Promise(resolve => {
@@ -108,6 +129,8 @@
       });
       if (field) field.addEventListener('input', () => { field.removeAttribute('aria-invalid'); d.querySelector('#' + id + '-e').hidden = true; });
       d.addEventListener('keydown', e => {
+        // Ctrl+Enter confirms, except a dangerous action: that one needs its button pressed.
+        if (submitKey(e)) { e.preventDefault(); if (!danger) d.querySelector('[data-ok]').click(); return; }
         if (e.key !== 'Tab') return;
         const f = [...d.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href]')];
         const first = f[0], last = f[f.length - 1];

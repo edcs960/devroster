@@ -1,3 +1,3 @@
 """Project-local agent workflows, including the compatible FMEA harness."""
 
-__version__ = "0.4.8"
+__version__ = "0.5.0"

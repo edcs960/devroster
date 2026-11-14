@@ -91,31 +91,49 @@ def session_policy(policies):
     }
 
 
-def allowed_path(root, relative, role_policy):
+def path_refusal(root, relative, role_policy):
+    """Why the role may not change ``relative``; None when it may.
+
+    "unsafe": a path nobody may change (.git, symlink, outside the repository).
+    "readonly": the role cannot change files directly. "documents": a document role outside
+    the document folders. "scope": outside the approved path scopes.
+    """
     if "any_of" in role_policy:
-        return any(allowed_path(root, relative, member) for member in role_policy["any_of"])
+        reasons = []
+        for member in role_policy["any_of"]:
+            reason = path_refusal(root, relative, member)
+            if reason is None:
+                return None
+            reasons.append(reason)
+        return "scope" if "scope" in reasons or not reasons else reasons[0]
     if not isinstance(relative, str) or not relative or "\\" in relative:
-        return False
+        return "unsafe"
     candidate = PurePosixPath(relative)
     if candidate.is_absolute() or ".." in candidate.parts or ".git" in candidate.parts:
-        return False
+        return "unsafe"
     registered_root = Path(root).resolve()
     path = registered_root
     for component in candidate.parts:
         path = path / component
         if path.is_symlink():
-            return False
+            return "unsafe"
     path = path.resolve()
     if not path.is_relative_to(registered_root):
-        return False
+        return "unsafe"
     if role_policy["mode"] == "readonly":
-        return False
+        return "readonly"
     if role_policy.get("structured_kind") == "documents" and not (
         candidate.parts[0] in {"docs", "deliverables", "output"}
         or candidate.name.startswith("README")
     ):
-        return False
-    return all(any(path_matches(relative, p) for p in group) for group in role_policy["scopes"])
+        return "documents"
+    if all(any(path_matches(relative, p) for p in group) for group in role_policy["scopes"]):
+        return None
+    return "scope"
+
+
+def allowed_path(root, relative, role_policy):
+    return path_refusal(root, relative, role_policy) is None
 
 
 def path_matches(relative, pattern):
@@ -131,10 +149,108 @@ def path_matches(relative, pattern):
     return relative == prefix or relative.startswith(prefix + "/")
 
 
-def validate_changes(root, paths, role_policy):
-    if any(not allowed_path(root, path, role_policy) for path in paths):
+MAX_LISTED = 5  # File names come from the worktree: bound what an error message repeats.
+
+
+def listed(values, limit=MAX_LISTED, sort=True):
+    """Up to ``limit`` names for an error message, without control characters."""
+    names = ["".join(c if c.isprintable() else "?" for c in str(value))[:120] for value in values]
+    if sort:  # Changed paths arrive in set order; configured scopes keep the order they were given.
+        names.sort()
+    more = len(names) - limit
+    return ", ".join(names[:limit]) + (f" 외 {more}개" if more > 0 else "")
+
+
+def _covers(wide, narrow):
+    """Every path ``narrow`` allows is also allowed by ``wide`` (prefix entries only)."""
+    plain = [entry for entry in wide if not any(c in entry for c in "*?[")]
+    return all(
+        entry in wide
+        or (not any(c in entry for c in "*?[") and any(path_matches(entry, p) for p in plain))
+        for entry in narrow
+    )
+
+
+def scope_text(role_policy):
+    """The approved path scopes in words. A path must fit every remaining group."""
+    members = role_policy.get("any_of") or [role_policy]
+    texts = []
+    for member in members:
+        kept = []
+        for group in member.get("scopes", []):
+            if any(_covers(group, other) for other in kept):
+                continue  # A wider group adds nothing to a narrower one already kept.
+            kept = [other for other in kept if not _covers(other, group)] + [list(group)]
+        if not kept:
+            text = "제한 없음"
+        elif any(not group for group in kept):
+            text = "없음(허용 경로가 비어 있습니다)"
+        elif len(kept) == 1:
+            text = listed(kept[0], 8, sort=False)
+        else:
+            text = "다음 범위에 모두 드는 경로: " + " / ".join(
+                "(" + listed(group, 8, sort=False) + ")" for group in kept
+            )
+        if text not in texts:
+            texts.append(text)
+    return " 또는 ".join(texts)
+
+
+REVERTS = "이어서 실행하면 {what} 작업 폴더의 .attempts에 복사해 두고 되돌린 뒤 이 단계를 다시 실행합니다."
+
+
+def refusal_message(refused, role_policy, proposed=False, reverts=False):
+    """``refused`` is {reason: [paths]} from path_refusal.
+
+    ``proposed``: nothing was written. ``reverts``: resuming puts the files back by itself.
+    """
+    did = "바꾸려 했습니다" if proposed else "바꿨습니다"
+    parts = []
+    if "scope" in refused:
+        parts.append(
+            f"수정 허용 경로 밖의 파일을 {did}: {listed(refused['scope'])}. "
+            f"이 단계의 수정 허용 경로: {scope_text(role_policy)}."
+        )
+    if "documents" in refused:
+        parts.append(
+            "문서 역할은 docs, deliverables, output 폴더와 README 파일만 바꿀 수 있는데 "
+            f"다른 파일을 {did}: {listed(refused['documents'])}."
+        )
+    if "readonly" in refused:
+        parts.append(
+            f"파일을 직접 바꿀 수 없는 역할이 파일을 {did}: {listed(refused['readonly'])}."
+        )
+    if "unsafe" in refused:
+        parts.append(
+            "누구도 바꿀 수 없는 경로(.git, 심볼릭 링크, 저장소 밖을 가리키는 경로)를 "
+            f"{did}: {listed(refused['unsafe'])}."
+        )
+    if "scope" in refused:
+        parts.append(
+            "이 파일을 바꿔야 하면 프로젝트 설정의 모듈 '수정 허용 경로'(단계에서 좁혔다면 "
+            "개발 흐름의 '허용 경로')에 추가한 뒤 계획을 새로 승인하세요. "
+            "이미 승인된 작업의 범위는 바뀌지 않습니다."
+        )
+    if proposed:
+        parts.append("파일에 적용된 것은 없습니다. 이어서 실행하면 이 단계를 다시 실행합니다.")
+    elif reverts:
+        parts.append(REVERTS.format(what="위 변경을"))
+    elif "scope" in refused:
+        parts.append("바꾸면 안 되는 파일이면 작업 폴더에서 그 변경을 되돌린 뒤 이어서 실행하세요.")
+    else:
+        parts.append("작업 폴더에서 그 변경을 되돌린 뒤 이어서 실행하세요.")
+    return " ".join(parts)
+
+
+def validate_changes(root, paths, role_policy, proposed=False, reverts=False):
+    refused = {}
+    for path in paths:
+        reason = path_refusal(root, path, role_policy)
+        if reason:
+            refused.setdefault(reason, []).append(path)
+    if refused:
         raise DomainError(
-            ErrorCode.POLICY_VIOLATION, "Role changed a path outside its approved intersection."
+            ErrorCode.POLICY_VIOLATION, refusal_message(refused, role_policy, proposed, reverts)
         )
 
 
@@ -151,7 +267,7 @@ def apply_structured(root, proposals, role_policy):
     for edit in proposals:
         if not isinstance(edit, dict) or set(edit) != {"path", "content"} or edit["path"] in seen:
             raise DomainError(ErrorCode.INVALID_INPUT, "Invalid or duplicate structured edit.")
-        validate_changes(root, [edit["path"]], role_policy)
+        validate_changes(root, [edit["path"]], role_policy, proposed=True)
         if not isinstance(edit["content"], str) or len(edit["content"].encode()) > 1_000_000:
             raise DomainError(ErrorCode.INVALID_INPUT, "Structured text exceeds limit.")
         seen.add(edit["path"])

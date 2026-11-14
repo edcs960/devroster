@@ -560,10 +560,11 @@ class WorkflowRepository:
 
     def record_usage_thresholds(self, task_id, policy) -> list:
         """Record each newly crossed estimated-budget threshold once (with the usage write path)."""
+        from agent_dev.adapters import price_catalog
         from agent_dev.adapters.execution_view import usage_calls
-        from agent_dev.domain.usage_policy import crossed_thresholds, estimate, normalize_policy
+        from agent_dev.domain.usage_policy import crossed_thresholds, estimate
 
-        policy = normalize_policy(policy)
+        policy = price_catalog.resolve(policy)
         if policy is None:
             return []
         summary = estimate(policy, usage_calls(self.db, task_id))
@@ -599,10 +600,11 @@ class WorkflowRepository:
 
     def budget_pause(self, task_id, policy):
         """(due, summary) for the opt-in pause at the estimated budget."""
+        from agent_dev.adapters import price_catalog
         from agent_dev.adapters.execution_view import usage_calls
-        from agent_dev.domain.usage_policy import budget_pause_due, estimate, normalize_policy
+        from agent_dev.domain.usage_policy import budget_pause_due, estimate
 
-        policy = normalize_policy(policy)
+        policy = price_catalog.resolve(policy)
         if policy is None or not policy.get("pause_at_budget"):
             return False, None
         summary = estimate(policy, usage_calls(self.db, task_id))

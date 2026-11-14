@@ -1,15 +1,17 @@
 """Project-wide AI usage, estimated cost and task progress from recorded calls.
 
 Pure aggregation: callers pass tasks, RunnerUsage payloads and each task's approved
-usage_policy. Costs reuse call_cost, so they are the same user-entered price-book
-estimates the per-task view shows, never real bills. A session member that shared
-another node's AI call (ai_call false) is not a call and is skipped.
+usage_policy. Costs reuse call_cost, so they are the same price-book estimates the
+per-task view shows (the owner's prices, then the automatic list), never real bills.
+A session member that shared another node's AI call (ai_call false) is not a call and
+is skipped.
 
 Studio planning calls are not tasks. They arrive with studio_id instead of task_id
 and are linked to the tasks that a handoff of that Studio project created, so a
 feature's cost covers planning as well as development.
 """
 
+from agent_dev.domain.price_catalog import CURRENCY, SOURCE_NAME
 from agent_dev.domain.usage_policy import call_cost
 
 TOKEN_KEYS = ("input_tokens", "output_tokens", "cached_input_tokens")
@@ -105,7 +107,8 @@ def report(tasks, calls, policies, *, since=None, day=None, days=(), studios=Non
     totals = dict(_bucket(), runner_seconds=0.0, unmeasured_calls=0, task_calls=0, studio_calls=0)
     models, roles, per_task, per_studio = {}, {}, {}, {}
     daily = {label: _bucket() for label in days}
-    known_calls, unknown_calls, reasons, unpriced = 0, 0, {}, set()
+    known_calls, unknown_calls, auto_calls, reasons, unpriced = 0, 0, 0, {}, set()
+    converted = 0  # Automatically priced calls shown through a project's exchange rate.
     seen = set()
     for call in calls:
         payload = call["payload"] if isinstance(call.get("payload"), dict) else {}
@@ -137,6 +140,8 @@ def report(tasks, calls, policies, *, since=None, day=None, days=(), studios=Non
                 reasons[reason] = reasons.get(reason, 0) + 1
             else:
                 known_calls += 1
+                auto_calls += priced.get("reason") == "estimated_auto"
+                converted += priced.get("reason") == "estimated_auto" and currency != CURRENCY
         elif policy is None:
             unpriced.add(key)
             unknown_calls += 1
@@ -147,10 +152,14 @@ def report(tasks, calls, policies, *, since=None, day=None, days=(), studios=Non
             )
             currency = policy["currency"]
             if cost is None:
+                if reason == "price_book_missing":
+                    unpriced.add(key)
                 unknown_calls += 1
                 reasons[reason] = reasons.get(reason, 0) + 1
             else:
                 known_calls += 1
+                auto_calls += reason == "estimated_auto"
+                converted += reason == "estimated_auto" and currency != CURRENCY
         seconds = payload.get("runner_seconds")
         if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and 0 <= seconds < 10**7:
             totals["runner_seconds"] += seconds
@@ -179,10 +188,25 @@ def report(tasks, calls, policies, *, since=None, day=None, days=(), studios=Non
         "totals": _rounded(totals),
         "cost": {
             "known_calls": known_calls,
+            "auto_calls": auto_calls,
             "unknown_calls": unknown_calls,
             "reasons": dict(sorted(reasons.items())),
             "unpriced_tasks": len(unpriced),
-            "note": "작업마다 승인된 가격표로 계산한 추정치입니다. 실제 청구액이 아닙니다.",
+            "note": (
+                "작업마다 승인된 가격표로 계산한 추정치입니다. "
+                + (
+                    f"{auto_calls}회는 직접 입력한 가격이 없어 자동 가격표({SOURCE_NAME} 공개 단가)로 "
+                    "계산했습니다. "
+                    if auto_calls
+                    else ""
+                )
+                + (
+                    "USD가 아닌 프로젝트는 그 단가를 프로젝트에 입력한 환율로 바꿨습니다. "
+                    if converted
+                    else ""
+                )
+                + "실제 청구액이 아닙니다."
+            ),
         },
         "by_model": [
             dict(_rounded(b), provider=p, model=m) for (p, m), b in sorted(models.items(), key=by_cost)

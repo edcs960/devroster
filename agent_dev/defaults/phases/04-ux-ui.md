@@ -19,7 +19,7 @@
 
 - Planner 결과
 - Architect 결과
-- 화면정의서, 요구사항명세서, 권한정의서
+- 사용자인터페이스설계서, 사용자요구사항정의서, 권한정의서
 - `Design Reference Context`가 있으면 `/references`에서 프로젝트에 적용한 디자인 참고 자료(Stitch/Figma)
 
 ## 수행 절차
@@ -27,7 +27,7 @@
 1. 사용자 시나리오와 진입 경로를 정리한다.
 2. 화면 흐름을 `진입 -> 탐색/입력 -> 검토 -> 실행 -> 피드백 -> 후속 행동`으로 정의한다.
 3. Default, Loading, Empty, Error, Success, Disabled, Permission 상태를 설계한다.
-4. `Design Reference Context`가 있으면 참고 화면을 읽기 전용으로 확인하고, 화면정의서/요구사항과 맞지 않는 경우 구현 보정 사항을 명시한다. Stitch 원본은 수정하지 않는다.
+4. `Design Reference Context`가 있으면 참고 화면을 읽기 전용으로 확인하고, 사용자인터페이스설계서/요구사항과 맞지 않는 경우 구현 보정 사항을 명시한다. Stitch 원본은 수정하지 않는다.
 5. CTA, 마이크로카피, 접근성, 반응형 기준을 정리한다.
 6. Designer와 Developer에게 전달할 동작 기준을 작성한다.
 
@@ -89,7 +89,7 @@
 - 사용한 참고 자료 ID와 출처(Stitch/Figma)
 - 확인한 화면/노드
 - 원본 수정 여부: 항상 `수정하지 않음 (read-only)`
-- 화면정의서와의 차이
+- 사용자인터페이스설계서와의 차이
 - Frontend Developer에게 전달할 구현 기준
 - 사용 여부: Yes/No
 - 확인한 화면/프로토타입:

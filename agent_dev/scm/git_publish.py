@@ -6,6 +6,7 @@ from pathlib import Path
 
 from agent_dev.core.paths import PROJECT_ROOT
 from agent_dev.domain.errors import DomainError, ErrorCode
+from agent_dev.domain.role_policy import listed
 
 
 def _git_run(argv, **options):
@@ -177,11 +178,20 @@ def validate_publish_paths(root: Path, changed: list[str], allowed: list[str]) -
         if not (root/path).resolve().is_relative_to(root):
             raise DomainError(ErrorCode.POLICY_VIOLATION, "Publish path escapes repository.")
         normalized.append(path.as_posix().rstrip("/"))
-    for value in changed:
-        if not (root/value).resolve().is_relative_to(root) or not any(
-            value == entry or value.startswith(entry+"/") for entry in normalized
-        ):
-            raise DomainError(ErrorCode.POLICY_VIOLATION, "Changes outside task publish scope.")
+    outside = [
+        value
+        for value in changed
+        if not (root/value).resolve().is_relative_to(root)
+        or not any(value == entry or value.startswith(entry+"/") for entry in normalized)
+    ]
+    if outside:
+        raise DomainError(
+            ErrorCode.POLICY_VIOLATION,
+            f"수정 허용 경로 밖의 변경이 있어 게시하지 않았습니다: {listed(outside)}. "
+            f"수정 허용 경로: {listed(normalized, 8, sort=False)}. "
+            "작업 폴더에서 그 변경을 되돌린 뒤 다시 게시하세요. 필요한 파일이면 프로젝트 설정의 "
+            "모듈 '수정 허용 경로'에 추가한 뒤 계획을 새로 승인하세요.",
+        )
 
 
 def git_status(path: Path) -> list[str]:

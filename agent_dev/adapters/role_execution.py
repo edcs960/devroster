@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent_dev.domain.content import content_digest
 from agent_dev.domain.errors import DomainError, ErrorCode
-from agent_dev.domain.role_policy import validate_changes
+from agent_dev.domain.role_policy import REVERTS, listed, path_refusal, validate_changes
 
 
 def capture(bindings):
@@ -47,27 +47,62 @@ def capture(bindings):
     return result
 
 
-def enforce(bindings, before, role_policy, module=None):
+def _narrowed(role_policy, binding):
+    """The role's policy inside one repository: its module's own paths narrow every scope."""
+    extra = [binding.get("allowed_paths", [])]
+    narrowed = dict(role_policy, scopes=role_policy.get("scopes", []) + extra)
+    if "any_of" in role_policy:
+        narrowed["any_of"] = [
+            dict(member, scopes=member.get("scopes", []) + extra) for member in role_policy["any_of"]
+        ]
+    return narrowed
+
+
+def _delta(previous, current):
+    return [p for p in previous.keys() | current.keys() if previous.get(p) != current.get(p)]
+
+
+def enforce(bindings, before, role_policy, module=None, reverts=False):
+    """Refuse changes since ``before`` that the role may not make.
+
+    ``reverts``: the caller keeps what is needed to undo them, so the message says that
+    resuming puts the files back instead of asking the user to do it.
+    """
     after = capture(bindings)
     for name, binding in bindings.items():
-        previous, current = before.get(name, {}), after.get(name, {})
-        delta = [p for p in previous.keys() | current.keys() if previous.get(p) != current.get(p)]
+        delta = _delta(before.get(name, {}), after.get(name, {}))
         if not delta:
             continue
         if module and name != module:
-            raise DomainError(
-                ErrorCode.POLICY_VIOLATION, "Role modified a different registered module."
+            undo = (
+                REVERTS.format(what="위 변경을")
+                if reverts
+                else "작업 폴더에서 그 변경을 되돌린 뒤 이어서 실행하세요."
             )
-        root = Path(binding["worktree"])
-        extra = [binding.get("allowed_paths", [])]
-        narrowed = dict(role_policy, scopes=role_policy.get("scopes", []) + extra)
-        if "any_of" in role_policy:
-            narrowed["any_of"] = [
-                dict(member, scopes=member.get("scopes", []) + extra)
-                for member in role_policy["any_of"]
-            ]
-        validate_changes(root, delta, narrowed)
+            raise DomainError(
+                ErrorCode.POLICY_VIOLATION,
+                f"이 단계는 '{module}' 모듈만 바꿀 수 있는데 '{name}' 모듈의 파일을 바꿨습니다: "
+                f"{listed(delta)}. {undo} "
+                "그 모듈도 바꿔야 하면 개발 흐름에서 그 모듈을 맡는 단계를 두고 계획을 새로 승인하세요.",
+            )
+        validate_changes(
+            Path(binding["worktree"]), delta, _narrowed(role_policy, binding), reverts=reverts
+        )
     return after
+
+
+def refused_changes(bindings, before, role_policy, module=None):
+    """{repository: [paths]} changed since ``before`` that ``enforce`` refuses."""
+    after = capture(bindings)
+    result = {}
+    for name, binding in bindings.items():
+        delta = _delta(before.get(name, {}), after.get(name, {}))
+        if not (module and name != module):
+            root, narrowed = Path(binding["worktree"]), _narrowed(role_policy, binding)
+            delta = [p for p in delta if path_refusal(root, p, narrowed)]
+        if delta:
+            result[name] = sorted(delta)
+    return result
 
 
 # Interrupted attempts ------------------------------------------------------------------
@@ -121,6 +156,15 @@ def save_baseline(bindings, attempt_id, before):
     (folder / f"{attempt_id}.json").write_text(json.dumps(data), encoding="utf-8")
 
 
+def has_baseline(bindings, attempt_id):
+    return bool(bindings) and (_attempts_dir(bindings) / f"{attempt_id}.json").is_file()
+
+
+def backup_dir(bindings, name):
+    """Where copies of files that are about to be put back are kept."""
+    return _attempts_dir(bindings) / name
+
+
 def load_baseline(bindings, attempt_id):
     import json
 
@@ -150,6 +194,9 @@ def restore_paths(bindings, baseline, changed, backup):
     """Put ``changed`` paths back to the attempt's start; current files are copied to ``backup``."""
     import shutil
 
+    for name in changed:
+        # A tree Git has since pruned would make every path look new and get it deleted.
+        _git(Path(bindings[name]["worktree"]).resolve(), "cat-file", "-e", baseline["trees"][name] + "^{tree}")
     for name, paths in changed.items():
         root = Path(bindings[name]["worktree"]).resolve()
         tree = baseline["trees"][name]
@@ -159,8 +206,12 @@ def restore_paths(bindings, baseline, changed, backup):
                 target = Path(backup) / name / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(current, target)
-            literal = ":(literal)" + relative
-            if _git(root, "cat-file", "-e", f"{tree}:{relative}", check=False).returncode == 0:
-                _git(root, "restore", "--source", tree, "--worktree", "--", literal)
-            elif current.is_file() or current.is_symlink():
+        known = [p for p in paths if _git(root, "cat-file", "-e", f"{tree}:{p}", check=False).returncode == 0]
+        # New paths go first: on a case-insensitive file system "config.py" may be the same file
+        # as "Config.py", and deleting it after the restore would remove the restored file.
+        for relative in paths:
+            current = root / relative
+            if relative not in known and (current.is_file() or current.is_symlink()):
                 current.unlink()
+        for relative in known:
+            _git(root, "restore", "--source", tree, "--worktree", "--", ":(literal)" + relative)

@@ -205,6 +205,14 @@
       $('drift-status').textContent = drift.running ? '드리프트 검사 중…' : drift.failure ? '최근 검사 실패: ' + drift.failure
         : latest ? `최근 검사 · ${latest.provider}${latest.model ? ' (' + latest.model + ')' : ''} · 파일 ${latest.files}개${latest.truncated ? ' (일부만 검사)' : ''} · 지적 ${latest.findings.length}건, 심각한 지적 ${latest.open_high}건 열림, 명세에 없는 동작 ${latest.reverse}건`
         : '아직 검사하지 않았습니다.';
+      // Which acceptance criteria have a test named for them (counted from records, no AI).
+      const cover = drift.criteria || {total: 0}, coverage = $('drift-criteria');
+      coverage.hidden = !cover.total;
+      coverage.textContent = !cover.total ? '' : `수용 기준 ${cover.total}개 중 ${cover.named}개에 확인 테스트가 지정됨` + (cover.unnamed.length ? ` · 지정 없음: ${cover.unnamed.slice(0, 8).join(', ')}${cover.unnamed.length > 8 ? ` 외 ${cover.unnamed.length - 8}개` : ''}` : '');
+      // The project's drift gate (setup: 드리프트 검사): why publishing waits, or that it may go on.
+      const gate = drift.gate || {state: 'off'}, banner = $('drift-gate');
+      banner.hidden = gate.state === 'off'; banner.dataset.blocks = gate.blocks ? 'true' : 'false';
+      banner.textContent = gate.state === 'off' ? '' : (gate.blocks ? '게시 차단: ' : gate.mode === 'block' ? '게시 가능: ' : '') + gate.message;
       list.replaceChildren();
       for (const f of latest?.findings || []) {
         const li = node('li', undefined, 'drift-finding'); li.dataset.severity = f.severity; li.dataset.state = f.state;

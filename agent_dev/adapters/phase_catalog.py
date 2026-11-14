@@ -171,15 +171,19 @@ class SnapshotPhaseCatalog:
 
         return capture(self.repository.snapshot(task_id)["resolved"].get("repositories", {}))
 
-    def save_baseline(self, task_id, node_id, attempt_id, before):
-        """Where this attempt started, so a crash can be checked on the next run."""
+    def save_baseline(self, task_id, node_id, attempt_id, before, session=False):
+        """Where this attempt started, so what it leaves behind can be checked or undone later.
+
+        A session's baseline has its own name: the crash check judges one node's policy and
+        must not read it as that node's baseline.
+        """
         from agent_dev.adapters.role_execution import save_baseline
 
         if before is None:
             return
         bindings = self.repository.snapshot(task_id)["resolved"].get("repositories", {})
         try:
-            save_baseline(bindings, attempt_id, before)
+            save_baseline(bindings, attempt_id + ("-session" if session else ""), before)
         except (OSError, ValueError, subprocess.SubprocessError):
             # Without a baseline the crash check is skipped; the run itself is unaffected.
             self.repository.event(task_id, "AttemptBaselineSkipped", {"attempt_id": attempt_id, "node_id": node_id})
@@ -199,14 +203,129 @@ class SnapshotPhaseCatalog:
             or [p for b in bindings.values() for p in b.get("allowed_paths", [])],
         )
 
-    def recover_interrupted(self, task_id, node_id):
-        """Check what a crashed attempt of this node left in the worktree.
+    def _enforce(self, task_id, node_ids, before, role_policy, module, session=False):
+        """``enforce``, and a refusal is recorded so the next run can put those files back."""
+        from agent_dev.adapters.role_execution import enforce, has_baseline, refused_changes
 
-        Nothing changed, or changes within the node's role policy: continue (the role picks
-        up its own partial work). Changes the role was not allowed to make: copy them aside
-        and stop with INTERRUPTED_CHANGES; when the user resumes, put those paths back to
-        where the attempt started and continue.
+        bindings = self.repository.snapshot(task_id)["resolved"].get("repositories", {})
+        attempt_id, key = self._baseline_key(task_id, node_ids, session)
+        reverts = bool(key) and has_baseline(bindings, key)
+        try:
+            return enforce(bindings, before, role_policy, module, reverts=reverts), reverts
+        except DomainError:
+            refused = refused_changes(bindings, before, role_policy, module)
+            self._hold_refused(task_id, node_ids[0], attempt_id, key if reverts else None, before, refused)
+            raise
+
+    def _baseline_key(self, task_id, node_ids, session=False):
+        """(attempt id, baseline name) of the attempt that is running one of ``node_ids``."""
+        rows = self.repository.db.rows(
+            "SELECT id,phase_id FROM phase_attempts WHERE task_id=? AND state='running' "
+            "ORDER BY started_at DESC, id DESC",
+            (task_id,),
+        )
+        attempt_id = next((r["id"] for r in rows if r["phase_id"] in node_ids), None)
+        return attempt_id, attempt_id + ("-session" if session else "") if attempt_id else None
+
+    def _hold_refused(self, task_id, node_id, attempt_id, baseline, before, refused):
+        if not refused:
+            return
+        self.repository.event(
+            task_id,
+            "RefusedChangesHeld",
+            {
+                "attempt_id": attempt_id,
+                "node_id": node_id,
+                "baseline": baseline,
+                "paths": refused,
+                # Enough to tell on the next run whether the user already put a file back.
+                # A path that is not listed did not exist before the attempt.
+                "before": {
+                    name: {path: before[name][path] for path in paths if before.get(name, {}).get(path)}
+                    for name, paths in refused.items()
+                },
+            },
+        )
+
+    def discard_refused(self, task_id):
+        """Put back what an earlier attempt changed outside what its role may change.
+
+        The task stopped when that was found, and it is being run again: without this the
+        next attempt would take those files as its starting point and they would stay until
+        publish. They are copied aside (.attempts/<attempt>-refused) and restored to where
+        that attempt started; changes the role was allowed to make are kept.
         """
+        from agent_dev.adapters.role_execution import (
+            backup_dir,
+            capture,
+            load_baseline,
+            restore_paths,
+        )
+        from agent_dev.domain.role_policy import listed
+
+        held, settled = [], set()
+        for row in self.repository.db.rows(
+            "SELECT version,kind,payload_json FROM events WHERE aggregate_id=? "
+            "AND kind LIKE 'RefusedChanges%' ORDER BY version",
+            (task_id,),
+        ):
+            payload = json.loads(row["payload_json"])
+            if row["kind"] == "RefusedChangesHeld":
+                held.append((row["version"], payload))
+            else:
+                settled.add(payload.get("held"))
+        bindings = self.repository.snapshot(task_id)["resolved"].get("repositories", {})
+        for version, payload in held:
+            if version in settled:
+                continue
+            current = capture(bindings)
+            left = {}
+            for name, paths in payload["paths"].items():
+                start = payload["before"].get(name, {})
+                now = current.get(name, {})
+                # A list in the stored event is the (digest, executable) pair capture returns.
+                paths = [p for p in paths if now.get(p) != (tuple(start[p]) if start.get(p) else None)]
+                if paths and name in bindings:
+                    left[name] = paths
+            record = {
+                "held": version,
+                "attempt_id": payload.get("attempt_id"),
+                "node_id": payload.get("node_id"),
+                "paths": left,
+            }
+            if not left:
+                self.repository.event(task_id, "RefusedChangesNone", record)  # Already put back by hand.
+                continue
+            names = listed(p for paths in left.values() for p in paths)
+            baseline = load_baseline(bindings, payload["baseline"]) if payload.get("baseline") else None
+            if baseline is None:
+                raise DomainError(
+                    ErrorCode.POLICY_VIOLATION,
+                    f"이전 실행이 바꾸면 안 되는 파일을 바꾼 것이 작업 폴더에 남아 있습니다: {names}. "
+                    "되돌릴 기준이 저장되지 않아 자동으로 되돌릴 수 없습니다. "
+                    "작업 폴더에서 그 변경을 직접 되돌린 뒤 이어서 실행하세요.",
+                )
+            backup = backup_dir(bindings, f"{payload.get('attempt_id') or version}-refused")
+            try:
+                restore_paths(bindings, baseline, left, backup)
+            except (OSError, KeyError, subprocess.SubprocessError):
+                raise DomainError(
+                    ErrorCode.POLICY_VIOLATION,
+                    f"이전 실행이 바꾸면 안 되는 파일을 바꾼 것을 되돌리지 못했습니다: {names}. "
+                    "작업 폴더에서 그 변경을 직접 되돌린 뒤 이어서 실행하세요.",
+                ) from None
+            self.repository.event(task_id, "RefusedChangesDiscarded", dict(record, backup=str(backup)))
+
+    def recover_interrupted(self, task_id, node_id):
+        """Check what earlier attempts left in the worktree before this node runs.
+
+        First, files an attempt was refused for are put back (``discard_refused``). Then the
+        crashed attempt of this node, if any: nothing changed, or changes within the node's
+        role policy: continue (the role picks up its own partial work). Changes the role was
+        not allowed to make: copy them aside and stop with INTERRUPTED_CHANGES; when the
+        user resumes, put those paths back to where the attempt started and continue.
+        """
+        self.discard_refused(task_id)
         from agent_dev.adapters.role_execution import (
             changed_since,
             enforce,
@@ -269,27 +388,29 @@ class SnapshotPhaseCatalog:
         Returns the changed paths. Paths a node declares (`changed_paths`) must also fit that
         node's own policy, so a session cannot launder one role's write through another.
         """
-        from agent_dev.adapters.role_execution import enforce
-        from agent_dev.domain.role_policy import allowed_path, session_policy
+        from agent_dev.domain.role_policy import REVERTS, allowed_path, listed, session_policy
 
         resolved = self.repository.snapshot(task_id)["resolved"]
         policies = resolved.get("role_policies", {})
         nodes = {n["id"]: n for n in resolved.get("workflow_graph", {}).get("nodes", [])}
         modules = {nodes.get(n, {}).get("module") for n in node_ids} - {None}
         bindings = resolved.get("repositories", {})
-        after = enforce(
-            bindings,
+        after, reverts = self._enforce(
+            task_id,
+            list(node_ids),
             before,
             session_policy([policies.get(n, {}) for n in node_ids]),
             next(iter(modules)) if modules else None,
+            session=True,
         )
-        changed, roots = [], {}
+        changed, roots, owners = [], {}, {}
         for name, binding in bindings.items():
             previous, current = before.get(name, {}), after.get(name, {})
             for path in sorted(previous.keys() | current.keys()):
                 if previous.get(path) != current.get(path):
                     changed.append(path)
                     roots[path] = binding
+                    owners[path] = name
         declared = declared or {}
         for node_id, paths in declared.items():
             policy = policies.get(node_id, {})
@@ -303,9 +424,21 @@ class SnapshotPhaseCatalog:
                 if policy.get("mode") != "code" or not allowed_path(
                     Path(binding["worktree"]), path, narrowed
                 ):
+                    # The session as a whole may write this file, this node may not: left in
+                    # place, the next run would start from it and the write would stand.
+                    attempt_id, key = self._baseline_key(task_id, list(node_ids), session=True)
+                    self._hold_refused(
+                        task_id, node_id, attempt_id, key if reverts else None, before, {owners[path]: [path]}
+                    )
+                    undo = (
+                        REVERTS.format(what="이 변경을")
+                        if reverts
+                        else "작업 폴더에서 그 변경을 되돌린 뒤 이어서 실행하세요."
+                    )
                     raise DomainError(
                         ErrorCode.POLICY_VIOLATION,
-                        f"Session node {node_id} changed a path outside its own scope: {path}",
+                        f"세션의 '{node_id}' 단계가 자기 수정 허용 경로 밖의 파일을 바꿨다고 "
+                        f"보고했습니다: {listed([path])}. {undo}",
                     )
         attributed = {path for paths in declared.values() for path in paths}
         return {"changed": changed, "unattributed": [p for p in changed if p not in attributed]}
@@ -343,14 +476,12 @@ class SnapshotPhaseCatalog:
             if role_policy["mode"] == "code" and "code.write" not in phase.get("capabilities", []):
                 role_policy["mode"] = "readonly"
         if before is not None:
-            from agent_dev.adapters.role_execution import enforce
-
             direct_policy = (
                 dict(role_policy, mode="readonly")
                 if role_policy.get("mode") == "structured"
                 else role_policy
             )
-            enforce(resolved.get("repositories", {}), before, direct_policy, node.get("module"))
+            self._enforce(task_id, [node_id], before, direct_policy, node.get("module"))
         if role_policy.get("mode") != "structured":
             return
         parsed = json_blocks(output)

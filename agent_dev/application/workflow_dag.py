@@ -745,6 +745,10 @@ class DagExecution:
 
     def run_session(self, task_id, request, capture, graph):
         before = capture(task_id, request.phase_id) if capture else None
+        save_baseline = getattr(self.c.catalog, "save_baseline", None)
+        if save_baseline and before is not None:
+            # Lets a refused change of this session be put back when the task is run again.
+            save_baseline(task_id, request.phase_id, request.attempt_id, before, session=True)
         result = self.c.runners.execute(request)
         keep = getattr(self.c.artifacts, "session_output", None)
         if keep:

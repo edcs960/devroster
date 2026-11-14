@@ -13,8 +13,8 @@ from urllib.parse import parse_qs, urlsplit
 from agent_dev.domain.errors import DomainError, ErrorCode
 from agent_dev.ui.local_server import LocalHTTPServer
 from agent_dev.ui.page_navigation import local_page_navigation
+from agent_dev.ui.responses import send
 from agent_dev.ui.shared_assets import NAVIGATION_ASSETS, shared_asset_name
-from agent_dev.ui.studio_server import StudioWeb
 
 
 class LocalWeb:
@@ -69,7 +69,7 @@ class LocalWeb:
                 and handler.headers.get("Sec-Fetch-Site", "") not in {"", "none", "same-origin"}
                 and not local_page_navigation(handler, parsed.path, {"/" + self.page, "/" + self.page + "/"})
             ):
-                StudioWeb.send(handler, {"error": "같은 로컬 주소에서 접근해주세요."}, status=403)
+                send(handler, {"error": "같은 로컬 주소에서 접근해주세요."}, status=403)
                 return
             values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=30)
             if any(len(value) != 1 for value in values.values()):
@@ -78,16 +78,16 @@ class LocalWeb:
             if handler.command == "GET":
                 shared = shared_asset_name(parsed.path)
                 if shared is not None:
-                    StudioWeb.send(handler, self.assets.joinpath(shared).read_bytes(), "text/css")
+                    send(handler, self.assets.joinpath(shared).read_bytes(), "text/css")
                     return
                 if parsed.path in NAVIGATION_ASSETS:
                     name, kind = NAVIGATION_ASSETS[parsed.path]
-                    StudioWeb.send(handler, self.assets.joinpath(name).read_bytes(), kind)
+                    send(handler, self.assets.joinpath(name).read_bytes(), kind)
                     return
                 page_asset = getattr(self, "page_assets", {}).get(parsed.path)
                 if page_asset:
                     name, kind = page_asset
-                    StudioWeb.send(handler, self.assets.joinpath(name).read_bytes(), kind)
+                    send(handler, self.assets.joinpath(name).read_bytes(), kind)
                     return
                 if parsed.path in {
                     "/" + self.page,
@@ -97,58 +97,58 @@ class LocalWeb:
                 }:
                     suffix = parsed.path.rsplit(".", 1)[-1] if "." in parsed.path else "html"
                     kind = {"html": "text/html", "js": "text/javascript", "css": "text/css"}[suffix]
-                    StudioWeb.send(
+                    send(
                         handler, self.assets.joinpath(self.page + "." + suffix).read_bytes(), kind
                     )
                 else:
                     result = self.get(parsed.path.rsplit("/", 1)[-1], query)
                     if isinstance(result, tuple):  # (bytes, media type) e.g. owned screenshots
-                        StudioWeb.send(handler, result[0], result[1])
+                        send(handler, result[0], result[1])
                         return
                     if parsed.path.endswith("/bootstrap"):
                         result = dict(result, token=self.token)
-                    StudioWeb.send(handler, result)
+                    send(handler, result)
                 return
             if handler.command != "POST" or not hmac.compare_digest(
                 handler.headers.get("X-Local-Token", ""), self.token
             ):
-                StudioWeb.send(handler, {"error": "화면을 새로고침해주세요."}, status=403)
+                send(handler, {"error": "화면을 새로고침해주세요."}, status=403)
                 return
             if handler.headers.get("Content-Type", "").split(";")[0] != "application/json":
-                StudioWeb.send(handler, {"error": "JSON 요청이 필요합니다."}, status=415)
+                send(handler, {"error": "JSON 요청이 필요합니다."}, status=415)
                 return
             size = int(handler.headers.get("Content-Length", "0"))
             if not 0 < size <= 1_000_000:
-                StudioWeb.send(handler, {"error": "입력은 1MB 이하로 줄여주세요."}, status=413)
+                send(handler, {"error": "입력은 1MB 이하로 줄여주세요."}, status=413)
                 return
             data = json.loads(handler.rfile.read(size))
             if not isinstance(data, dict):
                 raise TypeError("object required")
-            StudioWeb.send(handler, self.post(parsed.path.rsplit("/", 1)[-1], data))
+            send(handler, self.post(parsed.path.rsplit("/", 1)[-1], data))
         except DomainError as exc:
             from agent_dev.adapters.preparation import PreparationModeError
 
             if isinstance(exc, PreparationModeError):
-                StudioWeb.send(handler, {"error": str(exc), "code": exc.code.value}, status=403)
+                send(handler, {"error": str(exc), "code": exc.code.value}, status=403)
                 return
-            StudioWeb.send(
+            send(
                 handler,
                 {"error": str(exc)},
                 status=409 if exc.code == ErrorCode.STALE_VERSION else 400,
             )
         except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
-            StudioWeb.send(handler, {"error": "입력 형식을 확인해주세요."}, status=400)
+            send(handler, {"error": "입력 형식을 확인해주세요."}, status=400)
         except sqlite3.Error:
             # A database failure must still answer; a dropped connection reaches the page as a
             # bare "Failed to fetch". Details stay in the server log, not in the response.
             logging.getLogger(__name__).exception("Database error while handling %s", handler.path)
-            StudioWeb.send(
+            send(
                 handler,
                 {"error": "작업 데이터를 읽지 못했습니다. 앱을 다시 시작한 뒤 다시 시도하세요."},
                 status=503,
             )
         except OSError:
-            StudioWeb.send(handler, {"error": "파일/서버 접근에 실패했습니다."}, status=503)
+            send(handler, {"error": "파일/서버 접근에 실패했습니다."}, status=503)
 
 
 def make_server(web, port=0):

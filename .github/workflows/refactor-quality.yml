@@ -24,7 +24,7 @@ jobs:
       - name: Domain, application and adapter lint
         run: ruff check agent_dev tests scripts
       - name: Changed architecture typing
-        run: pyright agent_dev/domain agent_dev/ports agent_dev/application agent_dev/adapters agent_dev/migration agent_dev/entrypoints.py agent_dev/ui/dashboard.py agent_dev/ui/studio_server.py agent_dev/ui/setup_server.py agent_dev/ui/source_server.py agent_dev/ui/feature_routes.py agent_dev/ui/workflow_server.py agent_dev/ui/review_server.py
+        run: pyright agent_dev/domain agent_dev/ports agent_dev/application agent_dev/adapters agent_dev/migration agent_dev/entrypoints.py agent_dev/ui/dashboard.py agent_dev/ui/studio_server.py agent_dev/ui/setup_server.py agent_dev/ui/setup_web.py agent_dev/ui/responses.py agent_dev/ui/dashboard_queries.py agent_dev/ui/source_server.py agent_dev/ui/feature_routes.py agent_dev/ui/workflow_server.py agent_dev/ui/review_server.py
       - name: Unit, regression, crash, security, migration and rollback
         run: python -m pytest -q --junitxml=test-results.xml
       - run: python -m build --wheel

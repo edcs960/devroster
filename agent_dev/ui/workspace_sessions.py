@@ -7,7 +7,10 @@ from agent_dev.adapters.workspace_registry import configuration_for, register_ro
 
 
 class WorkspaceSessions:
-    def __init__(self):
+    def __init__(self, factory):
+        # make_server(configuration, port=0) of the Studio server, handed in by its caller:
+        # this module sits below the servers it starts.
+        self.factory = factory
         self.lock = threading.RLock()
         self.servers = {}
         self.children = []
@@ -39,9 +42,7 @@ class WorkspaceSessions:
             thread = None
             try:
                 if created:
-                    from agent_dev.ui.studio_server import make_server
-
-                    server = make_server(configuration, port=0)
+                    server = self.factory(configuration, port=0)
                     self.bind(server)
                     thread = threading.Thread(target=server.serve_forever, daemon=True)
                     thread.start()

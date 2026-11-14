@@ -13,13 +13,13 @@ import time
 from datetime import date, datetime, timedelta
 from datetime import time as dtime
 
+from agent_dev.adapters import price_catalog, review_scorecard
 from agent_dev.adapters.execution_view import STATE_LABELS, task_policy
 from agent_dev.adapters.state.sqlite.database import Database
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository
 from agent_dev.adapters.task_queries import TaskQueries
 from agent_dev.domain.content import redact
 from agent_dev.domain.errors import DomainError, ErrorCode
-from agent_dev.domain.usage_policy import normalize_policy
 from agent_dev.domain.usage_report import report
 
 PERIODS = (7, 30, 90, 0)  # Days; 0 is the whole history.
@@ -49,11 +49,11 @@ def current_policy(db):
         "SELECT content_json FROM project_profile_versions ORDER BY rowid DESC LIMIT 1"
     )
     if not row:
-        return None
+        return price_catalog.resolve(None)
     try:
-        return normalize_policy(json.loads(row[0]["content_json"]).get("usage_policy"))
+        return price_catalog.resolve(json.loads(row[0]["content_json"]).get("usage_policy"))
     except (DomainError, ValueError, AttributeError):
-        return None
+        return price_catalog.resolve(None)
 
 
 def studio_usage(path, since):
@@ -150,6 +150,7 @@ def summary(root, days=30, now=None):
         labels = day_labels(calls[0]["created_at"] if calls else None, now, days)
     result = report(tasks, calls, policies, since=since, day=local_day, days=labels, studios=studios)
     result.update(
+        reviewers=review_scorecard.summary(db, queries.locations.studio_db, since),
         ready=True,
         days=days,
         periods=list(PERIODS),

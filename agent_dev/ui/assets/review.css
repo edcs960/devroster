@@ -67,6 +67,8 @@ body.app-shell.page-review[data-review-view=code] #preview-section,body.app-shel
 .page-review :is(#decision-form,#preview-decision) .check-label:has(input:focus-visible){outline:2px solid var(--ui-focus);outline-offset:2px}
 
 /* Drift check findings: severity stripe, category chip, decision row. */
+.page-review .drift-gate{margin:var(--ui-space-2) 0 0;padding:var(--ui-space-2) var(--ui-space-3);border:1px solid var(--ui-border);border-left-width:4px;border-radius:var(--ui-radius);background:var(--ui-surface);overflow-wrap:anywhere;}
+.page-review .drift-gate[data-blocks="true"]{border-left-color:var(--ui-danger);}
 .page-review .drift-findings{list-style:none;margin:var(--ui-space-2) 0 0;padding:0;display:grid;gap:var(--ui-space-2);}
 .page-review .drift-finding{display:grid;gap:var(--ui-space-1);padding:var(--ui-space-2) var(--ui-space-3);border:1px solid var(--ui-border);border-left-width:4px;border-radius:var(--ui-radius);background:var(--ui-surface);min-width:0;overflow-wrap:anywhere;}
 .page-review .drift-finding[data-severity="high"]{border-left-color:var(--ui-danger);}

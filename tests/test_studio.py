@@ -190,8 +190,8 @@ def seed(studio, questions=None):
     return studio.store.detail(project)
 
 
-def wait_done(studio, project):
-    deadline = time.monotonic() + 4
+def wait_done(studio, project, timeout=4):
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         data = studio.store.detail(project)
         if data["jobs"] and data["jobs"][0]["state"] not in {"queued", "running"}:
@@ -223,8 +223,8 @@ def test_generated_specs_preserve_original_and_require_explicit_approval(studio)
     [
         lambda s: s["requirements"][0].update(source_quote="기획서에 없는 내용"),
         lambda s: s["screens"][0].update(requirement_ids=["REQ-missing"]),
-        lambda s: s["documents"].pop("테스트시나리오"),
-        lambda s: s["documents"].update(요구사항추적성매트릭스="# 짧은 문서"),
+        lambda s: s["documents"].pop("시험시나리오"),
+        lambda s: s["documents"].update(요구사항추적표="# 짧은 문서"),
         lambda s: s["requirements"][1].update(id="REQ-001"),
     ],
 )
@@ -515,6 +515,8 @@ def test_http_assets_csrf_origin_and_end_to_end_generation(http_studio):
     assert "script-src 'self'" in headers["Content-Security-Policy"]
     code, body, _ = request(server, "/api/studio/bootstrap")
     token = json.loads(body)["token"]
+    groups = json.loads(body)["document_groups"]
+    assert len(groups["required"]) == 13 and [g["key"] for g in groups["optional"]] == ["detail", "management"]
     payload = {"title": "HTTP 메모", "brief": BRIEF}
     assert request(server, "/api/studio/create", payload)[0] == 403
     headers = {"X-Studio-Token": token, "Content-Type": "application/json"}
@@ -596,7 +598,7 @@ def test_backend_requirements_are_included_in_handoff_tasks(studio):
             "acceptance": ["저장 데이터가 일관되게 유지된다."],
         }
     )
-    payload["documents"]["요구사항추적성매트릭스"] += "\nREQ-background → 서버 저장 검증"
+    payload["documents"]["요구사항추적표"] += "\nREQ-background → 서버 저장 검증"
     data = studio.save_specs(pid, data["project"]["version"], payload)
     data = studio.approve_specs(pid, data["project"]["version"])
     with studio.store.transaction() as db:

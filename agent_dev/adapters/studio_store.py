@@ -6,7 +6,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from agent_dev.domain.studio import StudioError, serialize
+from agent_dev.domain.studio import StudioError, current_names, serialize
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects(
@@ -156,6 +156,10 @@ class StudioStore:
             raise StudioError(
                 "저장된 검토 자료의 해시가 일치하지 않습니다. 백업과 저장소를 확인해주세요.", 409
             )
+        if table == "specs":
+            # Specs saved under earlier document names are read with today's names. The row and
+            # its digest stay as saved: approvals and handoffs are bound to that digest.
+            item["payload"] = current_names(item["payload"])
         return item
 
     def insert_revision(self, db, table, project_id, payload, source):

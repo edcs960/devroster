@@ -98,6 +98,7 @@ PROFILE_KEYS = {
     "ai_tools",
     "wiki_dir",
     "completion",
+    "drift",
 }
 
 
@@ -652,7 +653,15 @@ class WorkflowRuntime:
                 )
                 return coordinator.execute(task_id, lease)
 
-        return self.safety.command(request_id, {"task_id": task_id, "verify": verify}, operation)
+        result = self.safety.command(request_id, {"task_id": task_id, "verify": verify}, operation)
+        if verify and result.get("passed"):
+            from agent_dev.adapters import drift_check
+
+            # Outside the task lease: the reviewer only reads, and takes its own lease.
+            gate = drift_check.after_verification(self.root, self.store.db, task_id)
+            if gate["state"] != "off":
+                result = dict(result, drift={k: gate[k] for k in ("state", "blocks", "message")})
+        return result
 
     def task_hooks(self, task_id, event, context):
         """Run a task's approved project hooks for one moment; [] when it has none."""

@@ -1,13 +1,16 @@
 """The entry point assembles the layers; adapters never import the ui layer (architecture step 5)."""
 
+import argparse
+from pathlib import Path
+
 import pytest
 
-from agent_dev.adapters import command_line
+from agent_dev.adapters import cli_registry, command_line
 from agent_dev.domain.errors import DomainError
 
 
 def test_cli_web_screens_come_from_the_entry_point(monkeypatch):
-    monkeypatch.setattr(command_line, "WEB_SERVERS", {})
+    monkeypatch.setattr(cli_registry, "WEB_SERVERS", {})
     with pytest.raises(DomainError, match="devroster"):
         command_line.web_server("studio")
     from agent_dev import entrypoints
@@ -18,19 +21,35 @@ def test_cli_web_screens_come_from_the_entry_point(monkeypatch):
     assert command_line.web_server("dashboard") is servers["dashboard"]
 
 
-def test_slack_requests_start_a_real_studio_spec_generation(tmp_path):
-    """The Slack listener used the kind "spec", which Studio rejects; it is "specs"."""
-    from agent_dev.adapters.messenger import StudioService
+def test_messenger_command_comes_from_the_entry_point(monkeypatch, tmp_path):
+    """The listener runs commands through the command line, so the command line does not import it."""
+    monkeypatch.setattr(cli_registry, "COMMANDS", {})
+    args = argparse.Namespace(root=Path(tmp_path), data=None, db=None, namespace="messenger", action="status")
+    with pytest.raises(DomainError, match="messenger"):
+        command_line.dispatch(args)
+    from agent_dev import entrypoints
 
-    service = StudioService(tmp_path)
-    item = service.studio.create("요청", "본문")
-    data = service.studio.generation_input(item["project"]["id"], item["project"]["version"], "specs")
-    assert data["brief"] == "본문"
-    service.jobs.close()
+    calls = []
+    monkeypatch.setattr("agent_dev.adapters.messenger.run_cli", lambda value: calls.append(value) or {"ok": True})
+    cli_registry.register_commands(entrypoints.commands())
+    assert command_line.dispatch(args) == {"ok": True} and calls == [args]
 
 
-def test_the_start_page_is_decided_in_the_ui_layer(tmp_path):
-    from agent_dev import app
-    from agent_dev.ui.studio_server import start_path
+def test_every_installed_entry_point_runs_the_messenger_command(tmp_path):
+    """devroster, fa, agent-dev and python -m agent_dev all start in entrypoints.main, which registers it."""
+    import json
+    import os
+    import subprocess
+    import sys
 
-    assert start_path(tmp_path) == app.start_path(tmp_path) == "/setup"
+    env = dict(os.environ, DEVROSTER_HOME=str(tmp_path / "home"), DEVROSTER_VAULT="file")
+    (tmp_path / "project").mkdir()
+    result = subprocess.run(
+        [sys.executable, "-m", "agent_dev", "messenger", "status", "--root", str(tmp_path / "project"), "--json"],
+        capture_output=True, text=True, encoding="utf-8", env=env, timeout=60, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["status"] == "completed"
+    from agent_dev import fa
+
+    assert "entrypoints" in Path(fa.__file__).read_text(encoding="utf-8")

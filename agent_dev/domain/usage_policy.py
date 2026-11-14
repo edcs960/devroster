@@ -1,7 +1,11 @@
-"""User-entered price book and budget alerts (CO-01).
+"""Price book and budget alerts (CO-01).
 
-Prices are data the project owner types in; nothing here fetches prices,
-converts currencies or reads subscription balances. Absent measurements stay
+Prices are data the project owner types in. An API model the owner did not enter is
+priced from the automatic price list (domain/price_catalog.py) when one is attached
+with ``with_auto_prices``; the owner's own row always wins. That list is in USD: a
+project that counts in another currency shows those costs through the exchange rate its
+owner typed in (``exchange_rate``), and its own price book is never converted. Nothing
+here fetches prices or exchange rates, or reads subscription balances. Absent measurements stay
 unknown (never zero), cached input is charged once according to how each
 provider reports it, and budget alerts are estimates. Stopping is opt-in: with
 ``pause_at_budget`` a task pauses before its next AI call once the estimate reaches the
@@ -14,9 +18,15 @@ import math
 import re
 from datetime import UTC, date, datetime
 
+from agent_dev.domain import price_catalog
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 CURRENCIES = {"USD", "KRW"}
+POLICY_KEYS = {
+    "currency", "alert_thresholds", "estimated_budget", "pause_at_budget", "price_book", "exchange_rate"
+}
+# Upper bound of "1 USD in the project's currency"; above it the value is a typo.
+MAX_EXCHANGE_RATE = 1_000_000
 RATE_KEYS = ("input_per_million", "cached_input_per_million", "output_per_million")
 # Providers whose input_tokens already include cached_input_tokens (OpenAI style).
 CACHED_INSIDE_INPUT = {
@@ -39,14 +49,21 @@ def _rate(value, label):
 
 
 def normalize_policy(value):
-    """Validated usage_policy profile data (or None when not configured)."""
+    """Validated usage_policy profile data (or None when not configured).
+
+    ``exchange_rate`` (1 USD in the project's currency) is kept only for a project that
+    does not count in USD, and only when set, so a policy without it reads as before.
+    """
     if value in (None, {}):
         return None
-    if not isinstance(value, dict) or set(value) - {"currency", "alert_thresholds", "estimated_budget", "pause_at_budget", "price_book"}:
+    if not isinstance(value, dict) or set(value) - POLICY_KEYS:
         _fail("비용 설정 항목을 확인해주세요.")
     currency = value.get("currency", "USD")
     if currency not in CURRENCIES:
         _fail("통화는 USD 또는 KRW만 사용할 수 있습니다.")
+    exchange = _rate(value.get("exchange_rate"), "환율")
+    if exchange is not None and not 0 < exchange <= MAX_EXCHANGE_RATE:
+        _fail("환율은 0보다 크고 1,000,000 이하인 숫자여야 합니다.")
     thresholds = value.get("alert_thresholds", [])
     if not isinstance(thresholds, list) or len(thresholds) > 10:
         _fail("예산 알림 비율을 확인해주세요.")
@@ -88,33 +105,71 @@ def normalize_policy(value):
         if rates["input_per_million"] is None or rates["output_per_million"] is None:
             _fail(f"{model}의 입력·출력 단가를 입력해주세요.")
         rows.append({"provider": provider, "model": model, "valid_from": valid_from, **rates})
-    return {
+    policy = {
         "currency": currency,
         "alert_thresholds": sorted(set(clean)),
         "estimated_budget": budget,
         "pause_at_budget": pause,
         "price_book": sorted(rows, key=lambda r: (r["provider"], r["model"], r["valid_from"])),
     }
+    if exchange is not None and currency != price_catalog.CURRENCY:
+        policy["exchange_rate"] = exchange
+    return policy
+
+
+def with_auto_prices(policy, rows):
+    """``policy`` with the automatic price list behind its own price book.
+
+    A project without cost settings gets a bare USD policy, so its API calls are priced
+    without setup. The list is in USD, so a project that counts in another currency gets it
+    only with its own ``exchange_rate``; without one it keeps only its own price book.
+    """
+    if not rows:
+        return policy
+    if policy is None:
+        policy = {
+            "currency": price_catalog.CURRENCY,
+            "alert_thresholds": [],
+            "estimated_budget": None,
+            "pause_at_budget": False,
+            "price_book": [],
+            "automatic_only": True,
+        }
+    if policy["currency"] != price_catalog.CURRENCY and not policy.get("exchange_rate"):
+        return policy
+    return dict(policy, auto_prices=rows)
+
+
+def _rate_text(rate):
+    return f"{rate:,.4f}".rstrip("0").rstrip(".")
 
 
 def _price(policy, provider, model, when):
+    """(price row, True when it comes from the automatic list); the owner's row wins."""
     day = datetime.fromtimestamp(when, UTC).date().isoformat() if isinstance(when, (int, float)) else None
     candidates = [
         row for row in policy["price_book"]
         if row["provider"] == provider and row["model"] == model and (day is None or row["valid_from"] <= day)
     ]
-    return candidates[-1] if candidates else None
+    if candidates:
+        return candidates[-1], False
+    return price_catalog.price(policy.get("auto_prices") or (), provider, model, when), True
 
 
 def call_cost(policy, call):
-    """(cost or None, reason) for one recorded call; never treats missing as 0."""
+    """(cost or None, reason) for one recorded call; never treats missing as 0.
+
+    The reason of a known cost is "estimated", or "estimated_auto" when the price came
+    from the automatic list instead of the owner's price book. The automatic list is in
+    USD; its cost is shown in the project's currency through the project's exchange rate.
+    """
     usage = call.get("usage") if isinstance(call.get("usage"), dict) else {}
     provider, model = call.get("provider") or "", call.get("model") or ""
     if not provider or not model:
         return None, "model_unknown"
-    price = _price(policy, provider, model, call.get("created_at"))
+    price, automatic = _price(policy, provider, model, call.get("created_at"))
     if price is None:
-        return None, "price_missing"
+        return None, "price_book_missing" if policy.get("automatic_only") else "price_missing"
     if "input_tokens" not in usage or "output_tokens" not in usage:
         return None, "usage_unknown"
     cached = usage.get("cached_input_tokens")
@@ -135,15 +190,21 @@ def call_cost(policy, call):
         + (cached or 0) * (cached_rate or 0)
         + usage["output_tokens"] * price["output_per_million"]
     ) / 1_000_000
+    if automatic:
+        return cost * (policy.get("exchange_rate") or 1), "estimated_auto"
     return cost, "estimated"
+
+
+def _unconfigured(unknown):
+    return {"configured": False, "currency": None, "known_cost": None, "known_calls": 0, "unknown_calls": unknown, "reasons": {}, "by_model": []}
 
 
 def estimate(policy, calls):
     """Known subtotal plus unknown call count; duplicate call IDs counted once."""
     if policy is None:
-        return {"configured": False, "currency": None, "known_cost": None, "known_calls": 0, "unknown_calls": len(calls), "reasons": {}, "by_model": []}
+        return _unconfigured(len(calls))
     seen, known, unknown, reasons, models = set(), 0.0, 0, {}, {}
-    known_calls = 0
+    known_calls = auto_calls = 0
     for call in calls:
         call_id = call.get("call_id")
         if call_id:
@@ -157,14 +218,25 @@ def estimate(policy, calls):
             continue
         known += cost
         known_calls += 1
+        auto_calls += reason == "estimated_auto"
         key = (call.get("provider"), call.get("model"), call.get("source", "canonical"))
         models[key] = models.get(key, 0.0) + cost
+    if policy.get("automatic_only") and not known_calls:
+        # No cost settings and nothing the automatic list prices: still "not configured".
+        return _unconfigured(unknown)
     budget = policy["estimated_budget"]
+    exchange = policy.get("exchange_rate")
+    converted = (
+        f" USD 단가를 프로젝트 환율(1 USD = {_rate_text(exchange)} {policy['currency']})로 바꿨습니다."
+        if exchange
+        else ""
+    )
     return {
         "configured": True,
         "currency": policy["currency"],
         "known_cost": round(known, 6),
         "known_calls": known_calls,
+        "auto_calls": auto_calls,
         "unknown_calls": unknown,
         "reasons": reasons,
         "budget": budget,
@@ -172,7 +244,12 @@ def estimate(policy, calls):
         "by_model": [
             {"provider": p, "model": m, "source": s, "cost": round(c, 6)} for (p, m, s), c in sorted(models.items(), key=lambda x: (str(x[0][0]), str(x[0][1]), str(x[0][2])))
         ],
-        "note": "사용자가 입력한 가격표로 계산한 추정치입니다. 실제 청구액·구독 잔여량이 아닙니다.",
+        "note": (
+            f"가격표로 계산한 추정치입니다. {auto_calls}회는 직접 입력한 가격이 없어 자동 가격표"
+            f"({price_catalog.SOURCE_NAME} 공개 단가)로 계산했습니다.{converted} 실제 청구액·구독 잔여량이 아닙니다."
+            if auto_calls
+            else "사용자가 입력한 가격표로 계산한 추정치입니다. 실제 청구액·구독 잔여량이 아닙니다."
+        ),
     }
 
 

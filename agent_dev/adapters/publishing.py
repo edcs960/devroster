@@ -164,6 +164,10 @@ class PublishAdapter:
                 ErrorCode.VERIFICATION_FAILED,
                 "Source changed after verification; approve a new task plan.",
             )
+        from agent_dev.adapters import drift_check
+
+        # A project may hold publishing until the drift check of this verified code is clear.
+        drift_check.require_clear(self.store.db, task_id)
         local = completion_mode(self.store.snapshot(task_id)["resolved"]) == "local"
         if not dry_run:
             from agent_dev.adapters.ai_hooks import failure_text

@@ -596,6 +596,24 @@ def test_new_project_runs_on_the_approval_engine_and_closes_locally(tmp_path):
     broken["completion_mode"] = "ftp"
     with pytest.raises(DomainError):
         service.save(broken)
+    # Drift gate: absent from the profile until chosen, so older profiles keep their digest.
+    assert saved["drift_gate"] == "off" and "drift" not in service.current_profile()[2]
+    gated = service.read()
+    gated["drift_gate"] = "block"
+    service.save(gated)
+    assert service.current_profile()[2]["drift"] == {"gate": "block"} and service.read()["drift_gate"] == "block"
+    silent = service.read()
+    del silent["drift_gate"]  # A caller that does not know the setting must not switch the gate off.
+    service.save(silent)
+    assert service.current_profile()[2]["drift"] == {"gate": "block"}
+    gated = service.read()
+    gated["drift_gate"] = "off"
+    service.save(gated)
+    assert "drift" not in service.current_profile()[2]
+    broken = service.read()
+    broken["drift_gate"] = "always"
+    with pytest.raises(DomainError):
+        service.save(broken)
 
 
 def test_preset_gates_leave_out_missing_npm_scripts(tmp_path):

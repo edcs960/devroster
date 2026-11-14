@@ -99,6 +99,11 @@ def test_setup_saves_normalized_policy_and_clears_with_null(tmp_path):
     assert profile["usage_policy"]["price_book"][0]["valid_from"] == "1970-01-01"
     loaded = ProjectSetup(root).read()
     assert loaded["usage_policy"]["currency"] == "KRW"
+    assert "exchange_rate" not in loaded["usage_policy"]
+    loaded["usage_policy"]["exchange_rate"] = 1400
+    ProjectSetup(root).save(loaded)
+    loaded = ProjectSetup(root).read()
+    assert loaded["usage_policy"]["exchange_rate"] == 1400
     bad = ProjectSetup(root).read()
     bad["usage_policy"] = {"alert_thresholds": [0.5]}
     with pytest.raises(DomainError):

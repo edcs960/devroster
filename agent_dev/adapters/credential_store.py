@@ -11,6 +11,10 @@ on the screens). Then nothing secret is written to disk: the value is read from 
 process environment each time it is needed, so a shell profile, ``launchctl setenv`` or a
 secret manager (``op run``, ``security find-generic-password`` in a profile) supplies it.
 
+A shared value itself goes to the operating system's credential store when there is one
+(``os_vault``: macOS keychain, Windows DPAPI); the file then keeps where it is (``vault``)
+instead of the value. When the store cannot take it, the value stays in the file as before.
+
 Resolved values are handed to the caller that performs the request and must never be
 returned by an API, written to a snapshot, export, event or log.
 """
@@ -22,6 +26,7 @@ import stat
 from pathlib import Path
 from typing import NoReturn
 
+from agent_dev.adapters import os_vault
 from agent_dev.adapters.environment import read_environment, validate_key
 from agent_dev.adapters.project_setup import atomic_json, private_directory
 from agent_dev.core.storage_locations import WorkspaceLocations, management_root
@@ -31,6 +36,12 @@ IDENTIFIER = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,79}")
 ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,127}")
 ENV_PREFIX = "env:"
 LIMIT = 500_000
+
+
+UNREADABLE = (
+    "OS 보안 저장소(macOS 키체인, Windows 계정 보호)에 보관한 공통 연결 인증을 읽지 못했습니다. "
+    "키체인 잠금을 풀고 다시 시도하거나, 다른 컴퓨터·계정에서 옮겨온 설정이면 인증 값을 다시 입력해주세요."
+)
 
 
 def denied(message, code=ErrorCode.AUTH_REQUIRED) -> NoReturn:
@@ -64,7 +75,37 @@ def _read_shared(connection_id):
         isinstance(name, str) and ENV_NAME.fullmatch(name) for name in env.values()
     ):
         denied("공통 인증 파일 형식을 확인해주세요.", ErrorCode.POLICY_VIOLATION)
+    kept = value.setdefault("vault", {})
+    if not isinstance(kept, dict) or not all(
+        isinstance(entry, dict) and isinstance(entry.get("kind"), str) and isinstance(entry.get("token"), str)
+        for entry in kept.values()
+    ):
+        denied("공통 인증 파일 형식을 확인해주세요.", ErrorCode.POLICY_VIOLATION)
     return value
+
+
+def _protect(connection_id, key, value):
+    """Where the OS store keeps ``value`` now, or None when it stays in the file."""
+    store = os_vault.vault()
+    if store is None:
+        return None
+    try:
+        return {"kind": store.kind, "token": store.protect(f"DevRoster/{connection_id}/{key}", value)}
+    except os_vault.VaultError:
+        return None
+
+
+def _reveal(entry):
+    store = os_vault.reader(entry["kind"])
+    if store is None:
+        raise os_vault.VaultError("unavailable")
+    return store.reveal(entry["token"])
+
+
+def _forget(entry):
+    store = os_vault.reader(entry["kind"]) if entry else None
+    if store is not None:
+        store.forget(entry["token"])
 
 
 def env_reference(value):
@@ -93,8 +134,13 @@ def missing_hint(name, platform=None, frozen=None):
 
 
 def _resolved(row):
-    """Literal values plus referenced environment values that are set right now."""
+    """Stored values that can be read, plus referenced environment values set right now."""
     values = dict(row.get("values", {}))
+    for key, entry in row.get("vault", {}).items():
+        try:
+            values[key] = _reveal(entry)
+        except os_vault.VaultError:
+            pass  # Locked or moved to another computer: the same as not set, until it reads again.
     for key, name in row.get("env", {}).items():
         if os.environ.get(name):
             values[key] = os.environ[name]
@@ -114,23 +160,76 @@ class CredentialStore:
         if not isinstance(resource, str) or len(resource) > 2000:
             denied("인증 대상 주소를 확인해주세요.", ErrorCode.INVALID_INPUT)
         path = _shared_path(connection_id)
-        current = _read_shared(connection_id) or {"values": {}, "env": {}}
+        current = _read_shared(connection_id) or {"values": {}, "env": {}, "vault": {}}
         if current.get("resource", "") not in {"", resource}:
             denied("다른 주소에 묶인 공통 인증입니다.", ErrorCode.POLICY_VIOLATION)
         name = env_reference(value)
         values = {k: v for k, v in current["values"].items() if k != key}
         env = {k: v for k, v in current.get("env", {}).items() if k != key}
-        if name is None:
-            values[key] = value
-        else:
+        kept = {k: v for k, v in current["vault"].items() if k != key}
+        entry = None
+        if name is not None:
             env[key] = name  # Only the name is stored; the value stays outside DevRoster.
-        private_directory(path.parent)
-        atomic_json(path, {"resource": resource, "values": values, "env": env})
+        else:
+            entry = _protect(connection_id, key, value)
+            if entry is None:
+                values[key] = value
+            else:
+                kept[key] = entry
+        try:
+            private_directory(path.parent)
+            atomic_json(path, {"resource": resource, "values": values, "env": env, "vault": kept})
+        except BaseException:
+            _forget(entry)  # Nothing points at the new item.
+            raise
+        _forget(current["vault"].get(key))
 
     @staticmethod
     def revoke_shared(connection_id):
         """Remove a shared connection's private values; every binding then needs re-auth."""
-        _shared_path(connection_id).unlink(missing_ok=True)
+        path = _shared_path(connection_id)
+        try:
+            kept = list((_read_shared(connection_id) or {}).get("vault", {}).values())
+        except (DomainError, OSError, ValueError):
+            kept = []  # An unreadable file is still removed.
+        path.unlink(missing_ok=True)
+        for entry in kept:
+            _forget(entry)
+
+    @staticmethod
+    def protect_shared():
+        """Move values still written in the files to the OS store. Counts only, no values."""
+        report = {"available": os_vault.vault() is not None, "moved": 0, "left": 0}
+        directory = shared_directory()
+        if not report["available"] or not directory.is_dir() or directory.is_symlink():
+            return report
+        for path in sorted(directory.glob("*.json")):
+            if not IDENTIFIER.fullmatch(path.stem):
+                continue
+            row = _read_shared(path.stem) or {}
+            for key, value in sorted(row.get("values", {}).items()):
+                CredentialStore.save_shared(path.stem, key, value, resource=row.get("resource", ""))
+                moved = key in (_read_shared(path.stem) or {}).get("vault", {})
+                report["moved" if moved else "left"] += 1
+        return report
+
+    @staticmethod
+    def storage_report():
+        """How many shared values are kept where (no names, no values)."""
+        report = {"available": os_vault.vault() is not None, "file": 0, "protected": 0, "unreadable": 0}
+        directory = shared_directory()
+        if not directory.is_dir() or directory.is_symlink():
+            return report
+        for path in sorted(directory.glob("*.json")):
+            row = (_read_shared(path.stem) if IDENTIFIER.fullmatch(path.stem) else None) or {}
+            report["file"] += len(row.get("values", {}))
+            for entry in row.get("vault", {}).values():
+                try:
+                    _reveal(entry)
+                    report["protected"] += 1
+                except os_vault.VaultError:
+                    report["unreadable"] += 1
+        return report
 
     @staticmethod
     def shared_entry(connection_id) -> dict:
@@ -153,11 +252,13 @@ class CredentialStore:
         validate_key(key)
         path = _shared_path(connection_id)
         current = _read_shared(connection_id)
-        if current is None or (key not in current["values"] and key not in current.get("env", {})):
+        if current is None or not any(key in current[part] for part in ("values", "env", "vault")):
             return
         values = {k: v for k, v in current["values"].items() if k != key}
         env = {k: v for k, v in current.get("env", {}).items() if k != key}
-        atomic_json(path, dict(current, values=values, env=env))
+        kept = {k: v for k, v in current["vault"].items() if k != key}
+        atomic_json(path, dict(current, values=values, env=env, vault=kept))
+        _forget(current["vault"].get(key))
 
     @staticmethod
     def shared_values():
@@ -190,6 +291,8 @@ class CredentialStore:
                 name = (row or {}).get("env", {}).get(parts[2])
                 if name:
                     denied(f"공통 연결 인증을 읽을 환경변수 {name}이(가) 설정되지 않았습니다.")
+                if parts[2] in (row or {}).get("vault", {}):
+                    denied(UNREADABLE)
                 denied("공통 연결 인증이 없거나 해지되었습니다. 다시 인증해주세요.")
             if row.get("resource") and row["resource"] != resource:
                 denied("공통 인증이 묶인 주소와 연결 주소가 다릅니다.", ErrorCode.POLICY_VIOLATION)

@@ -11,10 +11,11 @@ from __future__ import annotations
 import json
 import time
 
+from agent_dev.adapters import price_catalog
 from agent_dev.adapters.state.sqlite.store import WorkflowRepository
 from agent_dev.domain.content import redact
 from agent_dev.domain.errors import DomainError, ErrorCode
-from agent_dev.domain.usage_policy import estimate, normalize_policy
+from agent_dev.domain.usage_policy import estimate
 
 TERMINAL = {"completed", "cancelled"}
 EVENT_LABELS = {
@@ -72,12 +73,17 @@ NEXT_ACTIONS = {
     "LEGACY_RECORD": ("기존 방식으로 관리되는 작업입니다.", "기존 체크포인트와 기존 명령으로 진행하세요."),
 }
 
+POLICY_ACTION = "위 안내를 확인한 뒤 이어서 실행하세요. (devroster task resume {task})"
+
 
 def next_actions(reasons, task_id):
     rows = []
     for row in reasons:
         known = NEXT_ACTIONS.get(row.get("code", ""))
         if not known:
+            if row.get("code") == "POLICY_VIOLATION":
+                # The reason already says what was refused; only the generic action is reworded.
+                row = dict(row, action=POLICY_ACTION.format(task=task_id))
             rows.append(row)
             continue
         message, action = known
@@ -130,7 +136,7 @@ def task_policy(repository, task_id):
         resolved = repository.snapshot(task_id)["resolved"]
     except DomainError:
         return None
-    return normalize_policy(resolved.get("usage_policy"))
+    return price_catalog.resolve(resolved.get("usage_policy"))
 
 
 def cost(db, task_id):

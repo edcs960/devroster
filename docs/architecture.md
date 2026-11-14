@@ -4,7 +4,7 @@
 
 | 항목 | 기준 |
 |---|---|
-| 기준 | 버전 0.4.8의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
+| 기준 | 버전 0.5.0의 `main`. 절마다 현재 소스·SQL·테스트 계약과 대조해 쓴다 |
 | 대상 | `agent_dev/`, `config/`, `tests/`, 패키지 진입점 및 관련 운영 문서 |
 | 확인 방법 | Python 소스·SQL·테스트 계약 대조 |
 | 문서 책임 | 아키텍처 경계 변경 시 Architect, 저장 구조 변경 시 DBA, 최종 문서 반영 시 Tech Writer |
@@ -90,7 +90,9 @@ flowchart TB
 | ui | `ui` | ui, adapters, application, domain |
 | bootstrap | `app.py`, `entrypoints.py`, `fa.py`, `__main__.py` | 모든 층 |
 
-[test_architecture.py](../tests/test_architecture.py)가 함수 안 import·상대 import·`__import__`까지 모아 이 방향과 모듈 간 `_` 이름 import를 검사한다. 검사를 넣을 때 있던 바깥 층 import 6건은 모두 고쳤다: CLI가 여는 웹 화면은 진입점(`entrypoints.web_servers`)이 `command_line.register_web_servers`로 넘기고, 작업 상태 문구는 `domain/status.py`의 `STATE_TEXT`, Slack 리스너는 웹 계층 대신 Studio 서비스(`messenger.StudioService`)를, 시작 화면 결정은 `ui/studio_server.start_path`를 쓴다. 남은 `_` 이름 import 7건은 `KNOWN_PRIVATE_IMPORTS`에 있고, 고치면 목록에서 지워야 테스트가 통과한다.
+[test_architecture.py](../tests/test_architecture.py)가 함수 안 import·상대 import·`__import__`까지 모아 이 방향과 모듈 간 `_` 이름 import를 검사한다. 검사를 넣을 때 있던 바깥 층 import 6건은 모두 고쳤다: CLI가 여는 웹 화면은 진입점(`entrypoints.web_servers`)이 `command_line.register_web_servers`로 넘기고, 작업 상태 문구는 `domain/status.py`의 `STATE_TEXT`, Slack 리스너는 웹 계층 대신 Studio 서비스(`messenger.StudioService`)를, 시작 화면 결정은 `ui/studio_server.start_path`를 쓴다. 남은 `_` 이름 import 4건은 `KNOWN_PRIVATE_IMPORTS`에 있고, 고치면 목록에서 지워야 테스트가 통과한다.
+
+같은 테스트가 **순환 import**도 검사한다. 함수 안 import까지 따라가 서로를 다시 import하는 모듈 묶음을 찾는다. 남아 있는 묶음은 `KNOWN_CYCLES`에 있다: adapters의 작업 공간·워크플로 중심 44개 모듈, CLI 4개 모듈(`command_line`·`setup_cli`·`messenger`·`agent_console`), ui 서버 17개 모듈. 새 모듈이 묶음에 끼거나 두 묶음이 합쳐지면 실패하고, 순환을 끊으면 목록에서 지워야 통과한다. 끊는 방법은 양쪽이 함께 쓰는 부분을 둘보다 아래에 있는 모듈로 옮기는 것이다(예: `WindowsJob`을 [windows_job.py](../agent_dev/adapters/windows_job.py)로 옮겨 `pipe_ownership`·`stdio_transport`·`bounded_process` 순환을 없앴다).
 
 | 영역 | 책임 | 주요 소스 |
 |---|---|---|
@@ -314,7 +316,9 @@ DevRoster CLI 홈은 모든 프로젝트가 공유하므로 홈에 스킬을 넣
 | API 어댑터 | [api_runner.py](../agent_dev/adapters/api_runner.py)의 API 실행은 `text.generate`. 네이티브 저장소 파일 도구를 제공하는 CLI 개발 실행과 구분 |
 | 모델 라우팅 | [model_routing.py](../agent_dev/domain/model_routing.py): fixed 또는 simple/standard/complex 규칙 기반 선택, 지원 effort 및 상한 반영. 분류용 AI 추가 호출 없음 |
 | 컨텍스트 정책 | [context_policy.py](../agent_dev/domain/context_policy.py): 작업·노드·resume에 맞는 컨텍스트 구성 |
+| 프롬프트 순서(제공자 캐시) | [prompt_cache.py](../agent_dev/domain/prompt_cache.py): 호출마다 반복되는 내용을 앞에 둔다. 작업 context는 프로젝트 규칙 → 승인 설계 → 작업 → 역할별 값 순서, 명세 검토는 명세 → 관점, 문서 묶음 생성은 기획서·요구사항 → 묶음 순서다. 호출별 부분은 `THIS CALL:` 줄로 시작한다. OpenAI·xAI·Gemini는 같은 앞부분을 스스로 재사용하고, `anthropic_api`만 요청에 반복 구간의 끝(`cache_control`)을 표시한다. 캐시에서 읽은 입력은 `cached_input_tokens`로 기록한다(제공자가 보고할 때만). 적중 여부·절감액은 제공자가 정하며 보장하지 않는다 |
 | 사용량·추정 비용 | [usage_policy.py](../agent_dev/domain/usage_policy.py): 보고된 usage와 사용자가 입력한 가격표로 계산. 미보고는 미산정이며 0원으로 확정하지 않음 |
+| 자동 가격표 | [price_catalog.py](../agent_dev/domain/price_catalog.py)·[adapters/price_catalog.py](../agent_dev/adapters/price_catalog.py): 사용자가 가격을 입력하지 않은 API 모델(OpenAI·Anthropic·Gemini·xAI)을 공개 가격 목록(LiteLLM, MIT)의 USD 기본 단가로 추정. 직접 입력한 가격표가 항상 우선하고, 구독형 CLI에는 쓰지 않음. USD가 아닌 프로젝트는 `usage_policy.exchange_rate`(1 USD당 프로젝트 통화, 사용자가 입력)가 있을 때만 그 환율로 바꿔 계산하고, 직접 입력한 가격표는 바꾸지 않음. 앱에 포함된 목록이 기본이고, 갱신은 사용자가 버튼을 누르거나 하루 한 번 자동 갱신을 켰을 때만 공개 주소를 한 번 GET(키·프로젝트 내용 미전송, 리디렉션 거부). 받은 값은 관리 폴더 `global/price_catalog.json`에 모델별 최근 5개 가격 이력으로 쌓이고(같은 날의 변경은 마지막 값으로 덮어씀), 작업 비용은 조회할 때 이 이력으로 다시 계산하므로 오래된 호출의 그때 가격은 보장하지 않음. Studio 생성 비용은 호출 시점 금액으로 따로 고정. 갱신 실패는 이전 목록을 유지하고 작업을 막지 않음. 포함 목록은 `scripts/update_price_catalog.py`로 다시 만듦 |
 | 실행 한도 | [execution_limits.py](../agent_dev/domain/execution_limits.py): 실행 횟수(기본 20, AI 호출 기준 §6)·시간·재진입 한도. 예상 비용 알림 임계치만으로 강제 중단하지 않음 |
 | Studio 생성 | [studio_generation.py](../agent_dev/adapters/studio_generation.py): 명세·목업 생성은 15분 제한. 시간 초과는 로그인 문제와 구분해 안내하고 실패 이벤트에 예외 유형만 기록. 화면 진행바는 같은 종류 최근 5회 소요 시간 중앙값(`job_estimates`)과 경과 시간을 비교 |
 
@@ -417,7 +421,7 @@ external은 설정·DB를 소스 밖에 두고, 실행 worktree·output은 소�
 │   ├── projects/<workspace_id>/     # 프로젝트별 private 디렉터리 0700
 │   │   ├── environment.json         # 비공개 값 파일 0600
 │   │   └── oauth/                   # OAuth 자료 파일 0600
-│   └── shared/<connection_id>.json  # 공통 연결 비밀값·resource binding, 파일 0600
+│   └── shared/<connection_id>.json  # 공통 연결 비밀값(또는 OS 보안 저장소의 항목 이름)·resource binding, 파일 0600
 ├── cli/{claude,codex,gemini}/       # 앱 전용 CLI 홈
 ├── skills/<tree_digest>/<name>/     # 검증한 스킬 캐시, 읽기 전용 (§7.3)
 └── migrations/<plan_id>/journal.json # 저장 위치 이전·복구 기록
@@ -454,7 +458,7 @@ external은 설정·DB를 소스 밖에 두고, 실행 worktree·output은 소�
 |---|---|
 | 관리폴더 | `DEVROSTER_HOME` → OS 기본 앱 위치의 `bootstrap.json.management_root` → OS 기본 앱 위치. macOS `~/Library/Application Support/DevRoster`, Windows `%APPDATA%/DevRoster`, Linux `${XDG_DATA_HOME:-~/.local/share}/devroster`. 잘못되거나 접근 불가능한 포인터는 오류 |
 | CLI 로그인·내부 설정 | 앱 홈의 `cli/claude`, `cli/codex`, `cli/gemini` |
-| AI 도구·API 키 | 관리폴더 `global/settings.db`(schema v2: `global_ai_versions`, `global_ai_auth`, 첫 쓰기 때 v1에서 추가형 업그레이드)와 공유 credential `credentials/shared/ai-providers.json`(0600). 실행 env는 프로젝트 키 → 공통 키 순서이며 snapshot·DB·응답에는 키 이름만 |
+| AI 도구·API 키 | 관리폴더 `global/settings.db`(schema v2: `global_ai_versions`, `global_ai_auth`, 첫 쓰기 때 v1에서 추가형 업그레이드)와 공유 credential `credentials/shared/ai-providers.json`(0600, macOS는 값 대신 로그인 키체인 항목 이름). 실행 env는 프로젝트 키 → 공통 키 순서이며 snapshot·DB·응답에는 키 이름만 |
 | 최근 workspace/위치 매핑 | [workspace_registry.py](../agent_dev/adapters/workspace_registry.py), [storage_registry.py](../agent_dev/adapters/storage_registry.py). 관리폴더 `app.json`을 공유하며 고정 `workspace_id`로 source/config/runtime 경로 연결 |
 | 공통 기본값 | [global_settings.py](../agent_dev/adapters/global_settings.py), `global/settings.db`. AI provider/model/effort·실행 한도 기본값/상한·선택 복사할 역할 template를 revision으로 저장 |
 | 프로젝트 실행 설정 | [settings_resolution.py](../agent_dev/domain/settings_resolution.py)가 항목별 공통값·프로젝트 override를 합성. `ProjectSetup.apply_global()`로 새 프로필 revision을 만들고 `configuration_provenance`에 공통 revision·digest·override·origins 기록 |
@@ -500,7 +504,7 @@ external은 설정·DB를 소스 밖에 두고, 실행 worktree·output은 소�
 | 쓰기 감시 | project/module/node/test/docs 정책 교집합, 실행 전후 Git tracked/untracked 파일 관측, 경로 이탈·symlink 검사. 경로 항목은 폴더/파일 접두사 또는 파일 이름 패턴(`*.test.*`처럼 `/` 없는 패턴은 파일 이름만 비교) | `role_execution.capture()/enforce()`, `role_policy.path_matches()` |
 | 프로세스 | timeout·출력량 제한·취소·프로세스 그룹 소유권. owned POSIX 자식은 `waitid(...WNOWAIT)` 관측 후 정리하여 재사용 PID 신호 방지 | [bounded_process.py](../agent_dev/adapters/bounded_process.py), [stdio_transport.py](../agent_dev/adapters/stdio_transport.py) |
 | HTTP | loopback 바인딩, 브라우저 세션 쿠키(아래), Host/Origin/Sec-Fetch 검사, 인스턴스 쓰기 토큰, 파라미터/본문 크기 제한, CSP·정형 오류 | [session.py](../agent_dev/ui/session.py), [local_server.py](../agent_dev/ui/local_server.py), [local_web.py](../agent_dev/ui/local_web.py), [studio_server.py](../agent_dev/ui/studio_server.py) |
-| 비밀값 | `CredentialStore.resolve()`가 실행 시에만 `project:<KEY>` 또는 `shared:<connection_id>:<KEY>`를 해석. workspace ID·선택적 resource binding을 검사하고 비공개 파일(0600)에서 읽음. 프로세스별 환경 선택·결과/로그 redaction, snapshot/DB/내보내기/event에 원시 인증값을 넣지 않음 | [credential_store.py](../agent_dev/adapters/credential_store.py), [environment.py](../agent_dev/adapters/environment.py), [secrets.py](../agent_dev/adapters/secrets.py) |
+| 비밀값 | `CredentialStore.resolve()`가 실행 시에만 `project:<KEY>` 또는 `shared:<connection_id>:<KEY>`를 해석. workspace ID·선택적 resource binding을 검사하고 비공개 파일(0600)에서 읽음. 공통 연결 값은 [os_vault.py](../agent_dev/adapters/os_vault.py)를 거쳐 OS 보안 저장소(macOS 키체인, Windows DPAPI는 선택)에 두고, 넣지 못하면 파일에 둠. 프로세스별 환경 선택·결과/로그 redaction, snapshot/DB/내보내기/event에 원시 인증값을 넣지 않음 | [credential_store.py](../agent_dev/adapters/credential_store.py), [environment.py](../agent_dev/adapters/environment.py), [secrets.py](../agent_dev/adapters/secrets.py) |
 
 **브라우저 세션.** loopback 포트에는 같은 컴퓨터의 다른 프로그램과 다른 사용자도 접속할 수 있고, Host·Origin 검사는 헤더를 직접 넣는 로컬 프로그램을 막지 못한다. 그래서 `LocalHTTPServer`가 모든 handler를 [session.py](../agent_dev/ui/session.py)의 `guarded()`로 감싸 세션 쿠키가 있는 요청만 통과시킨다. 비밀값은 프로세스마다 새로 만들어 메모리에만 두고, 쿠키(`devroster_session_<포트>`, `HttpOnly; SameSite=Strict`)는 `/launch?key=<한 번 쓰는 키>&next=<화면>`으로만 발급한다. 키는 앱이 직접 브라우저를 열 때 만들거나(주소를 명령줄에 넣지 않으려고 관리 폴더의 0600 파일을 거쳐 연다), 터미널 실행에서 `직접 열기` 주소로 출력한다. 브라우저가 그 파일을 읽지 못해(샌드박스 브라우저, `.html`이 다른 프로그램에 연결된 경우) 8초 안에 키가 쓰이지 않으면 주소를 직접 넘겨 다시 연다. 이때와 WSL에서는 한 번 쓰는 키가 브라우저 명령줄에 잠깐 보인다. 패키징된 앱은 키를 출력하지 않는다. 이미 실행 중인 앱을 다시 여는 두 번째 프로세스는 관리 폴더 `launch/`에 10분짜리 ticket 파일(이름은 키의 해시)을 두고, 실행 중인 서버가 한 번 쓰고 지운다. 세션 없이 응답하는 것은 정적 파일(`.css`·`.js`·`.svg`·`.ico`·`.png`·`.woff2`, 데이터 없음), `GET /api/app/status`(실행 중인 앱을 찾는 데 쓰는 boolean 값), OAuth callback(자체 `state`로 보호)뿐이다. 그 밖의 화면 요청은 403 안내 화면, API 요청은 403 `session_required`를 받는다. 앱이 다른 프로젝트용으로 여는 서버([workspace_sessions.py](../agent_dev/ui/workspace_sessions.py))는 같은 프로세스의 비밀값을 쓰므로 같은 쿠키로 열린다. 한계: 브라우저는 쿠키를 포트로 구분하지 않으므로, 같은 컴퓨터의 다른 사용자가 `127.0.0.1`의 다른 포트에 서버를 띄우고 사용자가 같은 브라우저로 그 주소를 열면 쿠키가 그 서버에 전달된다. 기존 Host/Origin/Sec-Fetch 검사와 쓰기 토큰은 그대로 둔다.
 
@@ -529,7 +533,13 @@ canonical DB와 Studio DB의 writer lock 순서는 canonical → Studio로 정�
 
 **명세 독립 검토.** Studio의 '독립 검토'는 명세서를 쓴 대화를 모르는 AI 호출로 명세를 관점별(이해도·자기완결성, 설계 결함, 구현 준비도, 범위·근거, 목업이 있으면 명세·화면 일치)로 검토한다([spec_review.py](../agent_dev/domain/spec_review.py)). 같은 관점을 서로 다른 모델 계열(사용 중인 도구에서 계열마다 하나, 최대 3개)에 맡기고, 같은 대상·관점에서 제목 단어가 겹치는 지적은 하나로 합쳐 함께 지적한 계열 수를 남긴다. 지적은 Studio DB의 `reviews`·`findings`에 저장되며 반영함·위험 수용·반박(수용·반박은 이유 필수)으로 처리한다. 명세 관점의 심각한 지적이 열려 있으면 명세 확정을, 명세·화면 일치의 심각한 지적이 열려 있으면 개발 인계를 막는다. 확정 이벤트에는 수용·반박한 지적 목록이 남는다. 검토 호출의 사용량은 `job.usage`(단계 `review:<관점>`)로 기록된다.
 
-**드리프트 검사.** 변경 검토 화면의 '드리프트 검사'는 작업에 연결된 요구사항·수용 기준(`requirement_links` kind `task` → `imported_requirements`)과 그 작업의 범위 안 diff(비공개·범위 밖 파일 제외, 30만 자 상한)를 대화 기록 없는 AI 한 번에 비교한다([drift.py](../agent_dev/domain/drift.py), [drift_check.py](../agent_dev/adapters/drift_check.py)). 검토자는 개발에 쓰인 도구와 다른 모델 계열을 우선 고른다. 범주는 명세에 있는데 코드에 없음, 데이터 구조 누락, 하드코딩·임시 처리, 다른 구조·라이브러리, 수용 기준 미충족, 명세에 없는 동작(반대 방향 드리프트)이다. 결과는 작업 이벤트(`DriftStarted`·`DriftChecked`·`DriftFailed`, 처리는 `DriftFindingProcessed`)로만 남아 정본 스키마는 바뀌지 않는다. 호출 사용량은 `RunnerUsage`(phase `drift`)로 기록되며 작업의 시도 한도에는 포함되지 않는다. 지금은 보고만 하고 게시를 막지 않는다.
+**드리프트 검사.** 변경 검토 화면의 '드리프트 검사'는 작업에 연결된 요구사항·수용 기준(`requirement_links` kind `task` → `imported_requirements`)과 그 작업의 범위 안 diff(비공개·범위 밖 파일 제외, 30만 자 상한)를 대화 기록 없는 AI 한 번에 비교한다([drift.py](../agent_dev/domain/drift.py), [drift_check.py](../agent_dev/adapters/drift_check.py)). 검토자는 개발에 쓰인 도구와 다른 모델 계열을 우선 고른다. 범주는 명세에 있는데 코드에 없음, 데이터 구조 누락, 하드코딩·임시 처리, 다른 구조·라이브러리, 수용 기준 미충족, 명세에 없는 동작(반대 방향 드리프트)이다. 결과는 작업 이벤트(`DriftStarted`·`DriftChecked`·`DriftFailed`, 처리는 `DriftFindingProcessed`)로만 남아 정본 스키마는 바뀌지 않는다. 호출 사용량은 `RunnerUsage`(phase `drift`)로 기록되며 작업의 시도 한도에는 포함되지 않는다. 검사는 시작할 때의 코드와 검증 명령의 digest(`evidence`, 검증 실행의 `policy_digest`와 같은 값)를 함께 남긴다.
+
+**드리프트 검사와 검증·게시.** 프로젝트 설정의 드리프트 검사 방식(`drift_gate`, 프로파일 `drift.gate`)은 승인 스냅샷에 고정된다. `off`(기본)는 검토 화면에서 직접 실행할 때만 검사한다. `advise`는 검증이 통과하면 같은 명령 안에서 검사를 한 번 실행한다(`WorkflowRuntime.execute` → `drift_check.after_verification`). `block`은 여기에 더해 게시를 막는다(`PublishAdapter.publish` → `drift_check.require_clear`). 판단은 [drift.py](../agent_dev/domain/drift.py)의 `gate`가 한다. 최신 검사의 `evidence`가 최신 통과 검증의 `policy_digest`와 같을 때만 그 검사를 인정하므로, 검사 뒤에 코드가 바뀌어 다시 검증하면 검사도 다시 해야 한다. 인정된 검사에 처리하지 않은 심각 지적이 있거나, 검사가 없거나 진행 중이거나 실패했으면 `block`에서 게시를 거부한다. 요구사항이 연결되지 않은 작업은 비교할 명세가 없어 적용하지 않는다. 검사 실패는 검증 결과를 바꾸지 않는다. 설정을 보내지 않은 저장은 기존 방식을 유지한다.
+
+**수용 기준과 확인 테스트.** Test Automation 역할이 수용 기준마다 적어 낸 테스트(`CriteriaTestsNamed` 이벤트)는 검증 통과 뒤 요구사항 연결이 되고(`traceability.link_criteria_tests`), 드리프트 검사에도 쓰인다. `drift_check.requirements`가 수용 기준마다 지정된 테스트(`test`)를 붙여(`criteria_tests.attach`) 검토자에게 넘기고, 검토자는 그 테스트가 수용 기준이 지켜지지 않아도 통과하는 경우를 `test_gap`(수용 기준을 실제로 확인하지 않는 테스트)으로 지적한다. 테스트가 아예 지정되지 않은 수용 기준은 AI 없이 기록만으로 세어(`criteria_tests.coverage`) 검토 화면의 드리프트 패널에 보여 준다.
+
+**검토자 성적표·처리한 지적 전달·검토 깊이.** 검토 AI는 사용자가 처리한 지적으로만 평가한다([review_scorecard.py](../agent_dev/domain/review_scorecard.py), 순수 규칙). 반영(`resolved`)과 위험 수용(`accepted`)은 맞은 지적, 반박(`rebutted`)은 틀린 지적이고, 열린 지적은 세지 않는다. 적중률(맞음 ÷ 처리한 지적)은 처리한 지적이 5건(`MIN_DECISIONS`) 이상일 때만 나온다. 읽기 모델 [adapters/review_scorecard.py](../agent_dev/adapters/review_scorecard.py)가 Studio DB의 `findings`(명세 검토)와 작업 이벤트 `DriftChecked`·`DriftFindingProcessed`(드리프트 검사)를 읽어 도구·모델별, 관점·유형별로 세고, `/api/usage/summary`의 `reviewers`로 사용량 화면 '검토 AI 성적표'에 보인다. 한 작업은 고칠 때마다 다시 검사하므로 이전 검사의 지적은 처리한 것만, 최신 검사의 지적은 모두 센다. 사용자가 이유를 적어 수용·반박한 지적은 다음 검토자에게 전달한다(`review_scorecard.notebook`, 최대 8건, 이유 300자). 명세 검토는 같은 Studio 프로젝트의 지적을, 드리프트 검사는 같은 작업의 이전 검사 지적을 프롬프트의 `DECIDED_FINDINGS`로 넣어, 검토 대상이 그 이유와 어긋나지 않는 한 같은 지적을 되풀이하지 않게 한다. 반영했다고 처리한 지적은 넣지 않으므로 실제로 고쳐지지 않았으면 다시 지적된다. 차단 조건(열린 심각 지적)은 그대로다. 독립 검토는 검토 깊이(`depth` 1~3, 기본 3 = 기존 동작)로 모델 계열 수를 줄여 호출 수(관점 × 계열)를 낮출 수 있다. 3보다 줄이면 명세 검토 적중률이 확인된 도구부터 쓰고(`review_scorecard.rank`), 확인된 도구가 없으면 기존 순서(생성에 쓴 도구 먼저)를 따른다. 위키 지식은 출처 해시와 승인이 필요한 별도 체계라 이 전달에는 쓰지 않는다.
 
 <a id="review"></a>
 ## 13. 개발 검토·추적성·요구사항 변경
@@ -538,7 +548,7 @@ canonical DB와 Studio DB의 writer lock 순서는 canonical → Studio로 정�
 |---|---|---|
 | 코드 검토 | 현재 task/worktree diff·검증 근거 수집 → 파일 코멘트 → 코드 검토 결정. 현재 근거와 이전 결정을 구분 | [development_review.py](../agent_dev/adapters/development_review.py) |
 | 화면 미리보기 | 승인·등록된 서비스 시작/연결 → 호스트가 브라우저 캡처/DOM 메타데이터 생성 → session/generation/digest에 묶인 요소 코멘트 | [preview_host.py](../agent_dev/adapters/preview_host.py), [preview_worker.cjs](../agent_dev/adapters/preview_worker.cjs) |
-| 추적성 | 인계된 요구사항/수용 기준 → task/test selector → 현재 검증 run의 등록 근거 연결 | [traceability.py](../agent_dev/adapters/traceability.py), [pytest_attestation.py](../agent_dev/adapters/pytest_attestation.py) |
+| 추적성 | 인계된 요구사항/수용 기준 → task/test selector → 현재 검증 run의 등록 근거 연결 | [criteria_tests.py](../agent_dev/domain/criteria_tests.py)(순수 규칙), [traceability.py](../agent_dev/adapters/traceability.py), [pytest_attestation.py](../agent_dev/adapters/pytest_attestation.py) |
 | 요구사항 변경 | 새 Studio revision과 기존 import 비교 → 영향/후속 task 매핑 → 제안 → 같은 preview digest 재검사 후 적용 | [requirement_changes.py](../agent_dev/adapters/requirement_changes.py) |
 
 - 미리보기는 설치된 Node Playwright/브라우저를 사용한다. `DEVROSTER_PLAYWRIGHT_MODULE`, `DEVROSTER_BROWSER_EXECUTABLE` 경로를 지원하며 자동 설치하지 않는다. Browser MCP의 자료 읽기 지원 여부와 별개다.

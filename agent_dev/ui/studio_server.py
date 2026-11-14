@@ -16,9 +16,10 @@ from agent_dev.adapters.studio_generation import StudioJobs
 from agent_dev.adapters.studio_store import StudioStore
 from agent_dev.application.studio import Studio
 from agent_dev.domain.errors import DomainError
-from agent_dev.domain.studio import DOCUMENTS, StudioError
+from agent_dev.domain.studio import DOCUMENTS, OPTIONAL_GROUPS, REQUIRED_DOCUMENTS, StudioError
 from agent_dev.ui.local_server import LocalHTTPServer
 from agent_dev.ui.page_navigation import local_page_navigation
+from agent_dev.ui.responses import send
 from agent_dev.ui.shared_assets import shared_asset_name
 
 ASSETS = {
@@ -51,7 +52,7 @@ class StudioWeb:
         self._jobs = None
         self._generator = generator
         self._initialization_lock = threading.RLock()
-        from agent_dev.ui.setup_server import SetupWeb
+        from agent_dev.ui.setup_web import SetupWeb
 
         self.setup = SetupWeb(root)
         self.token = secrets.token_urlsafe(32)
@@ -89,7 +90,7 @@ class StudioWeb:
 
     @staticmethod
     def matches(path):
-        from agent_dev.ui.setup_server import SetupWeb
+        from agent_dev.ui.setup_web import SetupWeb
 
         return (
             shared_asset_name(path) is not None
@@ -98,26 +99,7 @@ class StudioWeb:
             or SetupWeb.matches(path)
         )
 
-    @staticmethod
-    def send(handler, data, kind="application/json", status=200, filename=None):
-        if kind == "application/json":
-            data = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        handler.send_response(status)
-        handler.send_header(
-            "Content-Type", kind + ("; charset=utf-8" if kind != "application/zip" else "")
-        )
-        handler.send_header("Content-Length", str(len(data)))
-        handler.send_header("Cache-Control", "no-store")
-        handler.send_header("X-Content-Type-Options", "nosniff")
-        handler.send_header("Referrer-Policy", "no-referrer")
-        handler.send_header(
-            "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
-        )
-        if filename:
-            handler.send_header("Content-Disposition", 'attachment; filename="' + filename + '"')
-        handler.end_headers()
-        handler.wfile.write(data)
+    send = staticmethod(send)
 
     def handle(self, handler):
         if self.setup.matches(urlparse(handler.path).path):
@@ -179,7 +161,7 @@ class StudioWeb:
                     )
                     return
                 if parsed.path in {"/api/tasks", "/api/task", "/api/doctor"}:
-                    from agent_dev.ui.dashboard import read_view
+                    from agent_dev.ui.dashboard_queries import read_view
 
                     self.send(handler, read_view(self.root, parsed))
                     return
@@ -201,6 +183,13 @@ class StudioWeb:
                             "token": self.token,
                             "template": template,
                             "documents": DOCUMENTS,
+                            "document_groups": {
+                                "required": REQUIRED_DOCUMENTS,
+                                "optional": [
+                                    {"key": key, "label": label, "documents": names}
+                                    for key, label, names in OPTIONAL_GROUPS
+                                ],
+                            },
                             "projects": self.studio.store.projects(),
                             "ai": ai_defaults(self.root),
                             "ai_notes": ai_tool_notes(self.root),
@@ -304,11 +293,12 @@ class StudioWeb:
                 p.get("effort"),
                 documents=p.get("documents"),
                 note=p.get("note", ""),
+                optional=p.get("optional_groups"),
             )
         if action == "cancel":
             return service.cancel_job(project, version, p["job_id"])
         if action == "review":
-            return self.jobs.start_review(project, version, p.get("lenses"), p.get("reviewers"))
+            return self.jobs.start_review(project, version, p.get("lenses"), p.get("reviewers"), p.get("depth"))
         if action == "finding":
             return service.process_finding(project, version, p["finding_id"], p["state"], p.get("note", ""))
         revision = p["revision"]
@@ -363,7 +353,7 @@ def make_server(root, port=8767, generator=None):
         raise
     server.studio = web
     from agent_dev.ui.workspace_sessions import WorkspaceSessions
-    WorkspaceSessions().bind(server, owner=True)
+    WorkspaceSessions(make_server).bind(server, owner=True)
     return server
 
 

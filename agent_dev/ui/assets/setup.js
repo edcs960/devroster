@@ -103,18 +103,33 @@
     const rates=make('div',undefined,'columns');field(rates,'입력 단가',rateText(row.input_per_million),'number','input_per_million');field(rates,'캐시 입력 단가 (선택)',rateText(row.cached_input_per_million),'number','cached_input_per_million');field(rates,'출력 단가',rateText(row.output_per_million),'number','output_per_million');rates.querySelectorAll('input').forEach(i=>{i.step='any';i.min='0';});card.append(rates);
     $('price-book').append(card);
   }
+  // The automatic price list is in USD; another currency needs the project's own exchange rate.
+  function showExchange() {const off=$('cost-currency').value==='USD';$('cost-exchange').hidden=off;$('cost-exchange-hint').hidden=off;}
+  $('cost-currency').addEventListener('change',showExchange);
   function renderPolicy(policy) {
-    $('cost-currency').value=policy?.currency||'USD';$('cost-budget').value=rateText(policy?.estimated_budget);$('cost-thresholds').value=(policy?.alert_thresholds||[]).map(v=>Math.round(v*10000)/100).join(', ');$('cost-pause').checked=!!policy?.pause_at_budget;
+    $('cost-currency').value=policy?.currency||'USD';$('cost-exchange-rate').value=rateText(policy?.exchange_rate);showExchange();$('cost-budget').value=rateText(policy?.estimated_budget);$('cost-thresholds').value=(policy?.alert_thresholds||[]).map(v=>Math.round(v*10000)/100).join(', ');$('cost-pause').checked=!!policy?.pause_at_budget;
     $('price-book').replaceChildren();(policy?.price_book||[]).forEach(priceCard);
   }
+  // Automatic price list: app-wide and saved at once, so it never marks the project form dirty.
+  function renderPrices(data) {
+    const day=data.fetched_at?new Date(data.fetched_at*1000).toLocaleDateString('ko-KR')+' 갱신':`앱에 포함된 ${data.bundled_on||'기본'} 목록`;
+    $('auto-prices-status').textContent=`API 모델 ${data.models}개 · ${day} · 출처 ${data.source} 공개 가격 목록 (${data.currency})`+(data.last_error?` · 마지막 갱신 실패: ${data.last_error}`:'');
+    $('auto-prices-refresh').checked=!!data.auto_refresh;
+  }
+  async function loadPrices() {try{renderPrices(await api('prices'));}catch(e){$('auto-prices-status').textContent='자동 가격표 상태를 읽지 못했습니다.';}}
+  const done = text => globalThis.DevRosterUI ? globalThis.DevRosterUI.toast(text) : notice(text);
+  for(const type of ['input','change'])$('auto-prices-refresh').addEventListener(type,event=>event.stopPropagation());
+  $('auto-prices-refresh').addEventListener('change',async event=>{const box=event.target;try{box.disabled=true;renderPrices(await api('prices',{auto_refresh:box.checked}));done(box.checked?'가격 목록을 하루 한 번 자동으로 갱신합니다.':'가격 목록 자동 갱신을 껐습니다.');}catch(e){box.checked=!box.checked;notice(errText(e),true);}finally{box.disabled=false;if(document.activeElement===document.body)box.focus();}});
+  $('auto-prices-fetch').addEventListener('click',async()=>{const button=$('auto-prices-fetch');try{button.disabled=true;$('auto-prices-status').textContent='가격 목록을 받아오고 있습니다.';renderPrices(await api('prices/refresh',{}));done('가격 목록을 갱신했습니다.');}catch(e){await loadPrices();notice(errText(e),true);}finally{button.disabled=false;if(document.activeElement===document.body)button.focus();}});
   function collectPolicy() {
     const num=v=>{if(v.trim()==='')return null;const n=Number(v);if(!Number.isFinite(n))throw new Error('비용 설정에는 숫자를 입력해주세요.');return n;};
     const book=[...$('price-book').children].map(card=>{const get=k=>card.querySelector(`[data-field=${k}]`).value;const row={provider:get('provider'),model:get('model').trim(),input_per_million:num(get('input_per_million')),cached_input_per_million:num(get('cached_input_per_million')),output_per_million:num(get('output_per_million'))};if(get('valid_from').trim())row.valid_from=get('valid_from').trim();return row;});
     const thresholds=$('cost-thresholds').value.split(',').map(v=>v.trim()).filter(Boolean).map(v=>num(v)/100),budget=num($('cost-budget').value);
-    const pause=$('cost-pause').checked;
-    if(!book.length&&!thresholds.length&&budget===null&&!pause)return null;
+    const pause=$('cost-pause').checked,currency=$('cost-currency').value,exchange=currency==='USD'?null:num($('cost-exchange-rate').value);
+    if(exchange!==null&&!(exchange>0))throw new Error('환율은 0보다 큰 숫자로 입력해주세요.');
+    if(!book.length&&!thresholds.length&&budget===null&&!pause&&exchange===null)return null;
     if(pause&&!(budget>0))throw new Error('예산 도달 시 멈추려면 작업당 예상 예산을 입력해주세요.');
-    return {currency:$('cost-currency').value,alert_thresholds:thresholds,estimated_budget:budget,pause_at_budget:pause,price_book:book};
+    return {currency,alert_thresholds:thresholds,estimated_budget:budget,pause_at_budget:pause,price_book:book,...(exchange===null?{}:{exchange_rate:exchange})};
   }
   function envRow(row={key:'',value:''}) {
     const card=make('div',undefined,'card env-row'),cols=make('div',undefined,'columns');field(cols,'변수 이름',row.key,'text','key');const input=field(cols,'값 (저장 후 숨김)',row.value,'password','value');input.autocomplete='new-password';card.append(cols);
@@ -162,7 +177,7 @@
     state.roles=structuredClone(settings.roles);$('role-domain').value=state.roles.domain;renderRoles();
     state.skills={bundles:[],repositories:{},roles:{},exclude:[],...(settings.skills||{})};renderSkills();$('skill-status').replaceChildren();loadRules();
     state.aiTools=settings.ai_tools?{selected:[...settings.ai_tools.selected]}:null;renderSharedAi();
-    $('verification-scope').value=settings.verification_scope||'all';$('completion-mode').value=settings.completion_mode||'local';$('output-language').value=settings.output_language||'';$('test-paths').value=(settings.test_paths||[]).join(', ');$('document-paths').value=(settings.document_paths||[]).join(', ');$('wiki-dir').value=settings.wiki_dir||'';renderStructuredWarning();
+    $('verification-scope').value=settings.verification_scope||'all';$('completion-mode').value=settings.completion_mode||'local';$('drift-gate').value=settings.drift_gate||'off';$('output-language').value=settings.output_language||'';$('test-paths').value=(settings.test_paths||[]).join(', ');$('document-paths').value=(settings.document_paths||[]).join(', ');$('wiki-dir').value=settings.wiki_dir||'';renderStructuredWarning();
     $('env-rows').replaceChildren();settings.environment.forEach(envRow);$('revision').textContent=settings.revision?`설정 ${settings.revision} · 프로필 ${settings.profile_version}`:'아직 저장하지 않음';if(settings.preparation_mode)$('revision').textContent+=' · 준비 모드';$('checks').replaceChildren(make('p','저장된 설정으로 준비 상태를 확인해주세요.','hint'));$('next-actions').hidden=!settings.revision;syncContext();
     const quoted="'"+settings.root.replace(/'/g,/^[A-Za-z]:/.test(settings.root)?"''":"'\\''")+"'";$('commands').textContent=`devroster studio --root ${quoted}\ndevroster dashboard --root ${quoted}\ndevroster setup --check --check-auth --root ${quoted}`;
   }
@@ -254,10 +269,10 @@
       verification:cards('gates').map(row=>({...row,command:parseArgs(row.command)})),environment:cards('env-rows'),
       preview_services:cards('preview-services').map(row=>({id:row.id,module:row.module,argv:parseArgs(row.argv),cwd:row.cwd||'.',port:row.port,readiness_path:row.readiness_path||'/',startup_timeout:row.startup_timeout,env_refs:row.env_refs.split(',').map(v=>v.trim()).filter(Boolean),allowed_origins:row.allowed_origins.split(',').map(v=>v.trim()).filter(Boolean)})),
       usage_policy:collectPolicy(),skills:collectSkills(),ai_tools:collectAiTools(),
-      verification_scope:$('verification-scope').value,completion_mode:$('completion-mode').value,output_language:$('output-language').value.trim(),test_paths:splitPaths($('test-paths').value),document_paths:splitPaths($('document-paths').value),wiki_dir:$('wiki-dir').value.trim(),limits:Object.fromEntries([...$('limits').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)])),ports:Object.fromEntries([...$('ports').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)]))};
+      verification_scope:$('verification-scope').value,completion_mode:$('completion-mode').value,drift_gate:$('drift-gate').value,output_language:$('output-language').value.trim(),test_paths:splitPaths($('test-paths').value),document_paths:splitPaths($('document-paths').value),wiki_dir:$('wiki-dir').value.trim(),limits:Object.fromEntries([...$('limits').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)])),ports:Object.fromEntries([...$('ports').querySelectorAll('[data-field]')].map(i=>[i.dataset.field,Number(i.value)]))};
   }
   function busy(value) {state.pending=value;workspaceStatus();DevRosterProgress.busyAfter($('notice'),value,'설정 작업 처리 중');document.querySelectorAll('#settings-form input,#settings-form select,#settings-form textarea,#settings-form button').forEach(el=>el.disabled=value||el.dataset.catalogUnavailable==='true'||(el.id==='project-id'&&state.settings?.profile_version>0));}
-  async function load(root) {const data=await api('bootstrap'+(root?'?root='+encodeURIComponent(root):''));state.token=data.token;state.presets=data.presets;state.catalog=data.model_catalog||{};state.providers=data.providers;state.roleCatalog=data.role_catalog||[];state.skillCatalog=data.skill_catalog||{bundles:{}};await loadSharedAi();render(data.settings);await loadTrust();refreshCliAuth();notice('설정을 확인하고 저장해주세요.');}
+  async function load(root) {const data=await api('bootstrap'+(root?'?root='+encodeURIComponent(root):''));state.token=data.token;state.presets=data.presets;state.catalog=data.model_catalog||{};state.providers=data.providers;state.roleCatalog=data.role_catalog||[];state.skillCatalog=data.skill_catalog||{bundles:{}};await loadSharedAi();render(data.settings);loadPrices();await loadTrust();refreshCliAuth();notice('설정을 확인하고 저장해주세요.');}
   $('settings-form').addEventListener('input',e=>{if(!['routing-task','routing-phase'].includes(e.target.id))state.dirty=true;});
   $('settings-form').addEventListener('submit',async e=>{e.preventDefault();try{const settings=collect();busy(true);notice('설정을 저장하고 있습니다. 로그인 확인을 선택했다면 잠시 기다려주세요.');const result=await api('save',{root:sourceRoot(),settings,check_auth:authCheck()});if(result.shared_ai)await loadSharedAi();render(result.settings);await refreshWorkspaces(result.settings.root);notice(result.warnings.length?result.warnings.join(' '):result.shared_ai?'설정을 저장했습니다. 이 프로젝트의 AI 도구가 공통 AI 도구가 되었습니다. 로그인은 AI 도구 메뉴에서 진행하고, 환경 진단으로 준비 상태를 확인해주세요.':'설정을 저장했습니다. 환경 진단으로 준비 상태를 확인해주세요.',!!result.warnings.length);}catch(err){notice(errText(err),true);}finally{busy(false);}});
   $('load-root').addEventListener('click',async()=>{if(state.dirty&&!(await ask('저장하지 않은 설정이 있습니다','선택한 폴더의 설정을 불러오면 지금 수정한 내용이 사라집니다.','변경 버리고 불러오기',{cancel:'계속 편집'})))return;try{busy(true);await load($('root').value);}catch(e){notice(errText(e),true);}finally{busy(false);}});

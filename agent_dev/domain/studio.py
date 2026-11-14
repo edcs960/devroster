@@ -4,30 +4,51 @@ import json
 import re
 import uuid
 
-DOCUMENTS = (
-    "개발기획서",
-    "요구사항명세서",
-    "기능명세서",
-    "화면정의서",
-    "API명세서",
-    "데이터정의서",
-    "테이블정의서",
-    "권한정의서",
-    "정책정의서",
-    "코드공통코드정의서",
-    "테스트시나리오",
-    "요구사항추적성매트릭스",
-    "프로세스정의서",
-    "비기능요구사항정의서",
-    "프로그램목록",
-    "용어사전",
-    "기술설계서",
-    "시스템다이어그램정의서",
-    "시퀀스다이어그램",
-    "클래스다이어그램",
-    "갭분석및보완사항",
-    "산출물목록",
+# Names follow the deliverables of Korean SI projects (the public CBD deliverable guide).
+# 개발기획서 is the user's brief itself and is never written by AI.
+BRIEF_DOCUMENT = "개발기획서"
+TRACE_DOCUMENT = "요구사항추적표"
+# Written on every generation, one AI call per group.
+REQUIRED_GROUPS = (
+    (
+        "요구·검증",
+        ("사용자요구사항정의서", "유스케이스명세서", "정책정의서", "비기능요구사항정의서", "시험시나리오", TRACE_DOCUMENT),
+    ),
+    (
+        "화면·데이터·설계",
+        ("사용자인터페이스설계서", "인터페이스설계서", "엔티티관계모형기술서", "데이터베이스설계서", "권한정의서", "아키텍처설계서"),
+    ),
 )
+# Written only when the user asks for the group: (key in requests, label, documents).
+OPTIONAL_GROUPS = (
+    (
+        "detail",
+        "상세 설계",
+        ("컴포넌트설계서", "클래스설계서", "시퀀스다이어그램", "프로세스정의서", "프로그램목록", "코드공통코드정의서"),
+    ),
+    ("management", "관리", ("용어사전", "갭분석및보완사항", "산출물목록")),
+)
+DOCUMENT_GROUPS = REQUIRED_GROUPS + tuple((label, names) for _, label, names in OPTIONAL_GROUPS)
+GENERATED_DOCUMENTS = tuple(name for _, names in DOCUMENT_GROUPS for name in names)
+OPTIONAL_DOCUMENTS = tuple(name for _, _, names in OPTIONAL_GROUPS for name in names)
+DOCUMENTS = (BRIEF_DOCUMENT, *GENERATED_DOCUMENTS)
+REQUIRED_DOCUMENTS = tuple(name for name in DOCUMENTS if name not in OPTIONAL_DOCUMENTS)
+assert len(DOCUMENTS) == len(set(DOCUMENTS)) == 22
+# Names used before the standard names; specs saved with them are still read.
+RENAMED = {
+    "요구사항명세서": "사용자요구사항정의서",
+    "기능명세서": "유스케이스명세서",
+    "요구사항추적성매트릭스": TRACE_DOCUMENT,
+    "화면정의서": "사용자인터페이스설계서",
+    "API명세서": "인터페이스설계서",
+    "데이터정의서": "엔티티관계모형기술서",
+    "테이블정의서": "데이터베이스설계서",
+    "기술설계서": "아키텍처설계서",
+    "시스템다이어그램정의서": "컴포넌트설계서",
+    "클래스다이어그램": "클래스설계서",
+    "테스트시나리오": "시험시나리오",
+}
+assert set(RENAMED.values()) <= set(DOCUMENTS) and not set(RENAMED) & set(DOCUMENTS)
 KINDS = {
     "section",
     "heading",
@@ -101,15 +122,48 @@ def locate_quote(quote, source):
     return match.group(0) if match else None
 
 
-# Documents written per call in staged generation (개발기획서 is the user's brief itself).
-DOCUMENT_GROUPS = (
-    ("기획·요구", ("요구사항명세서", "기능명세서", "정책정의서", "비기능요구사항정의서", "용어사전")),
-    ("화면·데이터", ("화면정의서", "API명세서", "데이터정의서", "테이블정의서", "권한정의서", "코드공통코드정의서")),
-    ("설계", ("기술설계서", "프로세스정의서", "시스템다이어그램정의서", "시퀀스다이어그램", "클래스다이어그램", "프로그램목록")),
-    ("검증·관리", ("테스트시나리오", "요구사항추적성매트릭스", "갭분석및보완사항", "산출물목록")),
-)
-GENERATED_DOCUMENTS = tuple(name for _, names in DOCUMENT_GROUPS for name in names)
-assert set(GENERATED_DOCUMENTS) | {"개발기획서"} == set(DOCUMENTS)
+def optional_groups(keys):
+    """The optional groups a request asks for; ``None`` means all of them."""
+    known = [key for key, _, _ in OPTIONAL_GROUPS]
+    if keys is None:
+        return known
+    if not isinstance(keys, list) or len(set(keys)) != len(keys) or any(key not in known for key in keys):
+        raise StudioError("함께 만들 선택 문서 묶음이 잘못되었습니다.")
+    return [key for key in known if key in keys]
+
+
+def current_names(payload):
+    """A spec saved under earlier document names, with today's names. Contents are untouched."""
+    docs = payload.get("documents") if isinstance(payload, dict) else None
+    if not isinstance(docs, dict) or not any(name in RENAMED for name in docs):
+        return payload
+    renamed = {RENAMED.get(name, name): content for name, content in docs.items()}
+    if len(renamed) != len(docs):
+        return payload  # Both names present: not a spec this version wrote; leave it to validation.
+    result: dict = dict(payload, documents=renamed)
+    if isinstance(payload.get("failed_documents"), list):
+        result["failed_documents"] = [
+            RENAMED.get(name, name) if isinstance(name, str) else name for name in payload["failed_documents"]
+        ]
+    return result
+
+
+def skipped_document(name):
+    """Stand-in for an optional document the user chose not to write; its place is kept."""
+    return (
+        f"# {name}\n\n이 문서는 선택 문서이고, 이번 생성에서 작성하지 않았습니다. 필요하면 명세서 화면에서 "
+        "이 문서를 선택하고 **이 문서 다시 생성**을 눌러주세요.\n"
+    )
+
+
+def skipped_documents(payload):
+    """Optional documents still holding the stand-in, in document order."""
+    listed, docs = payload.get("skipped_documents") or [], payload.get("documents") or {}
+    return [
+        name
+        for name in OPTIONAL_DOCUMENTS
+        if name in listed and isinstance(docs.get(name), str) and docs[name].strip() == skipped_document(name).strip()
+    ]
 
 
 def failed_document(name, ids=()):
@@ -189,16 +243,22 @@ def validate_specs(value, source):
     failed = value.get("failed_documents", [])
     if not isinstance(failed, list) or any(name not in GENERATED_DOCUMENTS for name in failed):
         raise StudioError("생성에 실패한 문서 목록이 잘못되었습니다.")
+    skipped = value.get("skipped_documents", [])
+    if not isinstance(skipped, list) or any(name not in OPTIONAL_DOCUMENTS for name in skipped):
+        raise StudioError("작성하지 않은 문서 목록이 잘못되었습니다.")
     docs = value.get("documents")
     if not isinstance(docs, dict) or set(docs) != set(DOCUMENTS):
-        raise StudioError("필수 명세서 22종이 모두 있어야 합니다.")
+        raise StudioError("명세서 22종의 자리가 모두 있어야 합니다. 작성하지 않는 선택 문서도 자리는 남깁니다.")
     for name, content in docs.items():
         text(content, name, 60_000)
         if len(content.strip()) < 60 or not content.lstrip().startswith("#"):
             raise StudioError(f"{name}의 내용을 구체적으로 작성해주세요.")
-    matrix = docs["요구사항추적성매트릭스"]
+    if "skipped_documents" in value:
+        # A stand-in the user has since written over is a real document.
+        value["skipped_documents"] = skipped_documents(value)
+    matrix = docs[TRACE_DOCUMENT]
     if any(item not in matrix for item in seen | screen_ids):
-        raise StudioError("추적성 매트릭스에 요구사항·화면 ID가 누락되었습니다.")
+        raise StudioError("요구사항추적표에 요구사항·화면 ID가 누락되었습니다.")
     if len(serialize(value).encode("utf-8")) > 900_000:
         raise StudioError("명세서 내용이 너무 큽니다. 범위를 나누어 생성해주세요.")
     return value

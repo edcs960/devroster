@@ -1,6 +1,6 @@
 # 다른 프로젝트에서 사용하기
 
-DevRoster 0.4.8. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
+DevRoster 0.5.0. Python 3.11+와 Git을 사용하는 로컬 개발 프로젝트용이다. 기본 명령은 `devroster`이고 `fa`·`agent-dev`는 같은 명령의 별칭이다. 특정 도메인의 역할 파일이나 폴더 구조를 요구하지 않는다.
 
 **목차**
 
@@ -29,7 +29,7 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 # Windows는 .venv/Scripts/activate 사용
-python -m pip install /path/to/devroster-0.4.8-py3-none-any.whl
+python -m pip install /path/to/devroster-0.5.0-py3-none-any.whl
 devroster init --root /path/to/my-project --name MyProject --preset python
 cd /path/to/my-project
 devroster doctor
@@ -45,7 +45,7 @@ devroster dashboard
 - 기존 wheel 설치를 업데이트할 때는 같은 버전의 실행 파일도 갱신되도록 다시 설치한다.
 
 ```sh
-python -m pip install --force-reinstall --no-deps /path/to/devroster-0.4.8-py3-none-any.whl
+python -m pip install --force-reinstall --no-deps /path/to/devroster-0.5.0-py3-none-any.whl
 ```
 
 **초기 상태**
@@ -362,7 +362,7 @@ devroster upgrade --recover --json              # 중단된 journal이 있을 �
 - 0.2.0→0.3.0 지원. package 자체는 pip로 먼저 설치한다.
 - workspace marker에 engine_version을 기록하고 기존 최신 profile에 없는 execution limit 기본값을 추가한다.
 - engine 버전 갱신과 DB schema는 별개다.
-- SQLite schema는 서버·CLI가 DB를 열 때 추가형(additive) migration으로 현재 버전 3까지 올리며, v3 이전 DB는 올리기 전에 같은 폴더에 `state.db.pre-v3-backup`을 남긴다. 더 새 schema의 DB는 이전 버전 엔진이 열지 않는다.
+- SQLite schema는 서버·CLI가 DB를 열 때 추가형(additive) migration으로 현재 버전 4까지 올리며, 올리기 전에 같은 폴더에 `state.db.pre-v<버전>-backup`을 남긴다(v1·v2 DB는 `state.db.pre-v3-backup`). 더 새 schema의 DB는 이전 버전 엔진이 열지 않는다.
 - upgrade는 새 profile revision/event를 하나의 SQLite transaction으로 기록한다. 원래 approvals/snapshots/history를 수정하지 않는다.
 - 이전 snapshot에 limit이 없으면 bounded compatibility defaults가 적용된다.
 - 이미 0.3.0이면 no-op이며 사용자 profile 변경은 별도 `project profile`로 적용한다.
@@ -378,6 +378,25 @@ devroster upgrade --recover --json              # 중단된 journal이 있을 �
 - 원본 config가 나중에 수정됐다면 자동 복구로 덮어쓰지 않고 수동 검토를 요구한다.
 - 검증된 ZIP은 복구 수단이며 bundle restore는 기존 승인 해제 정책을 따른다.
 - 지원하지 않는/newer workspace·schema는 거부한다.
+
+### 0.4.x에서 0.5.0으로 올릴 때
+
+올리기 전에 `devroster backup create /safe/pre-0.5.0.zip`으로 통합 백업을 만든다. **0.5.0에서 쓴 자료를 0.4.x로 되돌려 쓰는 것은 지원하지 않는다.**
+
+| 바뀌는 것 | 올린 뒤 | 0.4.x로 되돌리면 |
+|---|---|---|
+| 공통 인증 값(API 키, 슬랙 토큰) | macOS에서 새로 저장하거나 다시 저장하는 값부터 로그인 키체인에 보관한다. 기존 값은 `devroster doctor --protect-credentials`로 옮긴다. Windows는 `DEVROSTER_VAULT=os`일 때만 계정 보호(DPAPI)를 쓴다 | 키체인에 넣은 값을 읽지 못한다. 0.4.x에서 같은 연결의 키를 하나 저장하면 그 연결의 다른 보호된 키 참조도 지워진다 |
+| Studio 명세 문서 | SI 표준 이름으로 바뀌고 필수 13종·선택 9종으로 나뉜다. 0.4.x에서 저장한 명세는 새 이름으로 열리고, 저장된 내용과 해시는 바뀌지 않는다 | 0.5.0에서 저장한 명세는 0.4.x에서 열리기만 하고, 문서 이름이 맞지 않아 저장·확정·내보내기가 실패한다 |
+| 프로젝트 설정 | 드리프트 검사를 켜면 `drift`, 프로젝트 환율을 정하면 `usage_policy.exchange_rate`가 저장된다 | 이 항목이 있는 설정은 0.4.x가 알 수 없는 항목으로 거부한다 |
+| API 비용 추정 | 자동 갱신을 켜지 않아도 내장 가격표로 비용을 계산한다 | - |
+
+- **인증 값과 백업:** 통합 백업에는 인증 값이 들어가지 않는다. 프로젝트 폴더를 직접 복사할 때는 그 안의 `environment.json`·OAuth 파일이 함께 복사되는지 확인한다. 키체인에 보관한 값은 복사본을 따라가지 않으므로 다른 컴퓨터나 다른 계정으로 옮기면 키를 다시 입력한다. 키체인이 저장을 거부한 값은 지금처럼 파일에 남는다(`devroster doctor`가 알려준다).
+- **`DEVROSTER_VAULT=file`:** 새로 저장하는 값만 파일에 두게 하는 설정이다. 이미 키체인에 옮긴 값을 파일로 되돌리지는 않는다.
+- **보호 범위:** 키체인 보관은 공통 연결 값만 해당한다. 프로젝트 환경변수(`environment.json`)와 OAuth 자료는 지금처럼 파일에 있다.
+- **비용과 예산:** 전에는 가격 정보가 없어 비용을 계산하지 못하던 API 실행도 이제 비용이 계산된다. 예산 알림과 예산 초과 일시정지가 전보다 일찍 걸릴 수 있으니 올린 뒤 `/usage`에서 예산을 확인한다.
+- **막힌 작업 이어서 실행:** 허용 경로 밖 변경으로 막힌 작업을 이어서 실행하면 그 경로의 파일을 단계 시작 상태로 되돌린다. 되돌리기 전 파일은 `.attempts/<시도 ID>-refused`에 남는다. 막힌 뒤 같은 파일을 직접 고쳤다면 이어서 실행하기 전에 확인한다. 0.4.x에서 이미 막힌 작업에는 적용되지 않으니 직접 확인한다.
+- **프로젝트에 복사된 역할 파일:** 이미 프로젝트에 복사된 역할 파일은 옛 문서 이름을 그대로 쓴다. 개발 인계 문서 앞에 이전 이름과 새 이름의 대응이 적혀 있다.
+- 작업 공간 형식(`engine_version` 0.3.0)과 DB schema(4)는 바뀌지 않으므로 `devroster upgrade`는 필요 없다.
 
 ## 13. 실행 한도와 사용량
 

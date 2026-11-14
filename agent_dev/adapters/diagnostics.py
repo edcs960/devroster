@@ -54,7 +54,7 @@ def codex_model_check(config):
         return "warn", "로컬 모델 설정·목록을 확인하지 못했습니다."
 
 
-def diagnose(root: Path, *, check_auth=False, fix_permissions=False):
+def diagnose(root: Path, *, check_auth=False, fix_permissions=False, protect_credentials=False):
     from agent_dev.adapters.workflow_runtime import project_root
 
     root = configuration_root(root)
@@ -443,6 +443,49 @@ def diagnose(root: Path, *, check_auth=False, fix_permissions=False):
             )
     except (OSError, DomainError):
         add("credential_permissions", "warn", "인증 파일 권한을 확인하지 못했습니다.")
+    try:
+        from agent_dev.adapters.credential_store import CredentialStore
+
+        moved = CredentialStore.protect_shared() if protect_credentials else {"moved": 0, "left": 0}
+        storage = CredentialStore.storage_report()
+        if storage["unreadable"]:
+            add(
+                "credential_storage",
+                "warn",
+                f"OS 보안 저장소에서 읽지 못한 공통 인증 값이 {storage['unreadable']}개 있습니다.",
+                "키체인 잠금을 확인해주세요. 다른 컴퓨터·계정에서 옮겨온 설정이면 인증 값을 다시 입력해주세요.",
+            )
+        elif not storage["available"]:
+            add(
+                "credential_storage",
+                "pass",
+                (
+                    "공통 인증 값을 파일에 보관하고, 다른 사용자의 접근은 Windows 사용자 프로필 권한(ACL)에 맡깁니다. "
+                    "관리 폴더를 사용자 프로필 밖으로 옮겼다면 그 폴더의 권한을 확인해주세요."
+                    if sys.platform == "win32"
+                    else "공통 인증 값을 소유자만 읽는 파일에 보관합니다(이 환경은 OS 보안 저장소를 쓰지 않습니다)."
+                ),
+            )
+        elif storage["file"]:
+            add(
+                "credential_storage",
+                "warn",
+                f"파일에 그대로 적혀 있는 공통 인증 값이 {storage['file']}개 있습니다."
+                + (" OS 보안 저장소로 옮기지 못했습니다." if protect_credentials else ""),
+                "값이 아주 길면 옮길 수 없습니다. 그 밖에는 키체인 잠금을 확인한 뒤 다시 실행해주세요."
+                if protect_credentials
+                else "devroster doctor --protect-credentials로 OS 보안 저장소로 옮겨주세요.",
+            )
+        else:
+            add(
+                "credential_storage",
+                "pass",
+                f"공통 인증 값 {moved['moved']}개를 OS 보안 저장소로 옮겼습니다."
+                if moved["moved"]
+                else f"공통 인증 값 {storage['protected']}개를 OS 보안 저장소에 보관하고 있습니다.",
+            )
+    except (OSError, ValueError, DomainError):
+        add("credential_storage", "warn", "공통 인증 값의 보관 위치를 확인하지 못했습니다.")
     try:
         free = shutil.disk_usage(workspace if workspace.exists() else workspace.parent).free
         add(

@@ -224,9 +224,11 @@ def test_concurrent_registration_and_failed_start_leave_current_intact(tmp_path,
     assert set(roots()) == set(map(str, folders))
     with running(folders[0]) as (server, base):
         manager = server.studio.workspace_sessions
+        # The manager holds the factory it was given; patch that, not the module attribute.
+        assert manager.factory is studio_server.make_server
         monkeypatch.setattr(
-            studio_server,
-            "make_server",
+            manager,
+            "factory",
             lambda *a, **k: (_ for _ in ()).throw(OSError("synthetic bind failure")),
         )
         with pytest.raises(OSError):

@@ -183,7 +183,7 @@ OPTIONS = {
     "refactor.retention": {"apply"},
     "upgrade": {"apply", "recover"},
     "task.complete": {"keep_worktree"},
-    "doctor": {"check_auth", "fix_permissions"},
+    "doctor": {"check_auth", "fix_permissions", "protect_credentials"},
 }
 
 
@@ -444,7 +444,10 @@ class AgentConsole:
             positional.append(value)
         flags = []
         for key, value in options.items():
-            if key in {"dry_run", "apply", "recover", "check_auth", "keep_worktree", "fix_permissions"}:
+            if key in {
+                "dry_run", "apply", "recover", "check_auth", "keep_worktree", "fix_permissions",
+                "protect_credentials",
+            }:  # fmt: skip
                 if type(value) is not bool:
                     invalid("선택 옵션은 참·거짓이어야 합니다.")
                 if value:

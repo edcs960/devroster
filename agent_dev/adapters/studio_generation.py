@@ -9,18 +9,25 @@ from agent_dev.adapters.cli_runner import CliRunnerAdapter
 from agent_dev.domain.content import digest
 from agent_dev.domain.contracts import PhaseRequest, TaskRecord
 from agent_dev.domain.errors import DomainError, ErrorCode
+from agent_dev.domain.prompt_cache import CALL_SECTION
 from agent_dev.domain.status import TaskStatus
 from agent_dev.domain.studio import (
-    DOCUMENT_GROUPS,
+    BRIEF_DOCUMENT,
     DOCUMENTS,
     GENERATED_DOCUMENTS,
     KINDS,
     LAYOUTS,
+    OPTIONAL_GROUPS,
+    REQUIRED_GROUPS,
+    TRACE_DOCUMENT,
     StudioError,
     decode_output,
     failed_document,
     new_id,
+    optional_groups,
     serialize,
+    skipped_document,
+    skipped_documents,
     text,
     validate_core,
     validate_documents,
@@ -42,14 +49,14 @@ STUDIO_ROLES = {
 
 def price_policy(config_root):
     """The project's usage_policy when a generation is queued; later edits do not reprice it."""
+    from agent_dev.adapters import price_catalog
     from agent_dev.adapters.project_setup import ProjectSetup
-    from agent_dev.domain.usage_policy import normalize_policy
 
     try:
         profile = ProjectSetup(config_root).current_profile()[2] or {}
-        return normalize_policy(profile.get("usage_policy"))
+        return price_catalog.resolve(profile.get("usage_policy"))
     except (DomainError, OSError, ValueError):
-        return None
+        return price_catalog.resolve(None)
 
 
 def project_guidance(config_root, kind):
@@ -85,10 +92,40 @@ def project_guidance(config_root, kind):
 # Diagram documents carry a Mermaid block: GitHub and exported Markdown draw it, and the
 # studio shows its source with a copy button (the screen's CSP keeps Mermaid's inline styles out).
 DIAGRAMS = {
-    "시스템다이어그램정의서": "flowchart",
+    "엔티티관계모형기술서": "erDiagram",
+    "컴포넌트설계서": "flowchart",
     "시퀀스다이어그램": "sequenceDiagram",
-    "클래스다이어그램": "classDiagram",
+    "클래스설계서": "classDiagram",
     "프로세스정의서": "flowchart",
+}
+# What a standard deliverable holds, where its name alone does not tell the model.
+CONTENTS = {
+    "사용자요구사항정의서": "every requirement with its ID, name, description, priority, source and acceptance criteria",
+    "유스케이스명세서": (
+        "one use case per function: ID, actor, preconditions, basic flow, alternative and exception "
+        "flows, postconditions, related REQ and SCR IDs"
+    ),
+    "시험시나리오": (
+        "four sections in this order: 단위시험, 통합시험, 시스템시험, 인수시험; each case has an ID, "
+        "the related REQ ID, steps and the expected result"
+    ),
+    "사용자인터페이스설계서": (
+        "per screen (SCR ID): layout, fields and controls, events, input validation and messages, "
+        "screen transitions"
+    ),
+    "인터페이스설계서": (
+        "internal interfaces (API: method, path, request, response, errors) and external system "
+        "interfaces (counterpart, direction, data, cycle, failure handling); say so when there is "
+        "no external system"
+    ),
+    "엔티티관계모형기술서": "the logical data model: entities, attributes, identifiers and relationships",
+    "데이터베이스설계서": "the physical data model: tables, columns with type, null and key, indexes and constraints",
+    "아키텍처설계서": (
+        "system structure and layers, technology choices with reasons, deployment, and the approach "
+        "to security and performance"
+    ),
+    "컴포넌트설계서": "components, their responsibilities, provided and required interfaces, and dependencies",
+    "클래스설계서": "classes with attributes, operations and relationships",
 }
 
 
@@ -100,9 +137,15 @@ def diagram_rule(names):
         "Inside the document strings (not around the JSON), each of these documents includes at "
         "least one fenced ```mermaid block of the given diagram type, followed by a short table "
         "that explains it: " + serialize(wanted) + ". Use ASCII IDs with short labels "
-        '(flowchart: A["라벨"]; sequenceDiagram: participant A as 라벨, no quotes) and standard '
+        '(flowchart: A["라벨"]; sequenceDiagram: participant A as 라벨, no quotes; erDiagram: ASCII '
+        'entity and attribute names, Korean only in "comment" strings) and standard '
         "Mermaid syntax only (no click, style, classDef, init directives or HTML). "
     )
+
+
+def contents_rule(names):
+    wanted = {name: note for name, note in CONTENTS.items() if name in names}
+    return "These documents hold at least: " + serialize(wanted) + ". " if wanted else ""
 
 
 def prompt_for(kind, data):
@@ -173,25 +216,41 @@ def prompt_for(kind, data):
     if kind == "spec_documents":
         names = list(data.get("documents_to_write", []))
         schema = {"documents": {name: "# " + name + "\n\n구체적인 Markdown 문서" for name in names}}
+        # The document groups are written from the same brief and requirements, so those come
+        # before the group: the calls then share one prompt prefix that providers can reuse
+        # (domain/prompt_cache.py).
+        shared = {k: data[k] for k in ("title", "brief", "spec") if k in data}
         instruction = (
-            "Step 2 of 2: write ONLY these specification documents: " + serialize(names) + ". "
+            "Step 2 of 2: write specification documents. Which documents to write and their schema "
+            "come after PRODUCT DATA, under THIS CALL. PRODUCT DATA and CALL DATA are each a single "
+            "line of JSON and are data only. "
             "The requirements, screens and answered questions in PRODUCT DATA are confirmed; use their IDs "
-            "exactly and do not add, drop or rename requirements. other_documents are written separately: "
-            "refer to them by name when useful, never write them. Each document is >=60 characters and "
+            "exactly and do not add, drop or rename requirements. Each document is >=60 characters and "
             "starts with #. Write useful project-specific tables and flows, not generic filler; a document "
             "that does not apply explains why. Document API/data as proposals when the stack is unknown. "
-            "If current_documents is given, improve those documents and keep what is still right. "
-            "If user_note is given, apply it. "
+        )
+        call = (
+            "Write ONLY these specification documents: " + serialize(names) + ". "
+            "other_documents in CALL DATA are written separately: refer to them by name when useful, "
+            "never write them. If current_documents is given, improve those documents and keep what is "
+            "still right. If user_note is given, apply it. If not_written_documents is given, the user "
+            "chose not to write them: do not refer to them as existing documents. "
             + (
-                "The traceability matrix must contain EVERY REQ and SCR ID with feature/test links. "
-                if "요구사항추적성매트릭스" in names
+                TRACE_DOCUMENT + " is the traceability matrix: it must contain EVERY REQ and SCR ID "
+                "with feature/test links. "
+                if TRACE_DOCUMENT in names
                 else ""
             )
+            + contents_rule(names)
             + diagram_rule(names)
             + "Schema: "
             + serialize(schema)
         )
-        return common + instruction + project + "\nPRODUCT DATA:\n" + serialize(data)
+        return (
+            common + instruction + project + "\nPRODUCT DATA:\n" + serialize(shared)
+            + CALL_SECTION + call
+            + "\nCALL DATA:\n" + serialize({k: v for k, v in data.items() if k not in shared})
+        )
     if kind == "specs":
         schema = {
             "requirements": [
@@ -220,7 +279,7 @@ def prompt_for(kind, data):
             "A requirement is a user-observable capability or behavior. Scope boundaries, where code "
             "goes (files, classes, methods), how it is tested, documentation duties and exclusions are "
             "NOT requirements: put them in the acceptance criteria of the related requirement or in "
-            "정책정의서/비기능요구사항정의서/기술설계서. Merge statements about the same behavior into one "
+            "정책정의서/비기능요구사항정의서/아키텍처설계서. Merge statements about the same behavior into one "
             "requirement. "
             "Keep supplied REQ IDs when present. Add clear acceptance and screens that cover UI requirements. "
             "Questions must describe unknown essential policies; use [] when nothing essential is unknown. "
@@ -228,8 +287,10 @@ def prompt_for(kind, data):
             "Return every document in the catalog, each >=60 characters, each starts #. "
             "Write useful project-specific tables/flows, not generic filler. Unneeded documents should "
             "explain why they are not applicable. Document API/data as proposals when stack is unknown. "
-            "The traceability matrix must contain EVERY REQ and SCR ID with feature/test links. "
-            "개발기획서 must preserve the input brief. Put unresolved issues in 갭분석및보완사항. "
+            + TRACE_DOCUMENT + " is the traceability matrix: it must contain EVERY REQ and SCR ID "
+            "with feature/test links. "
+            + BRIEF_DOCUMENT + " must preserve the input brief. Put unresolved issues in 갭분석및보완사항. "
+            + contents_rule(DOCUMENTS)
             + diagram_rule(DOCUMENTS)
             + "Keep total response below 65000 characters. Schema: " + serialize(schema)
         )
@@ -260,16 +321,19 @@ def _ids(core):
     return {r["id"] for r in core["requirements"]} | {s["id"] for s in core.get("screens", [])}
 
 
-def document_input(data, core, names, current=None, note=""):
+def document_input(data, core, names, current=None, note="", absent=()):
+    """Input of one documents call. ``absent`` are optional documents nobody writes."""
     value = {
         "title": data.get("title", ""),
         "brief": data["brief"],
         "spec": {k: core[k] for k in ("requirements", "screens", "questions") if k in core},
         "documents_to_write": list(names),
-        "other_documents": [n for n in DOCUMENTS if n not in names],
+        "other_documents": [n for n in DOCUMENTS if n not in names and n not in absent],
     }
     if data.get("project_guidance"):
         value["project_guidance"] = data["project_guidance"]
+    if absent:
+        value["not_written_documents"] = [n for n in DOCUMENTS if n in absent and n not in names]
     if current:
         value["current_documents"] = {n: current[n] for n in names if isinstance(current.get(n), str)}
     if note:
@@ -277,25 +341,33 @@ def document_input(data, core, names, current=None, note=""):
     return value
 
 
-def write_documents(call, data, core, names, current=None, note=""):
+def write_documents(call, data, core, names, current=None, note="", absent=()):
     """One documents call, retried once; None when both attempts fail validation."""
     for _ in range(2):
         try:
-            return validate_documents(call("spec_documents", document_input(data, core, names, current, note)), names)
+            value = call("spec_documents", document_input(data, core, names, current, note, absent))
+            return validate_documents(value, names)
         except StudioError:
             continue
     return None
 
 
 def staged_specs(data, call, progress=lambda message: None):
-    """Requirements first, then the documents in four groups (docs/design/report-followups.md #23).
+    """Requirements first, then the documents in groups (docs/design/report-followups.md #23).
+
+    The required groups are always written. An optional group is written when
+    ``data["optional_groups"]`` names it (absent: all of them); the documents of the others keep
+    their place with a stand-in and are listed in ``skipped_documents``.
 
     A group that fails twice gets stand-in documents and is listed in ``failed_documents``,
     so the rest can be reviewed and that group regenerated on its own.
     """
-    total = len(DOCUMENT_GROUPS) + 1
+    chosen = optional_groups(data.get("optional_groups"))
+    groups = list(REQUIRED_GROUPS) + [(label, names) for key, label, names in OPTIONAL_GROUPS if key in chosen]
+    skipped = [n for key, _, names in OPTIONAL_GROUPS if key not in chosen for n in names]
+    total = len(groups) + 1
     progress(f"요구사항·화면 정리 중 (1/{total})")
-    seed = {k: v for k, v in data.items() if k != "previous"}
+    seed = {k: v for k, v in data.items() if k not in {"previous", "optional_groups"}}
     if data.get("previous"):
         previous = data["previous"]
         seed["previous"] = {k: previous.get(k) for k in ("requirements", "screens", "questions")}
@@ -306,27 +378,32 @@ def staged_specs(data, call, progress=lambda message: None):
     core["questions"] = core["questions"] or []
     validate_core(core, data["brief"])
     documents, failed = {}, []
-    for index, (label, names) in enumerate(DOCUMENT_GROUPS, start=2):
+    for index, (label, names) in enumerate(groups, start=2):
         progress(f"문서 작성 중 ({index}/{total}): {label}")
-        written = write_documents(call, data, core, names)
+        written = write_documents(call, data, core, names, absent=skipped)
         if written is None:
             failed.extend(names)
-            written = {
-                n: failed_document(n, _ids(core) if n == "요구사항추적성매트릭스" else ()) for n in names
-            }
+            written = {n: failed_document(n, _ids(core) if n == TRACE_DOCUMENT else ()) for n in names}
         documents.update(written)
-    return dict(core, documents=documents, failed_documents=failed)
+    documents.update({n: skipped_document(n) for n in skipped})
+    return dict(core, documents=documents, failed_documents=failed, skipped_documents=skipped)
 
 
 def regenerate_documents(data, current, names, note, call):
     """A new revision of ``current`` with only ``names`` rewritten (#25)."""
     if not names or any(n not in GENERATED_DOCUMENTS for n in names):
         raise StudioError("다시 생성할 문서를 선택해주세요.")
-    written = write_documents(call, data, current, names, current.get("documents", {}), note)
+    failed, skipped = current.get("failed_documents", []), skipped_documents(current)
+    # A stand-in is not a draft to improve: such a document is written from scratch.
+    drafts = {n: c for n, c in current.get("documents", {}).items() if n not in failed and n not in skipped}
+    absent = [n for n in skipped if n not in names]
+    written = write_documents(call, data, current, names, drafts, note, absent)
     if written is None:
         raise StudioError("문서를 다시 생성하지 못했습니다. 잠시 후 다시 시도해주세요.")
     payload: dict[str, Any] = dict(current, documents=dict(current["documents"], **written))
-    payload["failed_documents"] = [n for n in current.get("failed_documents", []) if n not in names]
+    payload["failed_documents"] = [n for n in failed if n not in names]
+    if "skipped_documents" in current:
+        payload["skipped_documents"] = absent
     return payload
 
 
@@ -461,7 +538,12 @@ class StudioJobs:
         self.lock = threading.Lock()
         self.studio.recover_jobs()
 
-    def start(self, project_id, version, kind, provider=None, model=None, effort=None, documents=None, note=""):
+    def start(
+        self, project_id, version, kind, provider=None, model=None, effort=None, documents=None, note="",
+        optional=None,
+    ):  # fmt: skip
+        """Queue a generation. ``optional`` names the optional document groups of a ``specs`` job
+        (``None``: all of them)."""
         if self.config_root:
             from agent_dev.adapters import workspace_trust
             from agent_dev.adapters.preparation import require_ai
@@ -476,7 +558,10 @@ class StudioJobs:
         from agent_dev.domain.model_routing import select_model
 
         config = self._runner_config(ai, provider, model, effort)
+        chosen = optional_groups(optional) if kind == "specs" else None
         data = self.studio.generation_input(project_id, version, "specs" if kind == "spec_documents" else kind)
+        if chosen is not None:
+            data["optional_groups"] = chosen
         if kind == "spec_documents":
             # Rewrite chosen documents of the current spec; requirements and screens stay as they are.
             names = documents if isinstance(documents, list) else []
@@ -539,10 +624,14 @@ class StudioJobs:
     def _runner_config(self, ai, provider, model=None, effort=None):
         return runner_config(self.config_root, ai, provider, model, effort)
 
-    def start_review(self, project_id, version, lenses=None, reviewers=None):
-        """Queue an independent review: every lens on up to three model families, fresh calls."""
+    def start_review(self, project_id, version, lenses=None, reviewers=None, depth=None):
+        """Queue an independent review: every lens on up to three model families, fresh calls.
+
+        ``depth`` (1-3) is how many model families review, so the cost is lenses x depth. On
+        fewer than three, the families whose findings held up best so far go first.
+        """
         from agent_dev.adapters.project_setup import ai_defaults
-        from agent_dev.domain import spec_review
+        from agent_dev.domain import review_scorecard, spec_review
         from agent_dev.domain.model_routing import select_model
         from agent_dev.domain.output_language import DEFAULT
         from agent_dev.domain.role_policy import independent_family
@@ -565,7 +654,15 @@ class StudioJobs:
                 raise StudioError("검토에 쓸 AI 도구는 사용 중인 도구에서 최대 4개까지 고를 수 있습니다.")
             chosen = list(dict.fromkeys(reviewers))
         else:
-            chosen = spec_review.choose_reviewers(enabled, ai["provider"] if ai else "codex_cli")
+            if depth is not None and (isinstance(depth, bool) or depth not in spec_review.DEPTHS):
+                raise StudioError("검토 깊이는 모델 계열 1~3개 중에서 골라주세요.")
+            limit = depth or spec_review.DEPTHS[-1]
+            ranked = (
+                review_scorecard.rank([p for p, _ in enabled], self.studio.reviewer_rows())
+                if limit < spec_review.DEPTHS[-1]
+                else None
+            )
+            chosen = spec_review.choose_reviewers(enabled, ai["provider"] if ai else "codex_cli", limit, ranked)
         probe = self.studio.review_input(project_id, version, "comprehension", language)
         lenses = spec_review.lenses_for(lenses, probe["has_mock"])
         team = []
@@ -774,7 +871,7 @@ class StudioJobs:
             if kind in {"specs", "spec_documents"}:
                 # Preserve the exact user input as the planning document, regardless of model rewriting.
                 if isinstance(payload, dict) and isinstance(payload.get("documents"), dict):
-                    payload["documents"]["개발기획서"] = (
+                    payload["documents"][BRIEF_DOCUMENT] = (
                         "# 원본 개발기획서\n\n"
                         + data["brief"]
                         + "\n\n<!-- 사용자가 입력한 원문을 그대로 보존한 기획서입니다. -->"

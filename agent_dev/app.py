@@ -206,6 +206,9 @@ def main(argv=None) -> None:
         server.studio.setup.features.messenger.autostart()
     except DomainError as error:
         print(f"슬랙 리스너를 시작하지 못했습니다: {error}", flush=True)
+    from agent_dev.adapters import price_catalog
+
+    price_catalog.start_auto_refresh()  # Fetches only when the user turned the daily refresh on.
     base = f"http://127.0.0.1:{server.server_port}"
     page = start_path(root)
     print(f"DevRoster: {base}{page}", flush=True)

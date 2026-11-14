@@ -20,6 +20,7 @@ if __name__ == '__main__':
 from pathlib import Path
 from typing import NoReturn
 
+from agent_dev.adapters.windows_job import WindowsJob
 from agent_dev.domain.errors import DomainError, ErrorCode
 
 
@@ -31,8 +32,6 @@ def unavailable() -> NoReturn:
 def spawn(command, **kwargs):
     if os.name != 'nt':
         return subprocess.Popen(command, **kwargs), None
-    from agent_dev.adapters.stdio_transport import WindowsJob
-
     process = subprocess.Popen([sys.executable, __file__, *command],
                                **dict(kwargs, stdin=subprocess.PIPE))
     job = None

@@ -81,9 +81,9 @@ class ReviewWeb(LocalWeb):
         self._agent_port = handler.server.server_address[1]
         allowed = self.get_routes if handler.command == "GET" else self.post_routes
         if path.startswith("/api/") and path not in allowed:
-            from agent_dev.ui.studio_server import StudioWeb
+            from agent_dev.ui.responses import send
 
-            StudioWeb.send(handler, {"error": "요청 경로를 확인해주세요."}, status=400)
+            send(handler, {"error": "요청 경로를 확인해주세요."}, status=400)
             return
         super().handle(handler)
 

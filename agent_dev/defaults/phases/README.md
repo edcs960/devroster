@@ -42,7 +42,7 @@
 
 ## 디자인 참고 자료 확인 기준
 
-화면 관련 작업에서 프롬프트에 `Design Reference Context`(`/references`에서 프로젝트에 적용한 디자인 참고 자료(Stitch/Figma))가 있으면 UX/UI, Designer, Frontend Developer, QA, Reviewer phase는 해당 참고 자료를 사용하고 참고 자료 ID와 사용 결과를 산출물에 남긴다. 참고 자료가 없으면 화면정의서와 기존 디자인 시스템을 기준으로 진행한다.
+화면 관련 작업에서 프롬프트에 `Design Reference Context`(`/references`에서 프로젝트에 적용한 디자인 참고 자료(Stitch/Figma))가 있으면 UX/UI, Designer, Frontend Developer, QA, Reviewer phase는 해당 참고 자료를 사용하고 참고 자료 ID와 사용 결과를 산출물에 남긴다. 참고 자료가 없으면 사용자인터페이스설계서와 기존 디자인 시스템을 기준으로 진행한다.
 
 | Phase | 사용 기준 |
 |---|---|
@@ -52,7 +52,7 @@
 | 11 QA | 실제 구현 화면이 수용 기준, 상태 표현, 반응형 기준을 만족하는지 확인 |
 | 12 Reviewer | 디자인 참고 자료와 구현 결과의 차이가 요구사항 위반인지 의도적 조정인지 검토 |
 
-디자인 참고 자료는 읽기 전용 화면 구현의 시각 기준이며, 최종 판단은 `AGENTS.md`, 역할 파일, 화면정의서, 기존 디자인 시스템, 사용자 요청을 우선한다. 요구사항 변경으로 참고 화면과 차이가 나면 UX/UI 또는 Designer phase에서 구현 보정 사항과 근거를 산출물에 기록한다. Stitch/Figma 원본은 수정하지 않는다.
+디자인 참고 자료는 읽기 전용 화면 구현의 시각 기준이며, 최종 판단은 `AGENTS.md`, 역할 파일, 사용자인터페이스설계서, 기존 디자인 시스템, 사용자 요청을 우선한다. 요구사항 변경으로 참고 화면과 차이가 나면 UX/UI 또는 Designer phase에서 구현 보정 사항과 근거를 산출물에 기록한다. Stitch/Figma 원본은 수정하지 않는다.
 
 ## Harness Control JSON 기본값
 

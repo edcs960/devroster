@@ -3,17 +3,20 @@
 import contextlib
 import copy
 import io
+import json
 import time
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from agent_dev.domain import spec_review
+from agent_dev.domain import review_scorecard, spec_review
 from agent_dev.domain.content import digest
 from agent_dev.domain.studio import (
     DOCUMENTS,
+    RENAMED,
     StudioError,
     elements,
     new_id,
     serialize,
+    skipped_documents,
     text,
     validate_mock,
     validate_specs,
@@ -209,6 +212,16 @@ class Studio:
             self.store.bump(db, project_id, "finding.processed", {"id": finding_id, "state": state})
         return self.store.detail(project_id)
 
+    def reviewer_rows(self):
+        """Scorecard rows of every stored review finding in this Studio (all projects)."""
+        with contextlib.closing(self.store.connect()) as db:
+            return review_scorecard.spec_rows(
+                [
+                    {"lens": row["lens"], "state": row["state"], "reviewers": json.loads(row["reviewers"])}
+                    for row in db.execute("SELECT lens,state,reviewers FROM findings ORDER BY created,rowid")
+                ]
+            )
+
     def review_input(self, project_id, version, lens, language, running=False):
         with contextlib.closing(self.store.connect()) as db:
             # The review job itself is running while its reviewers read the spec.
@@ -221,10 +234,22 @@ class Studio:
                 if project["mock_revision"]
                 else None
             )
+            decided = review_scorecard.notebook(
+                [
+                    {"title": r["title"], "state": r["state"], "note": r["note"], "about": r["anchor_id"], "group": r["lens"]}
+                    for r in db.execute(
+                        "SELECT title,state,note,anchor_id,lens FROM findings WHERE project_id=? ORDER BY created,rowid",
+                        (project_id,),
+                    )
+                ],
+                prefer=lens,
+            )
         return {
             "revision": spec["revision"],
             "anchors": spec_review.anchors(spec["payload"], mock["payload"] if mock else None),
-            "data": spec_review.review_input(spec["payload"], mock["payload"] if mock else None, lens, language),
+            "data": spec_review.review_input(
+                spec["payload"], mock["payload"] if mock else None, lens, language, decided
+            ),
             "has_mock": mock is not None,
         }
 
@@ -448,8 +473,16 @@ class Studio:
                     for criterion in r["acceptance"]
                 )
                 handoff = f"# {project['title']} 개발 인계\n\n## Scope\n{scope}\n\n## Acceptance\n{acceptance}\n\n## Constraints\n- 확정 명세·목업 버전만 구현. 범위 변경은 재검토.\n- code/publish 권한은 별도 profile와 plan 승인을 따른다.\n\n## 확정 근거\n```json\n{serialize(provenance)}\n```\n\n## 확정 목업\n```json\n{serialize(mock['payload'])}\n```\n"
+                # Optional documents the user chose not to write keep their file in documents/
+                # but are not part of what the developer is handed.
+                skipped = skipped_documents(spec["payload"])
+                # Role files copied into a project before the standard names still use the old ones.
+                handoff += "\n## 문서 이름\n아래 문서는 SI 표준 산출물 이름을 쓴다. 이전 이름: " + ", ".join(
+                    f"{old}→{new}" for old, new in RENAMED.items()
+                ) + "\n"
                 for name, content in spec["payload"]["documents"].items():
-                    handoff += f"\n## {name}\n{content}\n"
+                    if name not in skipped:
+                        handoff += f"\n## {name}\n{content}\n"
                 zipped.writestr("development-handoff.md", handoff.encode())
                 tasks = [
                     {

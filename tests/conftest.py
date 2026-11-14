@@ -47,6 +47,8 @@ def _isolated_app_home(tmp_path_factory):
     """Keep CLI app homes out of the real user profile and undo env changes."""
     saved = dict(os.environ)
     os.environ["DEVROSTER_HOME"] = str(tmp_path_factory.mktemp("devroster-home"))
+    # Tests never write to the real keychain; a test of the OS store passes its own.
+    os.environ["DEVROSTER_VAULT"] = "file"
     # Browser tests start their own Chromium through node; see the preload file.
     os.environ["DEVROSTER_TEST_SESSION"] = session.SECRET
     os.environ["NODE_OPTIONS"] = " ".join(

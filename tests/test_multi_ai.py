@@ -131,6 +131,107 @@ def test_api_actual_http_contract_and_effort(api_server, provider):
         ) == effort
 
 
+def api_config(provider, url):
+    return dict(
+        defaults(provider),
+        enabled=True,
+        model="fixture-model",
+        base_url=url,
+        credential_ref="FIXTURE_AUTH",
+        process_env={"FIXTURE_AUTH": "fixture-private"},
+    )
+
+
+def test_anthropic_marks_the_repeated_prompt_part_for_its_cache(api_server):
+    from agent_dev.domain.prompt_cache import CALL_SECTION
+
+    api_server.payload = response("anthropic_api")
+    runner = ApiRunnerAdapter("anthropic_api", api_config("anthropic_api", api_server.url))
+    prompt = "규칙과 명세" + CALL_SECTION + "이번 관점"
+    runner.generate(prompt, {"title": "검토"}, "studio-review")
+    runner.generate("나뉘지 않는 요청", {"title": "검토"}, "studio-review")
+    marked, plain = (call[2]["messages"][0]["content"] for call in api_server.calls)
+    assert marked == [
+        {"type": "text", "text": "규칙과 명세" + CALL_SECTION, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "이번 관점"},
+    ]
+    assert "".join(block["text"] for block in marked) == prompt  # Same text, only split.
+    assert plain == "나뉘지 않는 요청"
+
+
+@pytest.mark.parametrize("provider", ["openai_api", "gemini_api", "xai_api", "exaone_api", "compatible_api"])
+def test_other_providers_receive_the_prompt_unmarked(api_server, provider):
+    from agent_dev.domain.prompt_cache import CALL_SECTION
+
+    api_server.payload = response(provider)
+    prompt = "규칙과 명세" + CALL_SECTION + "이번 관점"
+    ApiRunnerAdapter(provider, api_config(provider, api_server.url)).generate(prompt, {"title": "검토"}, "studio-review")
+    body = api_server.calls[0][2]
+    sent = (
+        body["input"]
+        if provider == "openai_api"
+        else body["contents"][0]["parts"][0]["text"]
+        if provider == "gemini_api"
+        else body["messages"][0]["content"]
+    )
+    assert sent == prompt and "cache_control" not in json.dumps(body)
+
+
+@pytest.mark.parametrize(
+    ("provider", "usage_key", "usage", "expected"),
+    [
+        (
+            "openai_api",
+            "usage",
+            {"input_tokens": 1000, "output_tokens": 50, "input_tokens_details": {"cached_tokens": 800}},
+            {"input_tokens": 1000, "output_tokens": 50, "cached_input_tokens": 800, "total_tokens": 1050},
+        ),
+        (
+            "anthropic_api",
+            "usage",
+            {"input_tokens": 100, "cache_creation_input_tokens": 60, "cache_read_input_tokens": 800, "output_tokens": 50},
+            # Reads are counted beside input; writes are input the model processed.
+            {"input_tokens": 160, "output_tokens": 50, "cached_input_tokens": 800, "total_tokens": 1010},
+        ),
+        (
+            "gemini_api",
+            "usageMetadata",
+            {"promptTokenCount": 1000, "candidatesTokenCount": 50, "cachedContentTokenCount": 800},
+            {"input_tokens": 1000, "output_tokens": 50, "cached_input_tokens": 800, "total_tokens": 1050},
+        ),
+        (
+            "xai_api",
+            "usage",
+            {"prompt_tokens": 1000, "completion_tokens": 50, "prompt_tokens_details": {"cached_tokens": 800}},
+            {"input_tokens": 1000, "output_tokens": 50, "cached_input_tokens": 800, "total_tokens": 1050},
+        ),
+        (
+            "compatible_api",
+            "usage",
+            {"prompt_tokens": 1000, "completion_tokens": 50, "prompt_tokens_details": {"cached_tokens": 0}},
+            {"input_tokens": 1000, "output_tokens": 50, "cached_input_tokens": 0, "total_tokens": 1050},
+        ),
+        # Not reported, malformed or impossible counts stay unknown instead of becoming a number.
+        ("exaone_api", "usage", {"prompt_tokens": 1000, "completion_tokens": 50}, {"input_tokens": 1000, "output_tokens": 50, "total_tokens": 1050}),
+        ("openai_api", "usage", {"input_tokens": 1000, "output_tokens": 50, "input_tokens_details": "n/a"}, {"input_tokens": 1000, "output_tokens": 50, "total_tokens": 1050}),
+        ("gemini_api", "usageMetadata", {"promptTokenCount": 10, "candidatesTokenCount": 5, "cachedContentTokenCount": 800}, {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}),
+        ("anthropic_api", "usage", {"input_tokens": 100, "output_tokens": 50}, {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}),
+    ],
+)
+def test_input_read_from_the_provider_cache_is_recorded(provider, usage_key, usage, expected):
+    from agent_dev.domain.usage_policy import call_cost
+
+    runner = ApiRunnerAdapter(provider, {"model": "fixture"})
+    _text, result = runner.decode(dict(response(provider), **{usage_key: usage}))
+    assert result == expected
+    if expected.get("cached_input_tokens") == 800:
+        # Cached input is charged once, at the cached rate: 200 (or 160) fresh + 800 cached + 50 out.
+        policy = {"price_book": [{"provider": provider, "model": "fixture", "valid_from": "2000-01-01", "input_per_million": 10.0, "cached_input_per_million": 1.0, "output_per_million": 20.0}]}
+        cost, reason = call_cost(policy, {"provider": provider, "model": "fixture", "usage": result})
+        fresh = 160 if provider == "anthropic_api" else 200
+        assert reason == "estimated" and cost == pytest.approx((fresh * 10 + 800 * 1 + 50 * 20) / 1_000_000)
+
+
 def test_exaone_defaults_and_reasoning_stay_out_of_output(api_server):
     """K-EXAONE always reasons: reasoning_content and the leading blank lines are not output."""
     row = defaults("exaone_api")

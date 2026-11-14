@@ -115,14 +115,14 @@
     tile(tiles, '출력 토큰', compact(totals.output_tokens));
     tile(tiles, '합계 토큰', compact(totals.total_tokens));
     tile(tiles, 'AI 실행 시간', duration(totals.runner_seconds || 0));
-    tile(tiles, '예상 비용', money(totals.cost), cost.known_calls || cost.unknown_calls ? '산정 ' + number(cost.known_calls) + '회 · 미산정 ' + number(cost.unknown_calls) + '회' : '');
+    tile(tiles, '예상 비용', money(totals.cost), cost.known_calls || cost.unknown_calls ? '산정 ' + number(cost.known_calls) + '회' + (cost.auto_calls ? ' (자동 가격표 ' + number(cost.auto_calls) + '회)' : '') + ' · 미산정 ' + number(cost.unknown_calls) + '회' : '');
     const reasons = Object.entries(cost.reasons || {}).map(([key, count]) => (REASONS[key] || key) + ' ' + number(count) + '회');
     const hint = $('cost-hint'); hint.replaceChildren();
     if (cost.unknown_calls) {
       hint.append('비용을 알 수 없는 호출은 합계에서 빠졌습니다: ' + reasons.join(', ') + '. ');
       if (cost.unpriced_tasks) {
         const link = node('a', '프로젝트 설정 → 예상 비용'); link.href = '/setup';
-        hint.append('가격표는 ', link, '에서 입력하며, 입력한 뒤 승인하는 작업부터 적용됩니다.');
+        hint.append('자동 가격표에 없는 모델과 구독형 CLI의 가격은 ', link, '에서 입력하며, 입력한 뒤 승인하는 작업부터 적용됩니다.');
       }
     }
     hint.hidden = !cost.unknown_calls;
@@ -179,6 +179,34 @@
     $('usage-notes').textContent = cost.note + ' ' + data.studio_note + ' 마지막 갱신 ' + when(data.generated_at) + '.';
   }
 
+  // Reviewer scorecard (domain/review_scorecard.py): findings by how the owner decided them.
+  function renderReviewers(card, days) {
+    const rows = card?.rows || [], minimum = card?.min_decisions || 0;
+    const percent = value => Math.round(value * 100) + '%';
+    $('reviewers-period').textContent = (days ? '최근 ' + days + '일' : '전체 기간') + '에 나온 지적 기준';
+    $('reviewers-rule').textContent = '독립 검토(명세)와 드리프트 검사(코드)에서 각 AI가 낸 지적을 어떻게 처리했는지 셉니다. 맞음은 명세·코드에 반영했거나 위험을 수용한 지적, 틀림은 반박한 지적입니다. 적중률(맞음 ÷ 처리한 지적)은 처리한 지적이 ' + minimum + '건 이상일 때만 표시합니다. 독립 검토의 깊이를 줄이면 명세 검토 적중률(전체 기간)이 확인된 AI부터 씁니다.';
+    $('reviewers-none').hidden = rows.length > 0;
+    $('reviewers-wrap').hidden = !rows.length;
+    const body = $('reviewer-rows'); body.replaceChildren();
+    for (const row of rows) {
+      const tr = node('tr');
+      const name = cell(tr, PROVIDERS[row.provider] || row.provider || '알 수 없음');
+      name.append(node('small', row.model || '모델 정보 없음'));
+      if (row.groups.length) {
+        const more = node('details'); more.append(node('summary', '관점·유형별 ' + row.groups.length + '개'));
+        for (const group of row.groups) {
+          const label = (card.sources[group.source] || group.source) + ' · ' + ((card.groups[group.source] || {})[group.group] || group.group || '기타');
+          more.append(node('div', label + ': 지적 ' + number(group.found) + ' · 맞음 ' + number(group.confirmed) + ' · 틀림 ' + number(group.rebutted) + (group.precision == null ? '' : ' · 적중률 ' + percent(group.precision))));
+        }
+        name.append(more);
+      }
+      cell(tr, number(row.found), 'num'); cell(tr, number(row.confirmed), 'num'); cell(tr, number(row.rebutted), 'num'); cell(tr, number(row.open), 'num');
+      const rate = cell(tr, row.precision == null ? '—' : percent(row.precision), 'num');
+      if (row.precision == null) rate.append(node('small', '처리 ' + number(row.decided) + '/' + minimum + '건'));
+      body.append(tr);
+    }
+  }
+
   async function load(initial) {
     const current = ++generation;
     const days = $('usage-period').value;
@@ -195,6 +223,7 @@
       $('usage-content').hidden = false;
       renderProgress(data.progress);
       renderUsage(data);
+      renderReviewers(data.reviewers, data.days);
     } catch (error) {
       if (current !== generation) return;
       $('usage-loading').hidden = true;

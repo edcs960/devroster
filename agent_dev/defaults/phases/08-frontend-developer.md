@@ -19,7 +19,7 @@ React 기반 화면, 상태관리, API 연동, UI 상태, 테스트를 실제 �
 ## 입력
 
 - Developer Common 결과
-- 화면정의서, API명세서, 프론트엔드 개발표준
+- 사용자인터페이스설계서, 인터페이스설계서, 프론트엔드 개발표준
 - 기존 라우팅, 공통 컴포넌트, API client, Store, 테스트 구조
 - UX/UI 또는 Designer 단계에서 확인한 디자인 참고 자료와 구현 기준
 
@@ -29,7 +29,7 @@ React 기반 화면, 상태관리, API 연동, UI 상태, 테스트를 실제 �
 2. 화면과 상태를 최소 변경으로 구현한다.
 3. Loading, Empty, Error, Read-only, Dirty, Permission 상태를 반영한다.
 4. API 계약과 타입을 맞춘다.
-5. `Design Reference Context`가 있으면 참고 화면을 구현 기준으로 확인하고, 구현이 다른 부분은 UX/UI·Designer 지시, 화면정의서, 기존 디자인 시스템 기준으로 사유를 설명한다.
+5. `Design Reference Context`가 있으면 참고 화면을 구현 기준으로 확인하고, 구현이 다른 부분은 UX/UI·Designer 지시, 사용자인터페이스설계서, 기존 디자인 시스템 기준으로 사유를 설명한다.
 6. 가능한 경우 lint, typecheck, test, build를 실행한다.
 
 ## 산출물 형식

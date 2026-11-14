@@ -9,6 +9,7 @@ import copy
 import json
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -773,3 +774,21 @@ def status(root, listener=None):
         "pending": len(state.get("pending", {})),
         "recent": list(reversed(state.get("recent", []))),
     }
+
+
+def run_cli(args):
+    """``devroster messenger status|test|listen`` (registered by the entry point)."""
+    root = args.root.resolve()
+    if args.action == "status":
+        return status(root)
+    if args.action == "test":
+        return check(root)
+    listener = MessengerListener(root)
+    print("슬랙 리스너 실행 중입니다. Ctrl+C로 종료합니다.", file=sys.stderr, flush=True)
+    try:
+        listener.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        listener.stop()
+    return status(root, listener)

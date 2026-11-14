@@ -461,12 +461,21 @@ def test_snapshot_binds_bundled_rules_and_ignores_project_role_files(runtime):
 
 def test_phase_context_starts_with_project_stable_keys(runtime):
     context = json.loads(runtime.artifacts.context("T", "developer"))
-    assert list(context)[:6] == [
+    # What every phase of the task repeats comes before the first per-role value.
+    keys = list(context)
+    assert keys[: keys.index("role_instruction") + 1] == [
         "operating_rules",
         "rule",
         "context_policy",
         "output_language_rule",
         "commit_message_rule",
+        "approved_design",
+        "knowledge_verified_data",
+        "task",
+        "snapshot_digest",
+        "write_scope",
+        "repositories",
+        "tool_preparation_warnings",
         "role_instruction",
     ]
 

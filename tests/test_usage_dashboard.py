@@ -105,6 +105,8 @@ def test_summary_reads_a_real_run(runtime):  # noqa: F811
     assert data["by_task"][0]["id"] == "T" and data["by_task"][0]["title"] == "Execution task"
     assert data["daily"][-1]["day"] == time.strftime("%Y-%m-%d") and data["daily"][-1]["calls"] == 1
     assert data["progress"]["total"] == 1 and data["state_labels"]["running"] == "실행 중"
+    # The reviewer scorecard is part of the same read; empty until findings are decided.
+    assert data["reviewers"]["rows"] == [] and data["reviewers"]["min_decisions"] == 5
 
 
 def test_session_member_rows_are_not_unknown_calls_in_task_cost(runtime):  # noqa: F811
@@ -281,7 +283,8 @@ def test_cli_studio_generation_records_usage_with_the_queued_price(tmp_path, pro
         item = studio.create("CLI 기획", BRIEF)
         pid = item["project"]["id"]
         jobs.start(pid, item["project"]["version"], "specs")
-        item = wait_done(studio, pid)
+        # A real child process: its start-up alone can pass the in-process default on a busy machine.
+        item = wait_done(studio, pid, timeout=30)
         assert item["jobs"][0]["state"] == "done", item["jobs"][0]
     finally:
         jobs.close()

@@ -51,10 +51,25 @@ KNOWN_PRIVATE_IMPORTS = {
     ("agent_dev.adapters.requirement_changes", "agent_dev.adapters.traceability", "_requirement_origin"),
     ("agent_dev.adapters.live_log", "agent_dev.adapters.role_execution", "_attempts_dir"),
     ("agent_dev.adapters.storage_migration", "agent_dev.adapters.backup", "_quiescent"),
-    ("agent_dev.adapters.stdio_transport", "agent_dev.adapters.bounded_process", "_exited_unreaped"),
-    ("agent_dev.adapters.stdio_transport", "agent_dev.adapters.bounded_process", "_signal_owned_group"),
-    ("agent_dev.adapters.stdio_transport", "agent_dev.adapters.bounded_process", "_wait_options"),
 }
+# Groups of modules that import each other in a circle, in-function imports included:
+# (package prefix, module names). A module leaves its group when every circle through it
+# is cut; no module may join and two groups may not merge.
+KNOWN_CYCLES: list[tuple[str, str]] = [
+    (
+        "agent_dev.adapters.",
+        (
+            "ai_hooks ai_providers api_runner artifacts cli_runner code_index credential_store "
+            "design_references development_review diagnostics drift_check environment execution_view "
+            "global_ai global_settings governance integration_oauth integration_store integrations "
+            "phase_catalog preparation preview_host project_setup requirement_changes secrets "
+            "shared_integrations snapshot_tools source_explorer source_jobs source_search "
+            "state.sqlite.database state.sqlite.safety state.sqlite.store studio_generation "
+            "studio_handoff task_queries traceability verification wiki_knowledge workflow_definitions "
+            "workflow_runtime workspace workspace_registry workspace_trust"
+        ),
+    ),
+]
 
 
 def module_name(path):
@@ -173,3 +188,66 @@ def test_workspace_location_modules_do_not_import_their_callers():
     back = sorted((i, t) for i, t, _ in imports() if i in below and t in callers)
     assert not back, f"The locator and the registry must not import their callers: {back}"
     assert (adapters + "storage_registry", adapters + "workspace_locator") not in {(i, t) for i, t, _ in imports()}
+
+
+def strongly_connected(pairs):
+    """Groups of two or more modules that can all reach each other along ``pairs``."""
+    forward, backward = {}, {}
+    for source, target in pairs:
+        if source != target:
+            forward.setdefault(source, set()).add(target)
+            backward.setdefault(target, set()).add(source)
+
+    def walk(start, edges, seen):
+        order, stack = [], [(start, iter(sorted(edges.get(start, ()))))]
+        seen.add(start)
+        while stack:
+            rest = stack[-1][1]
+            following = next((n for n in rest if n not in seen), None)
+            if following is None:
+                order.append(stack.pop()[0])
+            else:
+                seen.add(following)
+                stack.append((following, iter(sorted(edges.get(following, ())))))
+        return order
+
+    seen, finished = set(), []
+    for node in sorted(forward):
+        if node not in seen:
+            finished += walk(node, forward, seen)
+    seen, groups = set(), []
+    for node in reversed(finished):
+        if node not in seen:
+            group = set(walk(node, backward, seen))
+            if len(group) > 1:
+                groups.append(group)
+    return groups
+
+
+def import_cycles():
+    return strongly_connected((i, t) for i, t, _ in imports() if t != ROOT)
+
+
+def test_cycle_finder_groups_only_modules_that_reach_each_other():
+    groups = strongly_connected([("a", "b"), ("b", "c"), ("c", "a"), ("c", "d"), ("e", "f"), ("f", "e"), ("g", "g")])
+    assert sorted(sorted(g) for g in groups) == [["a", "b", "c"], ["e", "f"]]
+    assert strongly_connected([("a", "b"), ("b", "c")]) == []
+
+
+def test_import_cycles_only_shrink():
+    """An import inside a function hides a circle from Python, not from the reader.
+
+    The circles that existed when this check was added are in KNOWN_CYCLES. Cut one by
+    moving the shared part into a module below both sides, as ``windows_job`` did for the
+    process modules, then delete the names that left.
+    """
+    known = [{prefix + name for name in names.split()} for prefix, names in KNOWN_CYCLES]
+    found = import_cycles()
+    new = sorted(sorted(group - next((k for k in known if group & k), set())) for group in found)
+    new = [group for group in new if group]
+    assert not new, f"New import circle, or modules joining a known one: {new}"
+    merged = [sorted(group) for group in found if sum(bool(group & k) for k in known) > 1]
+    assert not merged, f"Known import circles merged into one: {merged}"
+    inside = set().union(*found) if found else set()
+    fixed = sorted(set().union(*known) - inside) if known else []
+    assert not fixed, f"Fixed; delete these from KNOWN_CYCLES: {fixed}"
